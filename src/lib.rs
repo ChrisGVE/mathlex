@@ -53,10 +53,15 @@
 #![warn(clippy::all)]
 
 // Modules will be added as development progresses
-// pub mod ast;
+pub mod ast;
 // pub mod parser;
-// pub mod error;
+pub mod error;
 // pub mod util;
+
+// Re-export key types at crate root for convenience
+pub use ast::{
+    BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, MathConstant, UnaryOp,
+};
 
 /// Placeholder for library version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
