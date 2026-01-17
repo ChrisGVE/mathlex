@@ -16,6 +16,7 @@
 //! - [`MathConstant`]: Mathematical constants (π, e, i, ∞)
 //! - [`BinaryOp`]: Binary operators (+, -, *, /, ^, %)
 //! - [`UnaryOp`]: Unary operators (negation, factorial, transpose)
+//! - [`MathFloat`]: Wrapper for f64 with proper equality and hashing semantics
 //!
 //! ## Examples
 //!
@@ -29,6 +30,63 @@
 //!     right: Box::new(Expression::Constant(MathConstant::Pi)),
 //! };
 //! ```
+
+use ordered_float::OrderedFloat;
+use std::fmt;
+
+/// Wrapper type for f64 that provides proper equality and hashing semantics.
+///
+/// This type wraps `ordered_float::OrderedFloat<f64>` to enable `f64` values
+/// to be used in `Expression` variants while implementing `PartialEq`, `Eq`, and `Hash`.
+///
+/// # Examples
+///
+/// ```ignore
+/// use mathlex::ast::MathFloat;
+///
+/// let f1 = MathFloat::from(3.14);
+/// let f2 = MathFloat::from(3.14);
+/// assert_eq!(f1, f2);
+///
+/// let value: f64 = f1.into();
+/// assert_eq!(value, 3.14);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct MathFloat(OrderedFloat<f64>);
+
+impl MathFloat {
+    /// Creates a new MathFloat from an f64 value.
+    #[inline]
+    pub fn new(value: f64) -> Self {
+        Self(OrderedFloat(value))
+    }
+
+    /// Returns the inner f64 value.
+    #[inline]
+    pub fn value(&self) -> f64 {
+        self.0.into_inner()
+    }
+}
+
+impl From<f64> for MathFloat {
+    #[inline]
+    fn from(value: f64) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<MathFloat> for f64 {
+    #[inline]
+    fn from(math_float: MathFloat) -> Self {
+        math_float.value()
+    }
+}
+
+impl fmt::Display for MathFloat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value())
+    }
+}
 
 /// Mathematical constants used in expressions.
 ///
@@ -191,7 +249,7 @@ pub enum InequalityOp {
 ///     upper: Box::new(Expression::Integer(1)),
 /// };
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct IntegralBounds {
     /// Lower bound of integration
     pub lower: Box<Expression>,
@@ -248,7 +306,7 @@ pub struct IntegralBounds {
 ///     right: Box::new(Expression::Constant(MathConstant::Pi)),
 /// };
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expression {
     /// Integer literal.
     ///
@@ -268,7 +326,7 @@ pub enum Expression {
     /// - `3.14`
     /// - `-2.5`
     /// - `1.0e-10`
-    Float(f64),
+    Float(MathFloat),
 
     /// Rational number (fraction).
     ///
