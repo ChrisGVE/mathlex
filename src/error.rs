@@ -24,7 +24,7 @@
 //!     Some(Span::new(pos, pos)),
 //! );
 //!
-//! assert_eq!(error.to_string(), "unexpected end of input at 1:5, expected number");
+//! assert_eq!(error.to_string(), "unexpected end of input, expected number at 1:5");
 //! ```
 
 use std::fmt;
@@ -1142,7 +1142,7 @@ mod tests {
     #[test]
     fn test_parse_result_ok() {
         let result: ParseResult<i32> = Ok(42);
-        assert_eq!(result.unwrap(), 42);
+        assert_eq!(result, Ok(42));
     }
 
     #[test]

@@ -62,6 +62,7 @@ pub mod error;
 pub use ast::{
     BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, MathConstant, UnaryOp,
 };
+pub use error::{ParseError, ParseErrorKind, ParseResult, Position, Span};
 
 /// Placeholder for library version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
