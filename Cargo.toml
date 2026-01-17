@@ -1,0 +1,43 @@
+[package]
+name = "mathlex"
+version = "0.1.0"
+edition = "2021"
+authors = ["Christian C. Berclaz"]
+license = "MIT"
+description = "Mathematical expression parser for LaTeX and plain text notation, producing a language-agnostic AST"
+repository = "https://github.com/ChrisGVE/mathlex"
+documentation = "https://docs.rs/mathlex"
+homepage = "https://github.com/ChrisGVE/mathlex"
+keywords = ["math", "parser", "latex", "ast", "expression"]
+categories = ["parsing", "mathematics", "science"]
+readme = "README.md"
+
+[lib]
+crate-type = ["staticlib", "cdylib", "lib"]
+
+[dependencies]
+chumsky = "1.0.0-alpha.8"
+swift-bridge = "0.1"
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true }
+
+[features]
+default = []
+ffi = []
+serde = ["dep:serde", "dep:serde_json"]
+
+[build-dependencies]
+swift-bridge-build = "0.1"
+
+[dev-dependencies]
+proptest = "1.5"
+criterion = "0.5"
+
+[[bench]]
+name = "benchmarks"
+harness = false
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

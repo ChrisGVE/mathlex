@@ -1,0 +1,35 @@
+# Rust
+/target/
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+._*
+
+# Build artifacts
+*.a
+*.dylib
+*.so
+
+# Swift
+.build/
+.swiftpm/
+*.xcframework/
+*.xcframework.zip
+
+# Local development files (never committed)
+.taskmaster/
+CLAUDE.md
+CLAUDE.local.md
+claude.json
+.claude/
+
+# PRD and planning documents
+*.PRD*.txt
