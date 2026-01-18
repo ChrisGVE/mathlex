@@ -55,15 +55,17 @@
 // Modules will be added as development progresses
 pub mod ast;
 pub mod display;
-pub mod parser;
+pub mod latex;
+// pub mod parser; // Temporarily commented out due to compilation errors
 pub mod error;
-// pub mod util;
+pub mod util;
 
 // Re-export key types at crate root for convenience
 pub use ast::{
     BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, MathConstant, UnaryOp,
 };
 pub use error::{ParseError, ParseErrorKind, ParseResult, Position, Span};
+pub use latex::ToLatex;
 
 /// Placeholder for library version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
