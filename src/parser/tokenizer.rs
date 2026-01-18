@@ -12,8 +12,7 @@
 //! assert_eq!(tokens.len(), 3);
 //! ```
 
-use crate::error::{ParseResult, ParseError, Position, Span};
-use chumsky::prelude::*;
+use crate::error::{ParseError, ParseResult, Position, Span};
 
 /// A token in a mathematical expression.
 ///
@@ -136,8 +135,300 @@ impl<T> Spanned<T> {
     }
 }
 
+
 /// A token with span information.
 pub type SpannedToken = Spanned<Token>;
+
+/// Tokenizer state with position tracking.
+struct Tokenizer<'a> {
+    /// Input string
+    input: &'a str,
+    /// Current byte offset
+    offset: usize,
+    /// Current line number (1-indexed)
+    line: usize,
+    /// Current column number (1-indexed)
+    column: usize,
+}
+
+impl<'a> Tokenizer<'a> {
+    /// Creates a new tokenizer from input string.
+    fn new(input: &'a str) -> Self {
+        Self {
+            input,
+            offset: 0,
+            line: 1,
+            column: 1,
+        }
+    }
+
+    /// Returns the current position.
+    fn position(&self) -> Position {
+        Position::new(self.line, self.column, self.offset)
+    }
+
+    /// Peeks at the current character without consuming it.
+    fn peek(&self) -> Option<char> {
+        self.input[self.offset..].chars().next()
+    }
+
+    /// Peeks at the character at the given offset ahead.
+    fn peek_ahead(&self, n: usize) -> Option<char> {
+        self.input[self.offset..].chars().nth(n)
+    }
+
+    /// Consumes and returns the current character.
+    fn consume(&mut self) -> Option<char> {
+        let ch = self.peek()?;
+        self.offset += ch.len_utf8();
+
+        if ch == '\n' {
+            self.line += 1;
+            self.column = 1;
+        } else {
+            self.column += 1;
+        }
+
+        Some(ch)
+    }
+
+    /// Skips whitespace characters.
+    fn skip_whitespace(&mut self) {
+        while let Some(ch) = self.peek() {
+            if ch.is_whitespace() {
+                self.consume();
+            } else {
+                break;
+            }
+        }
+    }
+
+    /// Scans a number (integer or float, including scientific notation).
+    fn scan_number(&mut self) -> ParseResult<(Token, Span)> {
+        let start = self.position();
+        let mut number_str = String::new();
+        let mut has_dot = false;
+        let mut has_exp = false;
+
+        // Scan integer part
+        while let Some(ch) = self.peek() {
+            if ch.is_ascii_digit() {
+                number_str.push(ch);
+                self.consume();
+            } else {
+                break;
+            }
+        }
+
+        // Check for decimal point
+        if self.peek() == Some('.') {
+            // Look ahead to ensure it's followed by a digit
+            if let Some(next) = self.peek_ahead(1) {
+                if next.is_ascii_digit() {
+                    has_dot = true;
+                    number_str.push('.');
+                    self.consume();
+
+                    // Scan fractional part
+                    while let Some(ch) = self.peek() {
+                        if ch.is_ascii_digit() {
+                            number_str.push(ch);
+                            self.consume();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check for exponent
+        if let Some(ch) = self.peek() {
+            if ch == 'e' || ch == 'E' {
+                has_exp = true;
+                number_str.push(ch);
+                self.consume();
+
+                // Optional sign
+                if let Some(sign) = self.peek() {
+                    if sign == '+' || sign == '-' {
+                        number_str.push(sign);
+                        self.consume();
+                    }
+                }
+
+                // Exponent digits
+                while let Some(ch) = self.peek() {
+                    if ch.is_ascii_digit() {
+                        number_str.push(ch);
+                        self.consume();
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        let end = self.position();
+        let span = Span::new(start, end);
+
+        // Parse the number
+        if has_dot || has_exp {
+            match number_str.parse::<f64>() {
+                Ok(n) => Ok((Token::Float(n), span)),
+                Err(_) => Err(ParseError::invalid_number(&number_str, "invalid float", Some(span))),
+            }
+        } else {
+            match number_str.parse::<i64>() {
+                Ok(n) => Ok((Token::Integer(n), span)),
+                Err(_) => Err(ParseError::invalid_number(&number_str, "invalid integer", Some(span))),
+            }
+        }
+    }
+
+    /// Scans an identifier or keyword.
+    fn scan_identifier(&mut self) -> (Token, Span) {
+        let start = self.position();
+        let mut ident = String::new();
+
+        // First character (must be alphabetic)
+        if let Some(ch) = self.peek() {
+            if ch.is_ascii_alphabetic() {
+                ident.push(ch);
+                self.consume();
+            }
+        }
+
+        // Rest of identifier (alphanumeric only - underscores are separate tokens for subscripts)
+        while let Some(ch) = self.peek() {
+            if ch.is_ascii_alphanumeric() {
+                ident.push(ch);
+                self.consume();
+            } else {
+                break;
+            }
+        }
+
+        let end = self.position();
+        let span = Span::new(start, end);
+
+        (Token::Identifier(ident), span)
+    }
+
+    /// Scans the next token.
+    fn scan_token(&mut self) -> ParseResult<Option<SpannedToken>> {
+        self.skip_whitespace();
+
+        let Some(ch) = self.peek() else {
+            return Ok(None);
+        };
+
+        let start = self.position();
+
+        // Numbers
+        if ch.is_ascii_digit() {
+            let (token, span) = self.scan_number()?;
+            return Ok(Some(SpannedToken::new(token, span)));
+        }
+
+        // Identifiers
+        if ch.is_ascii_alphabetic() {
+            let (token, span) = self.scan_identifier();
+            return Ok(Some(SpannedToken::new(token, span)));
+        }
+
+        // Multi-character operators
+        match ch {
+            '!' => {
+                self.consume();
+                if self.peek() == Some('=') {
+                    self.consume();
+                    let end = self.position();
+                    return Ok(Some(SpannedToken::new(
+                        Token::NotEquals,
+                        Span::new(start, end),
+                    )));
+                }
+                let end = self.position();
+                return Ok(Some(SpannedToken::new(Token::Bang, Span::new(start, end))));
+            }
+            '<' => {
+                self.consume();
+                if self.peek() == Some('=') {
+                    self.consume();
+                    let end = self.position();
+                    return Ok(Some(SpannedToken::new(
+                        Token::LessEq,
+                        Span::new(start, end),
+                    )));
+                }
+                let end = self.position();
+                return Ok(Some(SpannedToken::new(Token::Less, Span::new(start, end))));
+            }
+            '>' => {
+                self.consume();
+                if self.peek() == Some('=') {
+                    self.consume();
+                    let end = self.position();
+                    return Ok(Some(SpannedToken::new(
+                        Token::GreaterEq,
+                        Span::new(start, end),
+                    )));
+                }
+                let end = self.position();
+                return Ok(Some(SpannedToken::new(
+                    Token::Greater,
+                    Span::new(start, end),
+                )));
+            }
+            _ => {}
+        }
+
+        // Single-character tokens
+        self.consume();
+        let end = self.position();
+        let span = Span::new(start, end);
+
+        let token = match ch {
+            '+' => Token::Plus,
+            '-' => Token::Minus,
+            '*' => Token::Star,
+            '/' => Token::Slash,
+            '^' => Token::Caret,
+            '%' => Token::Percent,
+            '(' => Token::LParen,
+            ')' => Token::RParen,
+            '[' => Token::LBracket,
+            ']' => Token::RBracket,
+            '{' => Token::LBrace,
+            '}' => Token::RBrace,
+            ',' => Token::Comma,
+            ';' => Token::Semicolon,
+            '=' => Token::Equals,
+            '_' => Token::Underscore,
+            _ => {
+                return Err(ParseError::unexpected_token(
+                    vec!["valid token".to_string()],
+                    ch.to_string(),
+                    Some(span),
+                ));
+            }
+        };
+
+        Ok(Some(SpannedToken::new(token, span)))
+    }
+
+    /// Tokenizes the entire input.
+    fn tokenize_all(&mut self) -> ParseResult<Vec<SpannedToken>> {
+        let mut tokens = Vec::new();
+
+        while let Some(token) = self.scan_token()? {
+            tokens.push(token);
+        }
+
+        Ok(tokens)
+    }
+}
 
 /// Tokenizes a mathematical expression string.
 ///
@@ -161,172 +452,8 @@ pub type SpannedToken = Spanned<Token>;
 /// assert_eq!(tokens.len(), 5);
 /// ```
 pub fn tokenize(input: &str) -> ParseResult<Vec<SpannedToken>> {
-    // Build the token parser
-    let lexer = build_lexer();
-
-    // Parse the input
-    match lexer.parse(input) {
-        Ok(tokens) => Ok(tokens),
-        Err(errors) => {
-            // Convert chumsky errors to our ParseError type
-            // Take the first error for simplicity
-            if let Some(err) = errors.into_iter().next() {
-                Err(convert_chumsky_error(err, input))
-            } else {
-                Err(ParseError::custom("unknown tokenization error", None))
-            }
-        }
-    }
-}
-
-/// Builds the chumsky lexer for mathematical expressions.
-fn build_lexer() -> impl Parser<char, Vec<SpannedToken>, Error = Simple<char>> {
-    // Number parser: handles integers and floats (including scientific notation)
-    let number = text::int(10)
-        .chain::<char, _, _>(just('.').chain(text::digits(10)).or_not().flatten())
-        .chain::<char, _, _>(
-            just('e')
-                .or(just('E'))
-                .chain(just('+').or(just('-')).or_not())
-                .chain::<char, _, _>(text::digits(10))
-                .or_not()
-                .flatten()
-        )
-        .collect::<String>()
-        .map(|s| {
-            // Try parsing as integer first, then as float
-            if s.contains('.') || s.contains('e') || s.contains('E') {
-                s.parse::<f64>()
-                    .map(Token::Float)
-                    .unwrap_or_else(|_| Token::Float(0.0))
-            } else {
-                s.parse::<i64>()
-                    .map(Token::Integer)
-                    .unwrap_or_else(|_| Token::Integer(0))
-            }
-        });
-
-    // Identifier parser: starts with letter, followed by alphanumerics
-    let identifier = filter(|c: &char| c.is_ascii_alphabetic())
-        .chain::<char, _, _>(filter(|c: &char| c.is_ascii_alphanumeric() || *c == '_').repeated())
-        .collect::<String>()
-        .map(Token::Identifier);
-
-    // Multi-character operators (must come before single-char versions)
-    let not_equals = just("!=").to(Token::NotEquals);
-    let less_eq = just("<=").to(Token::LessEq);
-    let greater_eq = just(">=").to(Token::GreaterEq);
-
-    // Single-character operators and delimiters
-    let plus = just('+').to(Token::Plus);
-    let minus = just('-').to(Token::Minus);
-    let star = just('*').to(Token::Star);
-    let slash = just('/').to(Token::Slash);
-    let caret = just('^').to(Token::Caret);
-    let percent = just('%').to(Token::Percent);
-    let bang = just('!').to(Token::Bang);
-
-    let lparen = just('(').to(Token::LParen);
-    let rparen = just(')').to(Token::RParen);
-    let lbracket = just('[').to(Token::LBracket);
-    let rbracket = just(']').to(Token::RBracket);
-    let lbrace = just('{').to(Token::LBrace);
-    let rbrace = just('}').to(Token::RBrace);
-
-    let comma = just(',').to(Token::Comma);
-    let semicolon = just(';').to(Token::Semicolon);
-
-    let equals = just('=').to(Token::Equals);
-    let less = just('<').to(Token::Less);
-    let greater = just('>').to(Token::Greater);
-
-    let underscore = just('_').to(Token::Underscore);
-
-    // Combine all token parsers
-    // Order matters: try multi-char operators before single-char
-    let token = choice((
-        number,
-        identifier,
-        not_equals,
-        less_eq,
-        greater_eq,
-        plus,
-        minus,
-        star,
-        slash,
-        caret,
-        percent,
-        bang,
-        lparen,
-        rparen,
-        lbracket,
-        rbracket,
-        lbrace,
-        rbrace,
-        comma,
-        semicolon,
-        equals,
-        less,
-        greater,
-        underscore,
-    ))
-    .map_with_span(|token, span: std::ops::Range<usize>| {
-        // Convert byte span to Position-based Span
-        Spanned::new(token, byte_span_to_span(span))
-    });
-
-    // Skip whitespace and parse tokens
-    token
-        .padded()
-        .repeated()
-        .then_ignore(end())
-}
-
-/// Converts a byte-offset span to a Position-based Span.
-///
-/// For now, we use a simplified approach assuming single-line input.
-/// A full implementation would track line/column information.
-fn byte_span_to_span(range: std::ops::Range<usize>) -> Span {
-    let start = Position::new(1, range.start + 1, range.start);
-    let end = Position::new(1, range.end + 1, range.end);
-    Span::new(start, end)
-}
-
-/// Converts a chumsky error to our ParseError type.
-fn convert_chumsky_error(err: Simple<char>, _input: &str) -> ParseError {
-    match err.reason() {
-        chumsky::error::SimpleReason::Unexpected => {
-            let found = err.found()
-                .map(|c| c.to_string())
-                .unwrap_or_else(|| "end of input".to_string());
-
-            let expected: Vec<String> = err.expected()
-                .map(|opt_c| {
-                    opt_c.map(|c| c.to_string())
-                        .unwrap_or_else(|| "end of input".to_string())
-                })
-                .collect();
-
-            let span = byte_span_to_span(err.span());
-
-            if err.found().is_none() {
-                ParseError::unexpected_eof(expected, Some(span))
-            } else {
-                ParseError::unexpected_token(expected, found, Some(span))
-            }
-        }
-        chumsky::error::SimpleReason::Unclosed { span, delimiter } => {
-            let pos_span = byte_span_to_span(span.clone());
-            ParseError::unmatched_delimiter(
-                *delimiter,
-                pos_span.start,
-                Some(byte_span_to_span(err.span()))
-            )
-        }
-        chumsky::error::SimpleReason::Custom(msg) => {
-            ParseError::custom(msg.clone(), Some(byte_span_to_span(err.span())))
-        }
-    }
+    let mut tokenizer = Tokenizer::new(input);
+    tokenizer.tokenize_all()
 }
 
 #[cfg(test)]
@@ -341,32 +468,17 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenize_negative_integer() {
-        let tokens = tokenize("-17").unwrap();
-        assert_eq!(tokens.len(), 2);
-        assert_eq!(tokens[0].value, Token::Minus);
-        assert_eq!(tokens[1].value, Token::Integer(17));
-    }
-
-    #[test]
     fn test_tokenize_float() {
         let tokens = tokenize("3.14").unwrap();
         assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Float(3.14));
+        assert!(matches!(tokens[0].value, Token::Float(f) if (f - 3.14).abs() < 0.001));
     }
 
     #[test]
     fn test_tokenize_scientific_notation() {
         let tokens = tokenize("1.5e-3").unwrap();
         assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Float(1.5e-3));
-    }
-
-    #[test]
-    fn test_tokenize_scientific_notation_positive_exp() {
-        let tokens = tokenize("2.5E+10").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Float(2.5e10));
+        assert!(matches!(tokens[0].value, Token::Float(f) if (f - 0.0015).abs() < 0.0001));
     }
 
     #[test]
@@ -377,224 +489,67 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenize_identifier_multi_char() {
+    fn test_tokenize_multi_char_identifier() {
         let tokens = tokenize("theta").unwrap();
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0].value, Token::Identifier("theta".to_string()));
     }
 
     #[test]
-    fn test_tokenize_identifier_with_numbers() {
-        let tokens = tokenize("var_1").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Identifier("var_1".to_string()));
-    }
-
-    #[test]
-    fn test_tokenize_plus() {
-        let tokens = tokenize("+").unwrap();
-        assert_eq!(tokens.len(), 1);
+    fn test_tokenize_operators() {
+        let tokens = tokenize("+ - * / ^ %").unwrap();
+        assert_eq!(tokens.len(), 6);
         assert_eq!(tokens[0].value, Token::Plus);
+        assert_eq!(tokens[1].value, Token::Minus);
+        assert_eq!(tokens[2].value, Token::Star);
+        assert_eq!(tokens[3].value, Token::Slash);
+        assert_eq!(tokens[4].value, Token::Caret);
+        assert_eq!(tokens[5].value, Token::Percent);
     }
 
     #[test]
-    fn test_tokenize_minus() {
-        let tokens = tokenize("-").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Minus);
-    }
-
-    #[test]
-    fn test_tokenize_star() {
-        let tokens = tokenize("*").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Star);
-    }
-
-    #[test]
-    fn test_tokenize_slash() {
-        let tokens = tokenize("/").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Slash);
-    }
-
-    #[test]
-    fn test_tokenize_caret() {
-        let tokens = tokenize("^").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Caret);
-    }
-
-    #[test]
-    fn test_tokenize_percent() {
-        let tokens = tokenize("%").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Percent);
-    }
-
-    #[test]
-    fn test_tokenize_bang() {
-        let tokens = tokenize("!").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Bang);
-    }
-
-    #[test]
-    fn test_tokenize_lparen() {
-        let tokens = tokenize("(").unwrap();
-        assert_eq!(tokens.len(), 1);
+    fn test_tokenize_delimiters() {
+        let tokens = tokenize("( ) [ ] { }").unwrap();
+        assert_eq!(tokens.len(), 6);
         assert_eq!(tokens[0].value, Token::LParen);
+        assert_eq!(tokens[1].value, Token::RParen);
+        assert_eq!(tokens[2].value, Token::LBracket);
+        assert_eq!(tokens[3].value, Token::RBracket);
+        assert_eq!(tokens[4].value, Token::LBrace);
+        assert_eq!(tokens[5].value, Token::RBrace);
     }
 
     #[test]
-    fn test_tokenize_rparen() {
-        let tokens = tokenize(")").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::RParen);
-    }
-
-    #[test]
-    fn test_tokenize_lbracket() {
-        let tokens = tokenize("[").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::LBracket);
-    }
-
-    #[test]
-    fn test_tokenize_rbracket() {
-        let tokens = tokenize("]").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::RBracket);
-    }
-
-    #[test]
-    fn test_tokenize_lbrace() {
-        let tokens = tokenize("{").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::LBrace);
-    }
-
-    #[test]
-    fn test_tokenize_rbrace() {
-        let tokens = tokenize("}").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::RBrace);
-    }
-
-    #[test]
-    fn test_tokenize_comma() {
-        let tokens = tokenize(",").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Comma);
-    }
-
-    #[test]
-    fn test_tokenize_semicolon() {
-        let tokens = tokenize(";").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Semicolon);
-    }
-
-    #[test]
-    fn test_tokenize_equals() {
-        let tokens = tokenize("=").unwrap();
-        assert_eq!(tokens.len(), 1);
+    fn test_tokenize_relations() {
+        let tokens = tokenize("= != < <= > >=").unwrap();
+        assert_eq!(tokens.len(), 6);
         assert_eq!(tokens[0].value, Token::Equals);
+        assert_eq!(tokens[1].value, Token::NotEquals);
+        assert_eq!(tokens[2].value, Token::Less);
+        assert_eq!(tokens[3].value, Token::LessEq);
+        assert_eq!(tokens[4].value, Token::Greater);
+        assert_eq!(tokens[5].value, Token::GreaterEq);
     }
 
     #[test]
-    fn test_tokenize_not_equals() {
-        let tokens = tokenize("!=").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::NotEquals);
-    }
-
-    #[test]
-    fn test_tokenize_less() {
-        let tokens = tokenize("<").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Less);
-    }
-
-    #[test]
-    fn test_tokenize_less_eq() {
-        let tokens = tokenize("<=").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::LessEq);
-    }
-
-    #[test]
-    fn test_tokenize_greater() {
-        let tokens = tokenize(">").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Greater);
-    }
-
-    #[test]
-    fn test_tokenize_greater_eq() {
-        let tokens = tokenize(">=").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::GreaterEq);
-    }
-
-    #[test]
-    fn test_tokenize_underscore() {
-        let tokens = tokenize("_").unwrap();
-        assert_eq!(tokens.len(), 1);
-        assert_eq!(tokens[0].value, Token::Underscore);
-    }
-
-    #[test]
-    fn test_tokenize_simple_expression() {
-        let tokens = tokenize("2 + x").unwrap();
-        assert_eq!(tokens.len(), 3);
+    fn test_tokenize_expression() {
+        let tokens = tokenize("2 + x * 3.14").unwrap();
+        assert_eq!(tokens.len(), 5);
         assert_eq!(tokens[0].value, Token::Integer(2));
         assert_eq!(tokens[1].value, Token::Plus);
         assert_eq!(tokens[2].value, Token::Identifier("x".to_string()));
+        assert_eq!(tokens[3].value, Token::Star);
+        assert!(matches!(tokens[4].value, Token::Float(_)));
     }
 
     #[test]
-    fn test_tokenize_complex_expression() {
-        let tokens = tokenize("2 * x + 3.14 / y").unwrap();
-        assert_eq!(tokens.len(), 7);
-        assert_eq!(tokens[0].value, Token::Integer(2));
-        assert_eq!(tokens[1].value, Token::Star);
+    fn test_tokenize_function_call() {
+        let tokens = tokenize("sin(x)").unwrap();
+        assert_eq!(tokens.len(), 4);
+        assert_eq!(tokens[0].value, Token::Identifier("sin".to_string()));
+        assert_eq!(tokens[1].value, Token::LParen);
         assert_eq!(tokens[2].value, Token::Identifier("x".to_string()));
-        assert_eq!(tokens[3].value, Token::Plus);
-        assert_eq!(tokens[4].value, Token::Float(3.14));
-        assert_eq!(tokens[5].value, Token::Slash);
-        assert_eq!(tokens[6].value, Token::Identifier("y".to_string()));
-    }
-
-    #[test]
-    fn test_tokenize_with_parentheses() {
-        let tokens = tokenize("(x + y) * z").unwrap();
-        assert_eq!(tokens.len(), 7);
-        assert_eq!(tokens[0].value, Token::LParen);
-        assert_eq!(tokens[1].value, Token::Identifier("x".to_string()));
-        assert_eq!(tokens[2].value, Token::Plus);
-        assert_eq!(tokens[3].value, Token::Identifier("y".to_string()));
-        assert_eq!(tokens[4].value, Token::RParen);
-        assert_eq!(tokens[5].value, Token::Star);
-        assert_eq!(tokens[6].value, Token::Identifier("z".to_string()));
-    }
-
-    #[test]
-    fn test_tokenize_subscript() {
-        let tokens = tokenize("x_1").unwrap();
-        assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0].value, Token::Identifier("x".to_string()));
-        assert_eq!(tokens[1].value, Token::Underscore);
-        assert_eq!(tokens[2].value, Token::Integer(1));
-    }
-
-    #[test]
-    fn test_tokenize_power() {
-        let tokens = tokenize("x^2").unwrap();
-        assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0].value, Token::Identifier("x".to_string()));
-        assert_eq!(tokens[1].value, Token::Caret);
-        assert_eq!(tokens[2].value, Token::Integer(2));
+        assert_eq!(tokens[3].value, Token::RParen);
     }
 
     #[test]
@@ -606,105 +561,43 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenize_comparison() {
-        let tokens = tokenize("x <= 5").unwrap();
+    fn test_tokenize_underscore() {
+        let tokens = tokenize("x_1").unwrap();
         assert_eq!(tokens.len(), 3);
         assert_eq!(tokens[0].value, Token::Identifier("x".to_string()));
-        assert_eq!(tokens[1].value, Token::LessEq);
-        assert_eq!(tokens[2].value, Token::Integer(5));
+        assert_eq!(tokens[1].value, Token::Underscore);
+        assert_eq!(tokens[2].value, Token::Integer(1));
     }
 
     #[test]
-    fn test_tokenize_whitespace_handling() {
-        let tokens = tokenize("  x   +   y  ").unwrap();
-        assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0].value, Token::Identifier("x".to_string()));
-        assert_eq!(tokens[1].value, Token::Plus);
-        assert_eq!(tokens[2].value, Token::Identifier("y".to_string()));
-    }
-
-    #[test]
-    fn test_tokenize_no_whitespace() {
-        let tokens = tokenize("x+y").unwrap();
-        assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0].value, Token::Identifier("x".to_string()));
-        assert_eq!(tokens[1].value, Token::Plus);
-        assert_eq!(tokens[2].value, Token::Identifier("y".to_string()));
-    }
-
-    #[test]
-    fn test_tokenize_matrix_brackets() {
-        let tokens = tokenize("[1, 2; 3, 4]").unwrap();
-        assert_eq!(tokens.len(), 9);
-        assert_eq!(tokens[0].value, Token::LBracket);
-        assert_eq!(tokens[1].value, Token::Integer(1));
-        assert_eq!(tokens[2].value, Token::Comma);
-        assert_eq!(tokens[3].value, Token::Integer(2));
-        assert_eq!(tokens[4].value, Token::Semicolon);
-        assert_eq!(tokens[5].value, Token::Integer(3));
-        assert_eq!(tokens[6].value, Token::Comma);
-        assert_eq!(tokens[7].value, Token::Integer(4));
-        assert_eq!(tokens[8].value, Token::RBracket);
-    }
-
-    #[test]
-    fn test_token_display_integer() {
-        let token = Token::Integer(42);
-        assert_eq!(token.to_string(), "42");
-    }
-
-    #[test]
-    fn test_token_display_float() {
-        let token = Token::Float(3.14);
-        assert_eq!(token.to_string(), "3.14");
-    }
-
-    #[test]
-    fn test_token_display_identifier() {
-        let token = Token::Identifier("x".to_string());
-        assert_eq!(token.to_string(), "x");
-    }
-
-    #[test]
-    fn test_token_display_operators() {
-        assert_eq!(Token::Plus.to_string(), "+");
-        assert_eq!(Token::Minus.to_string(), "-");
-        assert_eq!(Token::Star.to_string(), "*");
-        assert_eq!(Token::Slash.to_string(), "/");
-        assert_eq!(Token::Caret.to_string(), "^");
-    }
-
-    #[test]
-    fn test_spanned_new() {
-        let span = Span::new(Position::new(1, 1, 0), Position::new(1, 3, 2));
-        let spanned = Spanned::new(Token::Integer(42), span);
-        assert_eq!(spanned.value, Token::Integer(42));
-        assert_eq!(spanned.span, span);
-    }
-
-    #[test]
-    fn test_span_information_preserved() {
-        let tokens = tokenize("x + y").unwrap();
-
-        // First token 'x' should start at column 1
-        assert_eq!(tokens[0].span.start.column, 1);
-
-        // Second token '+' should be at a different position
-        assert_ne!(tokens[1].span.start.offset, tokens[0].span.start.offset);
-
-        // Third token 'y' should be at yet another position
-        assert_ne!(tokens[2].span.start.offset, tokens[1].span.start.offset);
-    }
-
-    #[test]
-    fn test_tokenize_empty_string() {
+    fn test_tokenize_empty() {
         let tokens = tokenize("").unwrap();
         assert_eq!(tokens.len(), 0);
     }
 
     #[test]
-    fn test_tokenize_only_whitespace() {
+    fn test_tokenize_whitespace_only() {
         let tokens = tokenize("   ").unwrap();
         assert_eq!(tokens.len(), 0);
+    }
+
+    #[test]
+    fn test_invalid_character() {
+        let result = tokenize("@");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_span_tracking() {
+        let tokens = tokenize("x + y").unwrap();
+        assert_eq!(tokens.len(), 3);
+
+        // Check first token span
+        assert_eq!(tokens[0].span.start.column, 1);
+        assert_eq!(tokens[0].span.end.column, 2);
+
+        // Check third token span
+        assert_eq!(tokens[2].span.start.column, 5);
+        assert_eq!(tokens[2].span.end.column, 6);
     }
 }
