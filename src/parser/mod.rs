@@ -5,16 +5,21 @@
 //!
 //! # Modules
 //!
+//! - [`tokenizer`]: Plain text tokenizer that converts input into tokens
 //! - [`latex_tokenizer`]: LaTeX tokenizer that converts LaTeX input into tokens
-//! - [`text`]: Plain text expression parser (to be implemented)
-//! - [`latex`]: LaTeX expression parser (to be implemented)
+//! - [`text`]: Plain text expression parser
+//! - [`latex`]: LaTeX expression parser
 
+pub mod tokenizer;
 pub mod latex_tokenizer;
-// pub mod text;
-// pub mod latex;
+pub mod text;
+pub mod latex;
 
 // Re-export key types
+pub use tokenizer::tokenize;
 pub use latex_tokenizer::{tokenize_latex, LatexToken};
+pub use text::parse;
+pub use latex::parse_latex;
 
 /// A spanned token - combines a token with its source location.
 ///

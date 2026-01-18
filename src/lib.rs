@@ -56,7 +56,7 @@
 pub mod ast;
 pub mod display;
 pub mod latex;
-// pub mod parser; // Temporarily commented out due to compilation errors
+pub mod parser;
 pub mod error;
 pub mod util;
 
