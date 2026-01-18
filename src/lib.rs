@@ -54,7 +54,8 @@
 
 // Modules will be added as development progresses
 pub mod ast;
-// pub mod parser;
+pub mod display;
+pub mod parser;
 pub mod error;
 // pub mod util;
 
