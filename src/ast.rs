@@ -804,18 +804,24 @@ mod tests {
     // Tests for Expression - Float
     #[test]
     fn test_expression_float() {
-        let expr = Expression::Float(42.5);
+        let expr = Expression::Float(MathFloat::from(42.5));
         match expr {
-            Expression::Float(f) => assert!((f - 42.5).abs() < 1e-10),
+            Expression::Float(f) => {
+                let value: f64 = f.into();
+                assert!((value - 42.5).abs() < 1e-10);
+            }
             _ => panic!("Expected Float variant"),
         }
     }
 
     #[test]
     fn test_expression_float_negative() {
-        let expr = Expression::Float(-2.5);
+        let expr = Expression::Float(MathFloat::from(-2.5));
         match expr {
-            Expression::Float(f) => assert!((f + 2.5).abs() < 1e-10),
+            Expression::Float(f) => {
+                let value: f64 = f.into();
+                assert!((value + 2.5).abs() < 1e-10);
+            }
             _ => panic!("Expected Float variant"),
         }
     }
@@ -1344,7 +1350,7 @@ mod tests {
         let expr = Expression::Vector(vec![
             Expression::Integer(1),
             Expression::Variable("x".to_string()),
-            Expression::Float(2.5),
+            Expression::Float(MathFloat::from(2.5)),
         ]);
 
         match expr {
@@ -1529,5 +1535,381 @@ mod tests {
         let debug_str = format!("{:?}", expr);
         assert!(debug_str.contains("Integer"));
         assert!(debug_str.contains("42"));
+    }
+
+    // Tests for MathFloat
+    #[test]
+    fn test_math_float_creation() {
+        let f1 = MathFloat::new(3.14);
+        let f2 = MathFloat::from(3.14);
+        assert_eq!(f1, f2);
+    }
+
+    #[test]
+    fn test_math_float_value_extraction() {
+        let f = MathFloat::from(2.718);
+        assert_eq!(f.value(), 2.718);
+
+        let val: f64 = f.into();
+        assert_eq!(val, 2.718);
+    }
+
+    #[test]
+    fn test_math_float_equality() {
+        let f1 = MathFloat::from(1.5);
+        let f2 = MathFloat::from(1.5);
+        let f3 = MathFloat::from(2.5);
+
+        assert_eq!(f1, f2);
+        assert_ne!(f1, f3);
+    }
+
+    #[test]
+    fn test_math_float_copy() {
+        let f1 = MathFloat::from(3.14);
+        let f2 = f1;
+        assert_eq!(f1, f2);
+    }
+
+    #[test]
+    fn test_math_float_display() {
+        let f = MathFloat::from(3.14159);
+        let display_str = format!("{}", f);
+        assert_eq!(display_str, "3.14159");
+    }
+
+    #[test]
+    fn test_math_float_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        set.insert(MathFloat::from(1.0));
+        set.insert(MathFloat::from(2.0));
+        set.insert(MathFloat::from(1.0)); // Duplicate
+
+        assert_eq!(set.len(), 2);
+        assert!(set.contains(&MathFloat::from(1.0)));
+        assert!(set.contains(&MathFloat::from(2.0)));
+    }
+
+    #[test]
+    fn test_math_float_nan_equality() {
+        // NaN values should compare equal to themselves in MathFloat
+        let nan1 = MathFloat::from(f64::NAN);
+        let nan2 = MathFloat::from(f64::NAN);
+        assert_eq!(nan1, nan2);
+    }
+
+    #[test]
+    fn test_math_float_infinity() {
+        let inf = MathFloat::from(f64::INFINITY);
+        let neg_inf = MathFloat::from(f64::NEG_INFINITY);
+
+        assert_ne!(inf, neg_inf);
+        assert_eq!(inf, MathFloat::from(f64::INFINITY));
+    }
+
+    // Tests for IntegralBounds equality and hashing
+    #[test]
+    fn test_integral_bounds_equality() {
+        let bounds1 = IntegralBounds {
+            lower: Box::new(Expression::Integer(0)),
+            upper: Box::new(Expression::Integer(1)),
+        };
+
+        let bounds2 = IntegralBounds {
+            lower: Box::new(Expression::Integer(0)),
+            upper: Box::new(Expression::Integer(1)),
+        };
+
+        let bounds3 = IntegralBounds {
+            lower: Box::new(Expression::Integer(0)),
+            upper: Box::new(Expression::Integer(2)),
+        };
+
+        assert_eq!(bounds1, bounds2);
+        assert_ne!(bounds1, bounds3);
+    }
+
+    #[test]
+    fn test_integral_bounds_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+
+        let bounds1 = IntegralBounds {
+            lower: Box::new(Expression::Integer(0)),
+            upper: Box::new(Expression::Integer(1)),
+        };
+
+        let bounds2 = IntegralBounds {
+            lower: Box::new(Expression::Integer(0)),
+            upper: Box::new(Expression::Integer(1)),
+        };
+
+        set.insert(bounds1);
+        set.insert(bounds2); // Should be considered duplicate
+
+        assert_eq!(set.len(), 1);
+    }
+
+    // Tests for Expression equality
+    #[test]
+    fn test_expression_integer_equality() {
+        let e1 = Expression::Integer(42);
+        let e2 = Expression::Integer(42);
+        let e3 = Expression::Integer(43);
+
+        assert_eq!(e1, e2);
+        assert_ne!(e1, e3);
+    }
+
+    #[test]
+    fn test_expression_float_equality() {
+        let e1 = Expression::Float(MathFloat::from(3.14));
+        let e2 = Expression::Float(MathFloat::from(3.14));
+        let e3 = Expression::Float(MathFloat::from(2.71));
+
+        assert_eq!(e1, e2);
+        assert_ne!(e1, e3);
+    }
+
+    #[test]
+    fn test_expression_variable_equality() {
+        let e1 = Expression::Variable("x".to_string());
+        let e2 = Expression::Variable("x".to_string());
+        let e3 = Expression::Variable("y".to_string());
+
+        assert_eq!(e1, e2);
+        assert_ne!(e1, e3);
+    }
+
+    #[test]
+    fn test_expression_binary_equality() {
+        let e1 = Expression::Binary {
+            op: BinaryOp::Add,
+            left: Box::new(Expression::Integer(1)),
+            right: Box::new(Expression::Integer(2)),
+        };
+
+        let e2 = Expression::Binary {
+            op: BinaryOp::Add,
+            left: Box::new(Expression::Integer(1)),
+            right: Box::new(Expression::Integer(2)),
+        };
+
+        let e3 = Expression::Binary {
+            op: BinaryOp::Mul,
+            left: Box::new(Expression::Integer(1)),
+            right: Box::new(Expression::Integer(2)),
+        };
+
+        assert_eq!(e1, e2);
+        assert_ne!(e1, e3);
+    }
+
+    #[test]
+    fn test_expression_nested_equality() {
+        // (1 + 2) * 3
+        let e1 = Expression::Binary {
+            op: BinaryOp::Mul,
+            left: Box::new(Expression::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::Integer(1)),
+                right: Box::new(Expression::Integer(2)),
+            }),
+            right: Box::new(Expression::Integer(3)),
+        };
+
+        let e2 = Expression::Binary {
+            op: BinaryOp::Mul,
+            left: Box::new(Expression::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::Integer(1)),
+                right: Box::new(Expression::Integer(2)),
+            }),
+            right: Box::new(Expression::Integer(3)),
+        };
+
+        assert_eq!(e1, e2);
+    }
+
+    #[test]
+    fn test_expression_vector_equality() {
+        let e1 = Expression::Vector(vec![
+            Expression::Integer(1),
+            Expression::Integer(2),
+        ]);
+
+        let e2 = Expression::Vector(vec![
+            Expression::Integer(1),
+            Expression::Integer(2),
+        ]);
+
+        let e3 = Expression::Vector(vec![
+            Expression::Integer(1),
+            Expression::Integer(3),
+        ]);
+
+        assert_eq!(e1, e2);
+        assert_ne!(e1, e3);
+    }
+
+    #[test]
+    fn test_expression_matrix_equality() {
+        let e1 = Expression::Matrix(vec![
+            vec![Expression::Integer(1), Expression::Integer(2)],
+            vec![Expression::Integer(3), Expression::Integer(4)],
+        ]);
+
+        let e2 = Expression::Matrix(vec![
+            vec![Expression::Integer(1), Expression::Integer(2)],
+            vec![Expression::Integer(3), Expression::Integer(4)],
+        ]);
+
+        let e3 = Expression::Matrix(vec![
+            vec![Expression::Integer(1), Expression::Integer(2)],
+            vec![Expression::Integer(3), Expression::Integer(5)],
+        ]);
+
+        assert_eq!(e1, e2);
+        assert_ne!(e1, e3);
+    }
+
+    // Tests for Expression hashing and use in collections
+    #[test]
+    fn test_expression_hash_set() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+
+        set.insert(Expression::Integer(1));
+        set.insert(Expression::Integer(2));
+        set.insert(Expression::Integer(1)); // Duplicate
+
+        assert_eq!(set.len(), 2);
+        assert!(set.contains(&Expression::Integer(1)));
+        assert!(set.contains(&Expression::Integer(2)));
+    }
+
+    #[test]
+    fn test_expression_hash_map() {
+        use std::collections::HashMap;
+        let mut map = HashMap::new();
+
+        map.insert(Expression::Variable("x".to_string()), 42);
+        map.insert(Expression::Variable("y".to_string()), 17);
+        map.insert(Expression::Variable("x".to_string()), 99); // Update
+
+        assert_eq!(map.len(), 2);
+        assert_eq!(map.get(&Expression::Variable("x".to_string())), Some(&99));
+        assert_eq!(map.get(&Expression::Variable("y".to_string())), Some(&17));
+    }
+
+    #[test]
+    fn test_expression_complex_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+
+        let expr1 = Expression::Binary {
+            op: BinaryOp::Add,
+            left: Box::new(Expression::Integer(1)),
+            right: Box::new(Expression::Integer(2)),
+        };
+
+        let expr2 = Expression::Binary {
+            op: BinaryOp::Add,
+            left: Box::new(Expression::Integer(1)),
+            right: Box::new(Expression::Integer(2)),
+        };
+
+        set.insert(expr1);
+        set.insert(expr2); // Should be considered duplicate
+
+        assert_eq!(set.len(), 1);
+    }
+
+    #[test]
+    fn test_expression_float_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+
+        set.insert(Expression::Float(MathFloat::from(3.14)));
+        set.insert(Expression::Float(MathFloat::from(2.71)));
+        set.insert(Expression::Float(MathFloat::from(3.14))); // Duplicate
+
+        assert_eq!(set.len(), 2);
+    }
+
+    #[test]
+    fn test_expression_function_equality() {
+        let e1 = Expression::Function {
+            name: "sin".to_string(),
+            args: vec![Expression::Variable("x".to_string())],
+        };
+
+        let e2 = Expression::Function {
+            name: "sin".to_string(),
+            args: vec![Expression::Variable("x".to_string())],
+        };
+
+        let e3 = Expression::Function {
+            name: "cos".to_string(),
+            args: vec![Expression::Variable("x".to_string())],
+        };
+
+        assert_eq!(e1, e2);
+        assert_ne!(e1, e3);
+    }
+
+    #[test]
+    fn test_expression_derivative_equality() {
+        let e1 = Expression::Derivative {
+            expr: Box::new(Expression::Variable("f".to_string())),
+            var: "x".to_string(),
+            order: 1,
+        };
+
+        let e2 = Expression::Derivative {
+            expr: Box::new(Expression::Variable("f".to_string())),
+            var: "x".to_string(),
+            order: 1,
+        };
+
+        let e3 = Expression::Derivative {
+            expr: Box::new(Expression::Variable("f".to_string())),
+            var: "x".to_string(),
+            order: 2,
+        };
+
+        assert_eq!(e1, e2);
+        assert_ne!(e1, e3);
+    }
+
+    #[test]
+    fn test_expression_integral_equality() {
+        let e1 = Expression::Integral {
+            integrand: Box::new(Expression::Variable("x".to_string())),
+            var: "x".to_string(),
+            bounds: Some(IntegralBounds {
+                lower: Box::new(Expression::Integer(0)),
+                upper: Box::new(Expression::Integer(1)),
+            }),
+        };
+
+        let e2 = Expression::Integral {
+            integrand: Box::new(Expression::Variable("x".to_string())),
+            var: "x".to_string(),
+            bounds: Some(IntegralBounds {
+                lower: Box::new(Expression::Integer(0)),
+                upper: Box::new(Expression::Integer(1)),
+            }),
+        };
+
+        let e3 = Expression::Integral {
+            integrand: Box::new(Expression::Variable("x".to_string())),
+            var: "x".to_string(),
+            bounds: None,
+        };
+
+        assert_eq!(e1, e2);
+        assert_ne!(e1, e3);
     }
 }
