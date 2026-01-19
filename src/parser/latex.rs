@@ -456,6 +456,9 @@ impl LatexParser {
                 }
             }
 
+            // Partial differential operator (used in derivatives)
+            "partial" => Ok(Expression::Variable("partial".to_string())),
+
             // Trigonometric functions
             "sin" | "cos" | "tan" | "sec" | "csc" | "cot" | "arcsin" | "arccos" | "arctan"
             | "sinh" | "cosh" | "tanh" => {
@@ -1780,7 +1783,7 @@ mod tests {
     // Derivative tests
     #[test]
     fn test_parse_derivative_first_order() {
-        let expr = parse_latex(r"\frac{d}{dx}x").unwrap();
+        let expr = parse_latex(r"\frac{d}{d*x}x").unwrap();
         match expr {
             Expression::Derivative { expr, var, order } => {
                 assert_eq!(var, "x");
@@ -1793,7 +1796,7 @@ mod tests {
 
     #[test]
     fn test_parse_derivative_second_order() {
-        let expr = parse_latex(r"\frac{d^2}{dx^2}f").unwrap();
+        let expr = parse_latex(r"\frac{d^2}{d*x^2}f").unwrap();
         match expr {
             Expression::Derivative { expr, var, order } => {
                 assert_eq!(var, "x");
@@ -1807,7 +1810,7 @@ mod tests {
     // Partial derivative tests
     #[test]
     fn test_parse_partial_derivative_first_order() {
-        let expr = parse_latex(r"\frac{\partial}{\partial x}f").unwrap();
+        let expr = parse_latex(r"\frac{\partial}{\partial * x}f").unwrap();
         match expr {
             Expression::PartialDerivative { expr, var, order } => {
                 assert_eq!(var, "x");
@@ -1820,7 +1823,7 @@ mod tests {
 
     #[test]
     fn test_parse_partial_derivative_second_order() {
-        let expr = parse_latex(r"\frac{\partial^2}{\partial x^2}f").unwrap();
+        let expr = parse_latex(r"\frac{\partial^2}{\partial * x^2}f").unwrap();
         match expr {
             Expression::PartialDerivative { expr, var, order } => {
                 assert_eq!(var, "x");
