@@ -59,13 +59,10 @@ pub trait ToLatex {
 
 // Known trigonometric and mathematical functions that have LaTeX commands
 const KNOWN_FUNCTIONS: &[&str] = &[
-    "sin", "cos", "tan", "cot", "sec", "csc",
-    "arcsin", "arccos", "arctan", "arccot", "arcsec", "arccsc",
-    "sinh", "cosh", "tanh", "coth", "sech", "csch",
-    "ln", "log", "exp", "lg",
-    "det", "dim", "ker", "hom", "arg",
-    "deg", "gcd", "lcm", "max", "min", "sup", "inf",
-    "lim", "limsup", "liminf",
+    "sin", "cos", "tan", "cot", "sec", "csc", "arcsin", "arccos", "arctan", "arccot", "arcsec",
+    "arccsc", "sinh", "cosh", "tanh", "coth", "sech", "csch", "ln", "log", "exp", "lg", "det",
+    "dim", "ker", "hom", "arg", "deg", "gcd", "lcm", "max", "min", "sup", "inf", "lim", "limsup",
+    "liminf",
 ];
 
 impl ToLatex for MathConstant {
@@ -122,15 +119,57 @@ impl ToLatex for Expression {
 
             Expression::Float(x) => format!("{}", x),
 
-            Expression::Rational { numerator, denominator } => {
-                format!(r"\frac{{{}}}{{{}}}", numerator.to_latex(), denominator.to_latex())
+            Expression::Rational {
+                numerator,
+                denominator,
+            } => {
+                format!(
+                    r"\frac{{{}}}{{{}}}",
+                    numerator.to_latex(),
+                    denominator.to_latex()
+                )
             }
 
             Expression::Complex { real, imaginary } => {
                 format!("{} + {}i", real.to_latex(), imaginary.to_latex())
             }
 
-            Expression::Variable(name) => name.clone(),
+            Expression::Variable(name) => {
+                // Greek letters that should be prefixed with backslash in LaTeX
+                const GREEK_LETTERS: &[&str] = &[
+                    "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota",
+                    "kappa", "lambda", "mu", "nu", "xi", "omicron", "pi", "rho", "sigma", "tau",
+                    "upsilon", "phi", "chi", "psi", "omega", "Gamma", "Delta", "Theta", "Lambda",
+                    "Xi", "Pi", "Sigma", "Upsilon", "Phi", "Psi", "Omega",
+                ];
+
+                // Check if variable has subscript (contains underscore)
+                if let Some(underscore_pos) = name.find('_') {
+                    let (base, subscript_with_underscore) = name.split_at(underscore_pos);
+                    let subscript = &subscript_with_underscore[1..]; // skip the underscore
+
+                    // Add backslash to Greek letter base
+                    let base_latex = if GREEK_LETTERS.contains(&base) {
+                        format!(r"\{}", base)
+                    } else {
+                        base.to_string()
+                    };
+
+                    // Add braces around multi-character subscripts
+                    if subscript.len() == 1 {
+                        format!("{}_{}", base_latex, subscript)
+                    } else {
+                        format!("{}_{{{}}}", base_latex, subscript)
+                    }
+                } else {
+                    // No subscript - just check if it's a Greek letter
+                    if GREEK_LETTERS.contains(&name.as_str()) {
+                        format!(r"\{}", name)
+                    } else {
+                        name.clone()
+                    }
+                }
+            }
 
             Expression::Constant(c) => c.to_latex(),
 
@@ -155,14 +194,12 @@ impl ToLatex for Expression {
                 }
             }
 
-            Expression::Unary { op, operand } => {
-                match op {
-                    UnaryOp::Neg => format!("-{}", operand.to_latex()),
-                    UnaryOp::Pos => format!("+{}", operand.to_latex()),
-                    UnaryOp::Factorial => format!("{}!", operand.to_latex()),
-                    UnaryOp::Transpose => format!("{}^T", operand.to_latex()),
-                }
-            }
+            Expression::Unary { op, operand } => match op {
+                UnaryOp::Neg => format!("-{}", operand.to_latex()),
+                UnaryOp::Pos => format!("+{}", operand.to_latex()),
+                UnaryOp::Factorial => format!("{}!", operand.to_latex()),
+                UnaryOp::Transpose => format!("{}^T", operand.to_latex()),
+            },
 
             Expression::Function { name, args } => {
                 // Check if it's a known function
@@ -201,7 +238,10 @@ impl ToLatex for Expression {
                 } else {
                     format!(
                         r"\frac{{d^{{{}}}}}{{d{}^{{{}}}}}{}",
-                        order, var, order, expr.to_latex()
+                        order,
+                        var,
+                        order,
+                        expr.to_latex()
                     )
                 }
             }
@@ -212,12 +252,19 @@ impl ToLatex for Expression {
                 } else {
                     format!(
                         r"\frac{{\partial^{{{}}}}}{{\partial {}^{{{}}}}}{}",
-                        order, var, order, expr.to_latex()
+                        order,
+                        var,
+                        order,
+                        expr.to_latex()
                     )
                 }
             }
 
-            Expression::Integral { integrand, var, bounds } => {
+            Expression::Integral {
+                integrand,
+                var,
+                bounds,
+            } => {
                 if let Some(bounds) = bounds {
                     format!(
                         r"\int_{{{}}}^{{{}}} {} \, d{}",
@@ -231,15 +278,28 @@ impl ToLatex for Expression {
                 }
             }
 
-            Expression::Limit { expr, var, to, direction } => {
+            Expression::Limit {
+                expr,
+                var,
+                to,
+                direction,
+            } => {
                 let dir_str = direction.to_latex();
                 format!(
                     r"\lim_{{{} \to {}{}}}{}",
-                    var, to.to_latex(), dir_str, expr.to_latex()
+                    var,
+                    to.to_latex(),
+                    dir_str,
+                    expr.to_latex()
                 )
             }
 
-            Expression::Sum { index, lower, upper, body } => {
+            Expression::Sum {
+                index,
+                lower,
+                upper,
+                body,
+            } => {
                 format!(
                     r"\sum_{{{}={}}}^{{{}}}{}",
                     index,
@@ -249,7 +309,12 @@ impl ToLatex for Expression {
                 )
             }
 
-            Expression::Product { index, lower, upper, body } => {
+            Expression::Product {
+                index,
+                lower,
+                upper,
+                body,
+            } => {
                 format!(
                     r"\prod_{{{}={}}}^{{{}}}{}",
                     index,
@@ -544,7 +609,7 @@ mod tests {
             name: "cos".to_string(),
             args: vec![Expression::Variable("theta".to_string())],
         };
-        assert_eq!(expr.to_latex(), r"\cos\left(theta\right)");
+        assert_eq!(expr.to_latex(), r"\cos\left(\theta\right)");
     }
 
     #[test]
@@ -569,7 +634,10 @@ mod tests {
     fn test_function_sqrt_two_args() {
         let expr = Expression::Function {
             name: "sqrt".to_string(),
-            args: vec![Expression::Integer(3), Expression::Variable("x".to_string())],
+            args: vec![
+                Expression::Integer(3),
+                Expression::Variable("x".to_string()),
+            ],
         };
         assert_eq!(expr.to_latex(), r"\sqrt[3]{x}");
     }
@@ -802,7 +870,10 @@ mod tests {
             Expression::Integer(2),
             Expression::Integer(3),
         ]);
-        assert_eq!(expr.to_latex(), r"\begin{pmatrix} 1 \\ 2 \\ 3 \end{pmatrix}");
+        assert_eq!(
+            expr.to_latex(),
+            r"\begin{pmatrix} 1 \\ 2 \\ 3 \end{pmatrix}"
+        );
     }
 
     // Tests for Matrix
@@ -824,7 +895,10 @@ mod tests {
             vec![Expression::Integer(1), Expression::Integer(2)],
             vec![Expression::Integer(3), Expression::Integer(4)],
         ]);
-        assert_eq!(expr.to_latex(), r"\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}");
+        assert_eq!(
+            expr.to_latex(),
+            r"\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}"
+        );
     }
 
     #[test]

@@ -646,6 +646,10 @@ impl LatexParser {
 }
 
 #[cfg(test)]
+#[path = "latex_tests_greek.rs"]
+mod greek_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -1197,6 +1201,229 @@ mod tests {
                 assert_eq!(*right, Expression::Integer(5));
             }
             _ => panic!("Expected Equation variant"),
+        }
+    }
+
+    // Matrix and vector tests
+    #[test]
+    fn test_parse_empty_matrix() {
+        let expr = parse_latex(r"\begin{matrix}\end{matrix}").unwrap();
+        assert_eq!(expr, Expression::Matrix(vec![]));
+    }
+
+    #[test]
+    fn test_parse_1x1_matrix() {
+        let expr = parse_latex(r"\begin{matrix}1\end{matrix}").unwrap();
+        assert_eq!(expr, Expression::Vector(vec![Expression::Integer(1)]));
+    }
+
+    #[test]
+    fn test_parse_column_vector() {
+        let expr = parse_latex(r"\begin{matrix}1 \\ 2 \\ 3\end{matrix}").unwrap();
+        assert_eq!(
+            expr,
+            Expression::Vector(vec![
+                Expression::Integer(1),
+                Expression::Integer(2),
+                Expression::Integer(3)
+            ])
+        );
+    }
+
+    #[test]
+    fn test_parse_row_matrix() {
+        let expr = parse_latex(r"\begin{matrix}1 & 2 & 3\end{matrix}").unwrap();
+        match expr {
+            Expression::Matrix(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].len(), 3);
+                assert_eq!(rows[0][0], Expression::Integer(1));
+                assert_eq!(rows[0][1], Expression::Integer(2));
+                assert_eq!(rows[0][2], Expression::Integer(3));
+            }
+            _ => panic!("Expected Matrix variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_2x2_matrix() {
+        let expr = parse_latex(r"\begin{matrix}1 & 2 \\ 3 & 4\end{matrix}").unwrap();
+        match expr {
+            Expression::Matrix(rows) => {
+                assert_eq!(rows.len(), 2);
+                assert_eq!(rows[0].len(), 2);
+                assert_eq!(rows[1].len(), 2);
+                assert_eq!(rows[0][0], Expression::Integer(1));
+                assert_eq!(rows[0][1], Expression::Integer(2));
+                assert_eq!(rows[1][0], Expression::Integer(3));
+                assert_eq!(rows[1][1], Expression::Integer(4));
+            }
+            _ => panic!("Expected Matrix variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_bmatrix() {
+        let expr = parse_latex(r"\begin{bmatrix}1 & 2 \\ 3 & 4\end{bmatrix}").unwrap();
+        match expr {
+            Expression::Matrix(rows) => {
+                assert_eq!(rows.len(), 2);
+                assert_eq!(rows[0].len(), 2);
+            }
+            _ => panic!("Expected Matrix variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_pmatrix() {
+        let expr = parse_latex(r"\begin{pmatrix}x & y \\ z & w\end{pmatrix}").unwrap();
+        match expr {
+            Expression::Matrix(rows) => {
+                assert_eq!(rows.len(), 2);
+                assert_eq!(rows[0][0], Expression::Variable("x".to_string()));
+                assert_eq!(rows[0][1], Expression::Variable("y".to_string()));
+                assert_eq!(rows[1][0], Expression::Variable("z".to_string()));
+                assert_eq!(rows[1][1], Expression::Variable("w".to_string()));
+            }
+            _ => panic!("Expected Matrix variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_vmatrix() {
+        let expr = parse_latex(r"\begin{vmatrix}a & b \\ c & d\end{vmatrix}").unwrap();
+        match expr {
+            Expression::Matrix(rows) => {
+                assert_eq!(rows.len(), 2);
+                assert_eq!(rows[0].len(), 2);
+            }
+            _ => panic!("Expected Matrix variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_big_bmatrix() {
+        let expr = parse_latex(r"\begin{Bmatrix}1 & 2\end{Bmatrix}").unwrap();
+        match expr {
+            Expression::Matrix(rows) => {
+                assert_eq!(rows.len(), 1);
+                assert_eq!(rows[0].len(), 2);
+            }
+            _ => panic!("Expected Matrix variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_big_vmatrix() {
+        let expr = parse_latex(r"\begin{Vmatrix}1\end{Vmatrix}").unwrap();
+        assert_eq!(expr, Expression::Vector(vec![Expression::Integer(1)]));
+    }
+
+    #[test]
+    fn test_parse_matrix_with_expressions() {
+        let expr = parse_latex(r"\begin{matrix}x+1 & 2 \\ 3 & y^2\end{matrix}").unwrap();
+        match expr {
+            Expression::Matrix(rows) => {
+                assert_eq!(rows.len(), 2);
+                assert_eq!(rows[0].len(), 2);
+                // First element should be x+1
+                match &rows[0][0] {
+                    Expression::Binary { op, .. } => assert_eq!(*op, BinaryOp::Add),
+                    _ => panic!("Expected binary expression"),
+                }
+                // Last element should be y^2
+                match &rows[1][1] {
+                    Expression::Binary { op, .. } => assert_eq!(*op, BinaryOp::Pow),
+                    _ => panic!("Expected binary expression"),
+                }
+            }
+            _ => panic!("Expected Matrix variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_3x3_matrix() {
+        let expr = parse_latex(r"\begin{bmatrix}1 & 2 & 3 \\ 4 & 5 & 6 \\ 7 & 8 & 9\end{bmatrix}").unwrap();
+        match expr {
+            Expression::Matrix(rows) => {
+                assert_eq!(rows.len(), 3);
+                assert_eq!(rows[0].len(), 3);
+                assert_eq!(rows[1].len(), 3);
+                assert_eq!(rows[2].len(), 3);
+                assert_eq!(rows[2][2], Expression::Integer(9));
+            }
+            _ => panic!("Expected Matrix variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_matrix_trailing_backslash() {
+        // Matrix with trailing \\ should not add empty row
+        let expr = parse_latex(r"\begin{matrix}1 \\ 2 \\\end{matrix}").unwrap();
+        match expr {
+            Expression::Vector(elements) => {
+                assert_eq!(elements.len(), 2);
+                assert_eq!(elements[0], Expression::Integer(1));
+                assert_eq!(elements[1], Expression::Integer(2));
+            }
+            _ => panic!("Expected Vector variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_ragged_matrix_error() {
+        let result = parse_latex(r"\begin{matrix}1 & 2 \\ 3\end{matrix}");
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(e.to_string().contains("inconsistent matrix row lengths"));
+        }
+    }
+
+    #[test]
+    fn test_parse_mismatched_environment_error() {
+        let result = parse_latex(r"\begin{matrix}1\end{bmatrix}");
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(e.to_string().contains("mismatched environment"));
+        }
+    }
+
+    #[test]
+    fn test_parse_invalid_matrix_environment() {
+        let result = parse_latex(r"\begin{invalid}1\end{invalid}");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_matrix_with_floats() {
+        let expr = parse_latex(r"\begin{matrix}1.5 & 2.7 \\ 3.2 & 4.9\end{matrix}").unwrap();
+        match expr {
+            Expression::Matrix(rows) => {
+                assert_eq!(rows.len(), 2);
+                match &rows[0][0] {
+                    Expression::Float(f) => assert!((f.value() - 1.5).abs() < 1e-10),
+                    _ => panic!("Expected float"),
+                }
+            }
+            _ => panic!("Expected Matrix variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_matrix_mixed_types() {
+        let expr = parse_latex(r"\begin{pmatrix}1 & x & 2.5 \\ y & 3 & z\end{pmatrix}").unwrap();
+        match expr {
+            Expression::Matrix(rows) => {
+                assert_eq!(rows.len(), 2);
+                assert_eq!(rows[0].len(), 3);
+                assert_eq!(rows[0][0], Expression::Integer(1));
+                assert_eq!(rows[0][1], Expression::Variable("x".to_string()));
+                match &rows[0][2] {
+                    Expression::Float(f) => assert!((f.value() - 2.5).abs() < 1e-10),
+                    _ => panic!("Expected float"),
+                }
+            }
+            _ => panic!("Expected Matrix variant"),
         }
     }
 }
