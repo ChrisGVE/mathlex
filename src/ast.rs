@@ -835,7 +835,10 @@ mod tests {
         };
 
         match expr {
-            Expression::Rational { numerator, denominator } => {
+            Expression::Rational {
+                numerator,
+                denominator,
+            } => {
                 assert!(matches!(*numerator, Expression::Integer(1)));
                 assert!(matches!(*denominator, Expression::Integer(2)));
             }
@@ -853,7 +856,10 @@ mod tests {
         let expr_clone = expr.clone();
 
         match expr_clone {
-            Expression::Rational { numerator, denominator } => {
+            Expression::Rational {
+                numerator,
+                denominator,
+            } => {
                 assert!(matches!(*numerator, Expression::Integer(3)));
                 assert!(matches!(*denominator, Expression::Integer(4)));
             }
@@ -1157,7 +1163,11 @@ mod tests {
         };
 
         match expr {
-            Expression::Integral { integrand, var, bounds } => {
+            Expression::Integral {
+                integrand,
+                var,
+                bounds,
+            } => {
                 assert!(matches!(*integrand, Expression::Variable(_)));
                 assert_eq!(var, "x");
                 assert!(bounds.is_none());
@@ -1199,7 +1209,12 @@ mod tests {
         };
 
         match expr {
-            Expression::Limit { expr, var, to, direction } => {
+            Expression::Limit {
+                expr,
+                var,
+                to,
+                direction,
+            } => {
                 assert!(matches!(*expr, Expression::Variable(_)));
                 assert_eq!(var, "x");
                 assert!(matches!(*to, Expression::Integer(0)));
@@ -1252,7 +1267,12 @@ mod tests {
         };
 
         match expr {
-            Expression::Sum { index, lower, upper, body } => {
+            Expression::Sum {
+                index,
+                lower,
+                upper,
+                body,
+            } => {
                 assert_eq!(index, "i");
                 assert!(matches!(*lower, Expression::Integer(1)));
                 assert!(matches!(*upper, Expression::Variable(_)));
@@ -1294,7 +1314,12 @@ mod tests {
         };
 
         match expr {
-            Expression::Product { index, lower, upper, body } => {
+            Expression::Product {
+                index,
+                lower,
+                upper,
+                body,
+            } => {
                 assert_eq!(index, "i");
                 assert!(matches!(*lower, Expression::Integer(1)));
                 assert!(matches!(*upper, Expression::Variable(_)));
@@ -1371,9 +1396,7 @@ mod tests {
 
     #[test]
     fn test_expression_matrix_single_element() {
-        let expr = Expression::Matrix(vec![
-            vec![Expression::Integer(1)],
-        ]);
+        let expr = Expression::Matrix(vec![vec![Expression::Integer(1)]]);
 
         match expr {
             Expression::Matrix(rows) => {
@@ -1407,8 +1430,16 @@ mod tests {
     #[test]
     fn test_expression_matrix_rectangular() {
         let expr = Expression::Matrix(vec![
-            vec![Expression::Integer(1), Expression::Integer(2), Expression::Integer(3)],
-            vec![Expression::Integer(4), Expression::Integer(5), Expression::Integer(6)],
+            vec![
+                Expression::Integer(1),
+                Expression::Integer(2),
+                Expression::Integer(3),
+            ],
+            vec![
+                Expression::Integer(4),
+                Expression::Integer(5),
+                Expression::Integer(6),
+            ],
         ]);
 
         match expr {
@@ -1734,20 +1765,11 @@ mod tests {
 
     #[test]
     fn test_expression_vector_equality() {
-        let e1 = Expression::Vector(vec![
-            Expression::Integer(1),
-            Expression::Integer(2),
-        ]);
+        let e1 = Expression::Vector(vec![Expression::Integer(1), Expression::Integer(2)]);
 
-        let e2 = Expression::Vector(vec![
-            Expression::Integer(1),
-            Expression::Integer(2),
-        ]);
+        let e2 = Expression::Vector(vec![Expression::Integer(1), Expression::Integer(2)]);
 
-        let e3 = Expression::Vector(vec![
-            Expression::Integer(1),
-            Expression::Integer(3),
-        ]);
+        let e3 = Expression::Vector(vec![Expression::Integer(1), Expression::Integer(3)]);
 
         assert_eq!(e1, e2);
         assert_ne!(e1, e3);

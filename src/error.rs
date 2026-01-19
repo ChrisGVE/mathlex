@@ -376,11 +376,7 @@ impl ParseError {
     ///     None,
     /// );
     /// ```
-    pub fn unexpected_token<S1, S2>(
-        expected: Vec<S1>,
-        found: S2,
-        span: Option<Span>,
-    ) -> Self
+    pub fn unexpected_token<S1, S2>(expected: Vec<S1>, found: S2, span: Option<Span>) -> Self
     where
         S1: Into<String>,
         S2: Into<String>,
@@ -431,11 +427,7 @@ impl ParseError {
     ///     None,
     /// );
     /// ```
-    pub fn unmatched_delimiter(
-        opening: char,
-        position: Position,
-        span: Option<Span>,
-    ) -> Self {
+    pub fn unmatched_delimiter(opening: char, position: Position, span: Option<Span>) -> Self {
         Self::new(
             ParseErrorKind::UnmatchedDelimiter { opening, position },
             span,
@@ -503,10 +495,7 @@ impl ParseError {
     where
         S: Into<String>,
     {
-        Self::new(
-            ParseErrorKind::UnknownFunction { name: name.into() },
-            span,
-        )
+        Self::new(ParseErrorKind::UnknownFunction { name: name.into() }, span)
     }
 
     /// Creates an invalid subscript error.
@@ -882,7 +871,10 @@ mod tests {
         let kind = ParseErrorKind::MalformedMatrix {
             reason: "inconsistent row lengths".to_string(),
         };
-        assert_eq!(kind.to_string(), "malformed matrix: inconsistent row lengths");
+        assert_eq!(
+            kind.to_string(),
+            "malformed matrix: inconsistent row lengths"
+        );
     }
 
     #[test]
@@ -910,7 +902,10 @@ mod tests {
         let error = ParseError::new(ParseErrorKind::EmptyExpression, None)
             .with_context("while parsing function arguments");
 
-        assert_eq!(error.context, Some("while parsing function arguments".to_string()));
+        assert_eq!(
+            error.context,
+            Some("while parsing function arguments".to_string())
+        );
     }
 
     #[test]
@@ -951,11 +946,7 @@ mod tests {
 
     #[test]
     fn test_parse_error_unexpected_token() {
-        let error = ParseError::unexpected_token(
-            vec!["number"],
-            "+",
-            None,
-        );
+        let error = ParseError::unexpected_token(vec!["number"], "+", None);
 
         assert_eq!(
             error.kind,
@@ -968,10 +959,7 @@ mod tests {
 
     #[test]
     fn test_parse_error_unexpected_eof() {
-        let error = ParseError::unexpected_eof(
-            vec!["closing parenthesis"],
-            None,
-        );
+        let error = ParseError::unexpected_eof(vec!["closing parenthesis"], None);
 
         assert_eq!(
             error.kind,
@@ -997,11 +985,7 @@ mod tests {
 
     #[test]
     fn test_parse_error_invalid_number() {
-        let error = ParseError::invalid_number(
-            "123.45.67",
-            "multiple decimal points",
-            None,
-        );
+        let error = ParseError::invalid_number("123.45.67", "multiple decimal points", None);
 
         assert_eq!(
             error.kind,

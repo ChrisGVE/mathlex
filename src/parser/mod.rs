@@ -10,16 +10,16 @@
 //! - [`text`]: Plain text expression parser
 //! - [`latex`]: LaTeX expression parser
 
-pub mod tokenizer;
+pub mod latex;
 pub mod latex_tokenizer;
 pub mod text;
-pub mod latex;
+pub mod tokenizer;
 
 // Re-export key types
-pub use tokenizer::tokenize;
-pub use latex_tokenizer::{tokenize_latex, LatexToken};
-pub use text::parse;
 pub use latex::parse_latex;
+pub use latex_tokenizer::{tokenize_latex, LatexToken};
+pub use text::{parse, parse_with_config};
+pub use tokenizer::tokenize;
 
 /// A spanned token - combines a token with its source location.
 ///

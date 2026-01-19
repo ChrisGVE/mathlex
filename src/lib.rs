@@ -75,9 +75,9 @@
 // Modules will be added as development progresses
 pub mod ast;
 pub mod display;
+pub mod error;
 pub mod latex;
 pub mod parser;
-pub mod error;
 pub mod util;
 
 // Re-export key types at crate root for convenience
@@ -131,9 +131,7 @@ impl Default for ParserConfig {
 
 /// Parses a plain text mathematical expression with custom configuration.
 ///
-/// This function allows parsing with custom configuration options. Currently,
-/// the configuration is reserved for future use and the function behaves
-/// identically to [`parse`].
+/// This function allows parsing with custom configuration options.
 ///
 /// # Arguments
 ///
@@ -154,23 +152,21 @@ impl Default for ParserConfig {
 /// ```
 ///
 /// ```
-/// use mathlex::{parse_with_config, ParserConfig, Expression};
+/// use mathlex::{parse_with_config, ParserConfig, Expression, BinaryOp};
 ///
 /// let config = ParserConfig {
 ///     implicit_multiplication: true,
 /// };
 ///
-/// // Parse expression with configuration
-/// let expr = parse_with_config("2 + 3", &config).unwrap();
+/// // Parse expression with implicit multiplication
+/// let expr = parse_with_config("2x", &config).unwrap();
 /// match expr {
-///     Expression::Binary { .. } => println!("Parsed successfully"),
+///     Expression::Binary { op: BinaryOp::Mul, .. } => println!("Parsed as multiplication"),
 ///     _ => panic!("Unexpected expression type"),
 /// }
 /// ```
-pub fn parse_with_config(input: &str, _config: &ParserConfig) -> ParseResult<Expression> {
-    // Configuration is reserved for future use
-    // Currently delegates to standard parse function
-    parse(input)
+pub fn parse_with_config(input: &str, config: &ParserConfig) -> ParseResult<Expression> {
+    parser::parse_with_config(input, config)
 }
 
 /// Placeholder for library version
@@ -223,20 +219,38 @@ mod tests {
     #[test]
     fn test_parse_simple() {
         let expr = parse("2 + 3").unwrap();
-        assert!(matches!(expr, Expression::Binary { op: BinaryOp::Add, .. }));
+        assert!(matches!(
+            expr,
+            Expression::Binary {
+                op: BinaryOp::Add,
+                ..
+            }
+        ));
     }
 
     #[test]
     fn test_parse_latex_simple() {
         let expr = parse_latex(r"\frac{1}{2}").unwrap();
-        assert!(matches!(expr, Expression::Binary { op: BinaryOp::Div, .. }));
+        assert!(matches!(
+            expr,
+            Expression::Binary {
+                op: BinaryOp::Div,
+                ..
+            }
+        ));
     }
 
     #[test]
     fn test_parse_with_config_default() {
         let config = ParserConfig::default();
         let expr = parse_with_config("sin(x) + 2", &config).unwrap();
-        assert!(matches!(expr, Expression::Binary { op: BinaryOp::Add, .. }));
+        assert!(matches!(
+            expr,
+            Expression::Binary {
+                op: BinaryOp::Add,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -245,7 +259,13 @@ mod tests {
             implicit_multiplication: false,
         };
         let expr = parse_with_config("2 + 3", &config).unwrap();
-        assert!(matches!(expr, Expression::Binary { op: BinaryOp::Add, .. }));
+        assert!(matches!(
+            expr,
+            Expression::Binary {
+                op: BinaryOp::Add,
+                ..
+            }
+        ));
     }
 
     #[test]

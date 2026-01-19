@@ -175,7 +175,10 @@ impl fmt::Display for Expression {
 
             Expression::Float(x) => write!(f, "{}", x),
 
-            Expression::Rational { numerator, denominator } => {
+            Expression::Rational {
+                numerator,
+                denominator,
+            } => {
                 write!(f, "{}/{}", numerator, denominator)
             }
 
@@ -252,7 +255,11 @@ impl fmt::Display for Expression {
                 }
             }
 
-            Expression::Integral { integrand, var, bounds } => {
+            Expression::Integral {
+                integrand,
+                var,
+                bounds,
+            } => {
                 if let Some(bounds) = bounds {
                     write!(f, "int({}, d{}, {})", integrand, var, bounds)
                 } else {
@@ -260,7 +267,12 @@ impl fmt::Display for Expression {
                 }
             }
 
-            Expression::Limit { expr, var, to, direction } => {
+            Expression::Limit {
+                expr,
+                var,
+                to,
+                direction,
+            } => {
                 let dir_str = match direction {
                     Direction::Both => String::new(),
                     Direction::Left => "-".to_string(),
@@ -269,11 +281,21 @@ impl fmt::Display for Expression {
                 write!(f, "lim({}->{}{})({})", var, to, dir_str, expr)
             }
 
-            Expression::Sum { index, lower, upper, body } => {
+            Expression::Sum {
+                index,
+                lower,
+                upper,
+                body,
+            } => {
                 write!(f, "sum({}={}, {}, {})", index, lower, upper, body)
             }
 
-            Expression::Product { index, lower, upper, body } => {
+            Expression::Product {
+                index,
+                lower,
+                upper,
+                body,
+            } => {
                 write!(f, "prod({}={}, {}, {})", index, lower, upper, body)
             }
 

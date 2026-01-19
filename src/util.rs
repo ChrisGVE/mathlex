@@ -71,9 +71,7 @@ impl Expression {
     fn collect_variables(&self, variables: &mut HashSet<String>) {
         match self {
             // Leaf nodes - no recursion needed
-            Expression::Integer(_)
-            | Expression::Float(_)
-            | Expression::Constant(_) => {}
+            Expression::Integer(_) | Expression::Float(_) | Expression::Constant(_) => {}
 
             // Variable node - add to set
             Expression::Variable(name) => {
@@ -81,11 +79,28 @@ impl Expression {
             }
 
             // Binary operations - recurse on both operands
-            Expression::Rational { numerator, denominator }
-            | Expression::Complex { real: numerator, imaginary: denominator }
-            | Expression::Equation { left: numerator, right: denominator }
-            | Expression::Binary { left: numerator, right: denominator, .. }
-            | Expression::Inequality { left: numerator, right: denominator, .. } => {
+            Expression::Rational {
+                numerator,
+                denominator,
+            }
+            | Expression::Complex {
+                real: numerator,
+                imaginary: denominator,
+            }
+            | Expression::Equation {
+                left: numerator,
+                right: denominator,
+            }
+            | Expression::Binary {
+                left: numerator,
+                right: denominator,
+                ..
+            }
+            | Expression::Inequality {
+                left: numerator,
+                right: denominator,
+                ..
+            } => {
                 numerator.collect_variables(variables);
                 denominator.collect_variables(variables);
             }
@@ -111,7 +126,11 @@ impl Expression {
             }
 
             // Integral - recurse on integrand and bounds
-            Expression::Integral { integrand, var, bounds } => {
+            Expression::Integral {
+                integrand,
+                var,
+                bounds,
+            } => {
                 integrand.collect_variables(variables);
                 variables.insert(var.clone());
                 if let Some(bounds) = bounds {
@@ -128,8 +147,18 @@ impl Expression {
             }
 
             // Sum and Product - recurse on bounds and body
-            Expression::Sum { index, lower, upper, body }
-            | Expression::Product { index, lower, upper, body } => {
+            Expression::Sum {
+                index,
+                lower,
+                upper,
+                body,
+            }
+            | Expression::Product {
+                index,
+                lower,
+                upper,
+                body,
+            } => {
                 variables.insert(index.clone());
                 lower.collect_variables(variables);
                 upper.collect_variables(variables);
@@ -198,11 +227,28 @@ impl Expression {
             | Expression::Constant(_) => {}
 
             // Binary operations - recurse on both operands
-            Expression::Rational { numerator, denominator }
-            | Expression::Complex { real: numerator, imaginary: denominator }
-            | Expression::Equation { left: numerator, right: denominator }
-            | Expression::Binary { left: numerator, right: denominator, .. }
-            | Expression::Inequality { left: numerator, right: denominator, .. } => {
+            Expression::Rational {
+                numerator,
+                denominator,
+            }
+            | Expression::Complex {
+                real: numerator,
+                imaginary: denominator,
+            }
+            | Expression::Equation {
+                left: numerator,
+                right: denominator,
+            }
+            | Expression::Binary {
+                left: numerator,
+                right: denominator,
+                ..
+            }
+            | Expression::Inequality {
+                left: numerator,
+                right: denominator,
+                ..
+            } => {
                 numerator.collect_functions(functions);
                 denominator.collect_functions(functions);
             }
@@ -221,13 +267,14 @@ impl Expression {
             }
 
             // Calculus operations with single expression
-            Expression::Derivative { expr, .. }
-            | Expression::PartialDerivative { expr, .. } => {
+            Expression::Derivative { expr, .. } | Expression::PartialDerivative { expr, .. } => {
                 expr.collect_functions(functions);
             }
 
             // Integral - recurse on integrand and bounds
-            Expression::Integral { integrand, bounds, .. } => {
+            Expression::Integral {
+                integrand, bounds, ..
+            } => {
                 integrand.collect_functions(functions);
                 if let Some(bounds) = bounds {
                     bounds.lower.collect_functions(functions);
@@ -242,8 +289,12 @@ impl Expression {
             }
 
             // Sum and Product - recurse on bounds and body
-            Expression::Sum { lower, upper, body, .. }
-            | Expression::Product { lower, upper, body, .. } => {
+            Expression::Sum {
+                lower, upper, body, ..
+            }
+            | Expression::Product {
+                lower, upper, body, ..
+            } => {
                 lower.collect_functions(functions);
                 upper.collect_functions(functions);
                 body.collect_functions(functions);
@@ -303,20 +354,35 @@ impl Expression {
     fn collect_constants(&self, constants: &mut HashSet<MathConstant>) {
         match self {
             // Leaf nodes - check for constant
-            Expression::Integer(_)
-            | Expression::Float(_)
-            | Expression::Variable(_) => {}
+            Expression::Integer(_) | Expression::Float(_) | Expression::Variable(_) => {}
 
             Expression::Constant(c) => {
                 constants.insert(*c);
             }
 
             // Binary operations - recurse on both operands
-            Expression::Rational { numerator, denominator }
-            | Expression::Complex { real: numerator, imaginary: denominator }
-            | Expression::Equation { left: numerator, right: denominator }
-            | Expression::Binary { left: numerator, right: denominator, .. }
-            | Expression::Inequality { left: numerator, right: denominator, .. } => {
+            Expression::Rational {
+                numerator,
+                denominator,
+            }
+            | Expression::Complex {
+                real: numerator,
+                imaginary: denominator,
+            }
+            | Expression::Equation {
+                left: numerator,
+                right: denominator,
+            }
+            | Expression::Binary {
+                left: numerator,
+                right: denominator,
+                ..
+            }
+            | Expression::Inequality {
+                left: numerator,
+                right: denominator,
+                ..
+            } => {
                 numerator.collect_constants(constants);
                 denominator.collect_constants(constants);
             }
@@ -334,13 +400,14 @@ impl Expression {
             }
 
             // Calculus operations with single expression
-            Expression::Derivative { expr, .. }
-            | Expression::PartialDerivative { expr, .. } => {
+            Expression::Derivative { expr, .. } | Expression::PartialDerivative { expr, .. } => {
                 expr.collect_constants(constants);
             }
 
             // Integral - recurse on integrand and bounds
-            Expression::Integral { integrand, bounds, .. } => {
+            Expression::Integral {
+                integrand, bounds, ..
+            } => {
                 integrand.collect_constants(constants);
                 if let Some(bounds) = bounds {
                     bounds.lower.collect_constants(constants);
@@ -355,8 +422,12 @@ impl Expression {
             }
 
             // Sum and Product - recurse on bounds and body
-            Expression::Sum { lower, upper, body, .. }
-            | Expression::Product { lower, upper, body, .. } => {
+            Expression::Sum {
+                lower, upper, body, ..
+            }
+            | Expression::Product {
+                lower, upper, body, ..
+            } => {
                 lower.collect_constants(constants);
                 upper.collect_constants(constants);
                 body.collect_constants(constants);
@@ -419,13 +490,28 @@ impl Expression {
             | Expression::Constant(_) => 1,
 
             // Binary operations - 1 + max depth of children
-            Expression::Rational { numerator, denominator }
-            | Expression::Complex { real: numerator, imaginary: denominator }
-            | Expression::Equation { left: numerator, right: denominator }
-            | Expression::Binary { left: numerator, right: denominator, .. }
-            | Expression::Inequality { left: numerator, right: denominator, .. } => {
-                1 + numerator.depth().max(denominator.depth())
+            Expression::Rational {
+                numerator,
+                denominator,
             }
+            | Expression::Complex {
+                real: numerator,
+                imaginary: denominator,
+            }
+            | Expression::Equation {
+                left: numerator,
+                right: denominator,
+            }
+            | Expression::Binary {
+                left: numerator,
+                right: denominator,
+                ..
+            }
+            | Expression::Inequality {
+                left: numerator,
+                right: denominator,
+                ..
+            } => 1 + numerator.depth().max(denominator.depth()),
 
             // Unary operations - 1 + depth of operand
             Expression::Unary { operand, .. } => 1 + operand.depth(),
@@ -440,28 +526,31 @@ impl Expression {
             }
 
             // Derivative and partial derivative - 1 + depth of expression
-            Expression::Derivative { expr, .. }
-            | Expression::PartialDerivative { expr, .. } => 1 + expr.depth(),
+            Expression::Derivative { expr, .. } | Expression::PartialDerivative { expr, .. } => {
+                1 + expr.depth()
+            }
 
             // Integral - 1 + max depth among integrand and bounds
-            Expression::Integral { integrand, bounds, .. } => {
+            Expression::Integral {
+                integrand, bounds, ..
+            } => {
                 let integrand_depth = integrand.depth();
-                let bounds_depth = bounds.as_ref().map_or(0, |b| {
-                    b.lower.depth().max(b.upper.depth())
-                });
+                let bounds_depth = bounds
+                    .as_ref()
+                    .map_or(0, |b| b.lower.depth().max(b.upper.depth()));
                 1 + integrand_depth.max(bounds_depth)
             }
 
             // Limit - 1 + max depth of expression and target
-            Expression::Limit { expr, to, .. } => {
-                1 + expr.depth().max(to.depth())
-            }
+            Expression::Limit { expr, to, .. } => 1 + expr.depth().max(to.depth()),
 
             // Sum and Product - 1 + max depth of all components
-            Expression::Sum { lower, upper, body, .. }
-            | Expression::Product { lower, upper, body, .. } => {
-                1 + lower.depth().max(upper.depth()).max(body.depth())
+            Expression::Sum {
+                lower, upper, body, ..
             }
+            | Expression::Product {
+                lower, upper, body, ..
+            } => 1 + lower.depth().max(upper.depth()).max(body.depth()),
 
             // Vector - 1 + max depth of elements
             Expression::Vector(elements) => {
@@ -528,13 +617,28 @@ impl Expression {
             | Expression::Constant(_) => 1,
 
             // Binary operations - 1 + count of both children
-            Expression::Rational { numerator, denominator }
-            | Expression::Complex { real: numerator, imaginary: denominator }
-            | Expression::Equation { left: numerator, right: denominator }
-            | Expression::Binary { left: numerator, right: denominator, .. }
-            | Expression::Inequality { left: numerator, right: denominator, .. } => {
-                1 + numerator.node_count() + denominator.node_count()
+            Expression::Rational {
+                numerator,
+                denominator,
             }
+            | Expression::Complex {
+                real: numerator,
+                imaginary: denominator,
+            }
+            | Expression::Equation {
+                left: numerator,
+                right: denominator,
+            }
+            | Expression::Binary {
+                left: numerator,
+                right: denominator,
+                ..
+            }
+            | Expression::Inequality {
+                left: numerator,
+                right: denominator,
+                ..
+            } => 1 + numerator.node_count() + denominator.node_count(),
 
             // Unary operations - 1 + count of operand
             Expression::Unary { operand, .. } => 1 + operand.node_count(),
@@ -545,27 +649,30 @@ impl Expression {
             }
 
             // Derivative and partial derivative - 1 + expression count
-            Expression::Derivative { expr, .. }
-            | Expression::PartialDerivative { expr, .. } => 1 + expr.node_count(),
+            Expression::Derivative { expr, .. } | Expression::PartialDerivative { expr, .. } => {
+                1 + expr.node_count()
+            }
 
             // Integral - 1 + integrand count + bounds count
-            Expression::Integral { integrand, bounds, .. } => {
-                let bounds_count = bounds.as_ref().map_or(0, |b| {
-                    b.lower.node_count() + b.upper.node_count()
-                });
+            Expression::Integral {
+                integrand, bounds, ..
+            } => {
+                let bounds_count = bounds
+                    .as_ref()
+                    .map_or(0, |b| b.lower.node_count() + b.upper.node_count());
                 1 + integrand.node_count() + bounds_count
             }
 
             // Limit - 1 + expression count + target count
-            Expression::Limit { expr, to, .. } => {
-                1 + expr.node_count() + to.node_count()
-            }
+            Expression::Limit { expr, to, .. } => 1 + expr.node_count() + to.node_count(),
 
             // Sum and Product - 1 + counts of all components
-            Expression::Sum { lower, upper, body, .. }
-            | Expression::Product { lower, upper, body, .. } => {
-                1 + lower.node_count() + upper.node_count() + body.node_count()
+            Expression::Sum {
+                lower, upper, body, ..
             }
+            | Expression::Product {
+                lower, upper, body, ..
+            } => 1 + lower.node_count() + upper.node_count() + body.node_count(),
 
             // Vector - 1 + sum of element counts
             Expression::Vector(elements) => {
@@ -1001,7 +1108,10 @@ mod tests {
     fn test_depth_leaf_nodes() {
         // All leaf nodes have depth 1
         assert_eq!(Expression::Integer(42).depth(), 1);
-        assert_eq!(Expression::Float(crate::ast::MathFloat::from(3.14)).depth(), 1);
+        assert_eq!(
+            Expression::Float(crate::ast::MathFloat::from(3.14)).depth(),
+            1
+        );
         assert_eq!(Expression::Variable("x".to_string()).depth(), 1);
         assert_eq!(Expression::Constant(MathConstant::Pi).depth(), 1);
     }
@@ -1131,7 +1241,10 @@ mod tests {
     fn test_node_count_leaf_nodes() {
         // All leaf nodes have count 1
         assert_eq!(Expression::Integer(42).node_count(), 1);
-        assert_eq!(Expression::Float(crate::ast::MathFloat::from(3.14)).node_count(), 1);
+        assert_eq!(
+            Expression::Float(crate::ast::MathFloat::from(3.14)).node_count(),
+            1
+        );
         assert_eq!(Expression::Variable("x".to_string()).node_count(), 1);
         assert_eq!(Expression::Constant(MathConstant::Pi).node_count(), 1);
     }

@@ -110,9 +110,7 @@ impl<'a> Tokenizer<'a> {
 
     /// Peeks at the character at the given offset ahead.
     fn peek_ahead(&self, n: usize) -> Option<char> {
-        self.input[self.offset..]
-            .chars()
-            .nth(n)
+        self.input[self.offset..].chars().nth(n)
     }
 
     /// Consumes and returns the current character.
@@ -368,9 +366,7 @@ impl<'a> Tokenizer<'a> {
                 let (num, num_span) = self.scan_number();
                 Ok((LatexToken::Number(num), num_span))
             }
-            _ if ch.is_ascii_alphabetic() => {
-                Ok((LatexToken::Letter(ch), span))
-            }
+            _ if ch.is_ascii_alphabetic() => Ok((LatexToken::Letter(ch), span)),
 
             _ => Err(ParseError::custom(
                 format!("unexpected character '{}'", ch),
@@ -482,20 +478,14 @@ mod tests {
     fn test_tokenize_command() {
         let tokens = tokenize_latex(r"\frac").unwrap();
         assert_eq!(tokens.len(), 2);
-        assert_eq!(
-            tokens[0].0,
-            LatexToken::Command("frac".to_string())
-        );
+        assert_eq!(tokens[0].0, LatexToken::Command("frac".to_string()));
     }
 
     #[test]
     fn test_tokenize_greek_letter() {
         let tokens = tokenize_latex(r"\alpha").unwrap();
         assert_eq!(tokens.len(), 2);
-        assert_eq!(
-            tokens[0].0,
-            LatexToken::Command("alpha".to_string())
-        );
+        assert_eq!(tokens[0].0, LatexToken::Command("alpha".to_string()));
     }
 
     #[test]
@@ -523,20 +513,14 @@ mod tests {
     fn test_tokenize_begin_env() {
         let tokens = tokenize_latex(r"\begin{matrix}").unwrap();
         assert_eq!(tokens.len(), 2);
-        assert_eq!(
-            tokens[0].0,
-            LatexToken::BeginEnv("matrix".to_string())
-        );
+        assert_eq!(tokens[0].0, LatexToken::BeginEnv("matrix".to_string()));
     }
 
     #[test]
     fn test_tokenize_end_env() {
         let tokens = tokenize_latex(r"\end{matrix}").unwrap();
         assert_eq!(tokens.len(), 2);
-        assert_eq!(
-            tokens[0].0,
-            LatexToken::EndEnv("matrix".to_string())
-        );
+        assert_eq!(tokens[0].0, LatexToken::EndEnv("matrix".to_string()));
     }
 
     #[test]
@@ -753,11 +737,13 @@ mod tests {
         // The tokenizer returns an error for invalid characters
         let result = tokenize_latex("3.");
         // This is expected to fail - "3." is not valid
-        assert!(result.is_err() || {
-            // Or if it succeeds, check tokens
-            let tokens = result.unwrap();
-            tokens.len() >= 2 && tokens[0].0 == LatexToken::Number("3".to_string())
-        });
+        assert!(
+            result.is_err() || {
+                // Or if it succeeds, check tokens
+                let tokens = result.unwrap();
+                tokens.len() >= 2 && tokens[0].0 == LatexToken::Number("3".to_string())
+            }
+        );
     }
 
     #[test]
