@@ -1812,3 +1812,974 @@ mod tests {
         }
     }
 }
+
+// Additional comprehensive tests organized by category
+
+#[cfg(test)]
+mod extended_basic_arithmetic {
+    use super::*;
+
+    #[test]
+    fn test_scientific_notation_positive_exponent() {
+        let expr = parse("1.5e10").unwrap();
+        match expr {
+            Expression::Float(f) => {
+                assert_eq!(f.value(), 1.5e10);
+            }
+            _ => panic!("Expected float with scientific notation"),
+        }
+    }
+
+    #[test]
+    fn test_scientific_notation_negative_exponent() {
+        let expr = parse("2.5e-5").unwrap();
+        match expr {
+            Expression::Float(f) => {
+                assert_eq!(f.value(), 2.5e-5);
+            }
+            _ => panic!("Expected float with negative exponent"),
+        }
+    }
+
+    #[test]
+    fn test_scientific_notation_uppercase_e() {
+        let expr = parse("3.14E8").unwrap();
+        match expr {
+            Expression::Float(f) => {
+                assert_eq!(f.value(), 3.14e8);
+            }
+            _ => panic!("Expected float with uppercase E"),
+        }
+    }
+
+    #[test]
+    fn test_scientific_notation_with_positive_sign() {
+        let expr = parse("1e+3").unwrap();
+        match expr {
+            Expression::Float(f) => {
+                assert_eq!(f.value(), 1000.0);
+            }
+            _ => panic!("Expected float"),
+        }
+    }
+
+    #[test]
+    fn test_very_large_integer() {
+        let expr = parse("9223372036854775807").unwrap(); // i64::MAX
+        assert!(matches!(expr, Expression::Integer(_)));
+    }
+
+    #[test]
+    fn test_zero() {
+        let expr = parse("0").unwrap();
+        assert_eq!(expr, Expression::Integer(0));
+    }
+
+    #[test]
+    fn test_zero_float() {
+        let expr = parse("0.0").unwrap();
+        match expr {
+            Expression::Float(f) => {
+                assert_eq!(f.value(), 0.0);
+            }
+            _ => panic!("Expected float"),
+        }
+    }
+
+    #[test]
+    fn test_negative_zero() {
+        let expr = parse("-0").unwrap();
+        match expr {
+            Expression::Unary {
+                op: UnaryOp::Neg,
+                operand,
+            } => {
+                assert_eq!(*operand, Expression::Integer(0));
+            }
+            _ => panic!("Expected negation of zero"),
+        }
+    }
+
+    #[test]
+    fn test_mixed_int_float_operations() {
+        // 2 + 3.5
+        let expr = parse("2 + 3.5").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Add,
+                left,
+                right,
+            } => {
+                assert!(matches!(*left, Expression::Integer(2)));
+                assert!(matches!(*right, Expression::Float(_)));
+            }
+            _ => panic!("Expected addition"),
+        }
+    }
+
+    #[test]
+    fn test_division_by_zero_parses() {
+        // Should parse (evaluation is not parser's concern)
+        let expr = parse("1 / 0").unwrap();
+        assert!(matches!(
+            expr,
+            Expression::Binary {
+                op: BinaryOp::Div,
+                ..
+            }
+        ));
+    }
+}
+
+#[cfg(test)]
+mod extended_operator_precedence {
+    use super::*;
+
+    #[test]
+    fn test_unary_minus_with_power() {
+        // -x^2 parses as (-x)^2 because unary operators are parsed before power
+        // This is consistent with how the parser is structured
+        let expr = parse("-x^2").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Pow,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Unary {
+                        op: UnaryOp::Neg,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Integer(2));
+            }
+            _ => panic!("Expected power of negation"),
+        }
+    }
+
+    #[test]
+    fn test_parenthesized_negation_with_power() {
+        // (-x)^2 should parse as (-x)^2
+        let expr = parse("(-x)^2").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Pow,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Unary {
+                        op: UnaryOp::Neg,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Integer(2));
+            }
+            _ => panic!("Expected power of negation"),
+        }
+    }
+
+    #[test]
+    fn test_factorial_then_addition() {
+        // 5! + 1 should parse as (5!) + 1
+        let expr = parse("5! + 1").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Add,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Unary {
+                        op: UnaryOp::Factorial,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Integer(1));
+            }
+            _ => panic!("Expected addition"),
+        }
+    }
+
+    #[test]
+    fn test_factorial_then_multiplication() {
+        // 5! * 2 should parse as (5!) * 2
+        let expr = parse("5! * 2").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Unary {
+                        op: UnaryOp::Factorial,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Integer(2));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_factorial_then_division() {
+        // 5! / 2 should parse as (5!) / 2
+        let expr = parse("5! / 2").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Div,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Unary {
+                        op: UnaryOp::Factorial,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Integer(2));
+            }
+            _ => panic!("Expected division"),
+        }
+    }
+
+    #[test]
+    fn test_complex_precedence_chain() {
+        // a + b * c ^ d should parse as a + (b * (c ^ d))
+        let expr = parse("a + b * c ^ d").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Add,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Variable("a".to_string()));
+                match *right {
+                    Expression::Binary {
+                        op: BinaryOp::Mul,
+                        left: mul_left,
+                        right: mul_right,
+                    } => {
+                        assert_eq!(*mul_left, Expression::Variable("b".to_string()));
+                        assert!(matches!(
+                            *mul_right,
+                            Expression::Binary {
+                                op: BinaryOp::Pow,
+                                ..
+                            }
+                        ));
+                    }
+                    _ => panic!("Expected multiplication on right"),
+                }
+            }
+            _ => panic!("Expected addition at top level"),
+        }
+    }
+
+    #[test]
+    fn test_left_associativity_of_subtraction() {
+        // 10 - 5 - 2 should parse as (10 - 5) - 2 = 3, not 10 - (5 - 2) = 7
+        let expr = parse("10 - 5 - 2").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Sub,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Sub,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Integer(2));
+            }
+            _ => panic!("Expected subtraction"),
+        }
+    }
+
+    #[test]
+    fn test_left_associativity_of_division() {
+        // 20 / 4 / 2 should parse as (20 / 4) / 2 = 2.5, not 20 / (4 / 2) = 10
+        let expr = parse("20 / 4 / 2").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Div,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Div,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Integer(2));
+            }
+            _ => panic!("Expected division"),
+        }
+    }
+
+    #[test]
+    fn test_multiple_unary_negations() {
+        // ---5 should parse as -(-(-(5)))
+        let expr = parse("---5").unwrap();
+        match expr {
+            Expression::Unary {
+                op: UnaryOp::Neg,
+                operand,
+            } => match *operand {
+                Expression::Unary {
+                    op: UnaryOp::Neg,
+                    operand: inner,
+                } => {
+                    assert!(matches!(
+                        *inner,
+                        Expression::Unary {
+                            op: UnaryOp::Neg,
+                            ..
+                        }
+                    ));
+                }
+                _ => panic!("Expected nested negation"),
+            },
+            _ => panic!("Expected negation"),
+        }
+    }
+
+    #[test]
+    fn test_mixed_unary_operators() {
+        // -+5 should parse as -(+(5))
+        let expr = parse("-+5").unwrap();
+        match expr {
+            Expression::Unary {
+                op: UnaryOp::Neg,
+                operand,
+            } => {
+                assert!(matches!(
+                    *operand,
+                    Expression::Unary {
+                        op: UnaryOp::Pos,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected negation of positive"),
+        }
+    }
+
+    #[test]
+    fn test_triple_factorial() {
+        // 5!!! should parse as ((5!)!)!
+        let expr = parse("5!!!").unwrap();
+        let mut current = &expr;
+        let mut factorial_count = 0;
+
+        while let Expression::Unary {
+            op: UnaryOp::Factorial,
+            operand,
+        } = current
+        {
+            factorial_count += 1;
+            current = operand;
+        }
+
+        assert_eq!(factorial_count, 3);
+        assert_eq!(*current, Expression::Integer(5));
+    }
+
+    #[test]
+    fn test_negative_exponent() {
+        // 2^-3 should parse as 2^(-(3))
+        let expr = parse("2^-3").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Pow,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Integer(2));
+                assert!(matches!(
+                    *right,
+                    Expression::Unary {
+                        op: UnaryOp::Neg,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected power"),
+        }
+    }
+
+    #[test]
+    fn test_power_zero_and_one() {
+        // x^0
+        let expr = parse("x^0").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Pow,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Variable("x".to_string()));
+                assert_eq!(*right, Expression::Integer(0));
+            }
+            _ => panic!("Expected power"),
+        }
+
+        // x^1
+        let expr = parse("x^1").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Pow,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Variable("x".to_string()));
+                assert_eq!(*right, Expression::Integer(1));
+            }
+            _ => panic!("Expected power"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod extended_functions {
+    use super::*;
+
+    #[test]
+    fn test_many_function_arguments() {
+        // Test function with 10 arguments
+        let expr = parse("f(a, b, c, d, e, f, g, h, i, j)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "f");
+                assert_eq!(args.len(), 10);
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_deeply_nested_functions_three_levels() {
+        // f(g(h(x)))
+        let expr = parse("f(g(h(x)))").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "f");
+                assert_eq!(args.len(), 1);
+                match &args[0] {
+                    Expression::Function { name, args } => {
+                        assert_eq!(name, "g");
+                        assert_eq!(args.len(), 1);
+                        match &args[0] {
+                            Expression::Function { name, args } => {
+                                assert_eq!(name, "h");
+                                assert_eq!(args.len(), 1);
+                                assert_eq!(args[0], Expression::Variable("x".to_string()));
+                            }
+                            _ => panic!("Expected third level function"),
+                        }
+                    }
+                    _ => panic!("Expected second level function"),
+                }
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_function_with_factorial_argument() {
+        // sin(5!)
+        let expr = parse("sin(5!)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "sin");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(
+                    args[0],
+                    Expression::Unary {
+                        op: UnaryOp::Factorial,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_function_with_equation_argument() {
+        // solve(x = 5) - equation as argument should parse
+        let expr = parse("solve(x = 5)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "solve");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Equation { .. }));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_function_with_inequality_argument() {
+        // filter(x > 0)
+        let expr = parse("filter(x > 0)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "filter");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Inequality { .. }));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_function_with_all_operator_types() {
+        // f(a+b, c*d, e^f, g!)
+        let expr = parse("f(a+b, c*d, e^f, g!)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "f");
+                assert_eq!(args.len(), 4);
+                assert!(matches!(
+                    args[0],
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+                assert!(matches!(
+                    args[1],
+                    Expression::Binary {
+                        op: BinaryOp::Mul,
+                        ..
+                    }
+                ));
+                assert!(matches!(
+                    args[2],
+                    Expression::Binary {
+                        op: BinaryOp::Pow,
+                        ..
+                    }
+                ));
+                assert!(matches!(
+                    args[3],
+                    Expression::Unary {
+                        op: UnaryOp::Factorial,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_function_with_nested_parentheses_argument() {
+        // f(((x)))
+        let expr = parse("f(((x)))").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "f");
+                assert_eq!(args.len(), 1);
+                assert_eq!(args[0], Expression::Variable("x".to_string()));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod extended_implicit_multiplication {
+    use super::*;
+
+    #[test]
+    fn test_implicit_mult_factorial_then_variable() {
+        // 5!x should parse as (5!)*x
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("5!x", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Unary {
+                        op: UnaryOp::Factorial,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Variable("x".to_string()));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_factorial_then_parens() {
+        // 5!(x+1) should parse as (5!)*(x+1)
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("5!(x+1)", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Unary {
+                        op: UnaryOp::Factorial,
+                        ..
+                    }
+                ));
+                assert!(matches!(
+                    *right,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_chained_three_variables() {
+        // a b c should parse as (a*b)*c
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("a b c", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Mul,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Variable("c".to_string()));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_constant_then_function() {
+        // pi sin(x) should parse as pi*sin(x)
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("pi sin(x)", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Constant(MathConstant::Pi));
+                assert!(matches!(*right, Expression::Function { .. }));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_multiple_numbers_fails() {
+        // 2 3 with implicit mult should fail (numbers separated by space are ambiguous)
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        // Note: This actually tokenizes as two separate integers
+        // and would need explicit multiplication. Parser should error on unexpected token.
+        let result = parse_with_config("2 3", &config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_implicit_mult_power_chain() {
+        // 2x^3 should parse as 2*(x^3), not (2*x)^3
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("2x^3", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Integer(2));
+                assert!(matches!(
+                    *right,
+                    Expression::Binary {
+                        op: BinaryOp::Pow,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_with_relation() {
+        // 2x = 5 should parse as (2*x) = 5
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("2x = 5", &config).unwrap();
+        match expr {
+            Expression::Equation { left, right } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Mul,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Integer(5));
+            }
+            _ => panic!("Expected equation"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod extended_error_cases {
+    use super::*;
+
+    #[test]
+    fn test_error_leading_comma_in_function() {
+        let result = parse("f(,x)");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_trailing_comma_in_function() {
+        let result = parse("f(x,)");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_double_comma_in_function() {
+        let result = parse("f(x,,y)");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_lone_star_operator() {
+        let result = parse("*");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_lone_slash_operator() {
+        let result = parse("/");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_lone_caret_operator() {
+        let result = parse("^");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_lone_percent_operator() {
+        let result = parse("%");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_empty_parens_not_function() {
+        // () without function name should error
+        let result = parse("()");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_just_whitespace() {
+        let result = parse("   ");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_mismatched_brackets() {
+        // Parser doesn't use brackets for primary expressions
+        // but tokenizer recognizes them
+        let result = parse("[1]");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_double_operators() {
+        let result = parse("2 ** 3");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_triple_equals() {
+        let result = parse("x === 5");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_incomplete_inequality() {
+        let result = parse("x <");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_parentheses_mismatch_extra_open() {
+        let result = parse("((2 + 3)");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_parentheses_mismatch_extra_close() {
+        let result = parse("(2 + 3))");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_invalid_function_name() {
+        // Numbers can't start function names
+        // With implicit mult, 2func(x) parses as 2*func(x) which is valid
+        // Without implicit mult, it's an error
+        let config = ParserConfig {
+            implicit_multiplication: false,
+        };
+        let result = parse_with_config("2func(x)", &config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_unclosed_function_call() {
+        let result = parse("sin(x");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_error_comma_outside_function() {
+        let result = parse("x, y");
+        assert!(result.is_err());
+    }
+}
+
+#[cfg(test)]
+mod stress_tests {
+    use super::*;
+
+    #[test]
+    fn test_deeply_nested_parentheses() {
+        // 10 levels of nesting
+        let expr = parse("((((((((((x))))))))))").unwrap();
+        assert_eq!(expr, Expression::Variable("x".to_string()));
+    }
+
+    #[test]
+    fn test_very_long_expression() {
+        // Long chain of additions
+        let expr = parse("1+2+3+4+5+6+7+8+9+10").unwrap();
+        // Just verify it parses without error
+        assert!(matches!(
+            expr,
+            Expression::Binary {
+                op: BinaryOp::Add,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_complex_nested_expression() {
+        // Combining many features
+        let expr = parse("2*sin(x^2 + 1)! - cos(y)/(z + 1)").unwrap();
+        assert!(matches!(
+            expr,
+            Expression::Binary {
+                op: BinaryOp::Sub,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_many_nested_functions() {
+        // Multiple function calls at same level
+        let expr = parse("f(g(x), h(y), i(z), j(a), k(b))").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "f");
+                assert_eq!(args.len(), 5);
+                for arg in args {
+                    assert!(matches!(arg, Expression::Function { .. }));
+                }
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_alternating_operators() {
+        // a + b - c + d - e
+        let expr = parse("a + b - c + d - e").unwrap();
+        assert!(matches!(
+            expr,
+            Expression::Binary {
+                op: BinaryOp::Sub,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_complex_precedence_expression() {
+        // ((a + b) * c - d / e) ^ f
+        let expr = parse("((a + b) * c - d / e) ^ f").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Pow,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Sub,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Variable("f".to_string()));
+            }
+            _ => panic!("Expected power"),
+        }
+    }
+}
