@@ -80,6 +80,9 @@ pub mod latex;
 pub mod parser;
 pub mod util;
 
+#[cfg(feature = "ffi")]
+pub mod ffi;
+
 // Re-export key types at crate root for convenience
 pub use ast::{
     BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, MathConstant, UnaryOp,

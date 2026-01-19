@@ -34,7 +34,8 @@ let package = Package(
         // Tests
         .testTarget(
             name: "MathLexTests",
-            dependencies: ["MathLex"]
+            dependencies: ["MathLex"],
+            path: "swift/Tests/MathLexTests"
         ),
     ]
 )

@@ -18,6 +18,9 @@ Cargo.lock
 *.dylib
 *.so
 
+# Generated FFI bindings
+/generated/
+
 # Swift
 .build/
 .swiftpm/
