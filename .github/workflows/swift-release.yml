@@ -1,0 +1,53 @@
+name: Swift Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-xcframework:
+    name: Build XCFramework
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios,aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build XCFramework
+        run: |
+          chmod +x scripts/build-xcframework.sh
+          ./scripts/build-xcframework.sh
+
+      - name: Zip XCFramework
+        run: |
+          cd target/xcframework
+          zip -r MathLex.xcframework.zip MathLex.xcframework
+
+      - name: Calculate checksum
+        id: checksum
+        run: |
+          CHECKSUM=$(shasum -a 256 target/xcframework/MathLex.xcframework.zip | cut -d' ' -f1)
+          echo "checksum=$CHECKSUM" >> $GITHUB_OUTPUT
+
+      - name: Upload XCFramework to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: target/xcframework/MathLex.xcframework.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Output checksum
+        run: |
+          echo "## XCFramework Checksum" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "SHA-256: \`${{ steps.checksum.outputs.checksum }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Use this checksum in Package.swift for binary target verification." >> $GITHUB_STEP_SUMMARY
