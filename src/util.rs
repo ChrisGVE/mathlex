@@ -13,7 +13,7 @@
 //!
 //! ## Examples
 //!
-//! ```ignore
+//! ```
 //! use mathlex::ast::{Expression, BinaryOp, MathConstant};
 //!
 //! // Create expression: 2 * π * x
@@ -46,8 +46,8 @@ impl Expression {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use mathlex::ast::Expression;
+    /// ```
+    /// use mathlex::ast::{Expression, BinaryOp};
     ///
     /// // x + y
     /// let expr = Expression::Binary {
@@ -190,8 +190,8 @@ impl Expression {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use mathlex::ast::Expression;
+    /// ```
+    /// use mathlex::ast::{Expression, BinaryOp};
     ///
     /// // sin(x) + cos(y)
     /// let expr = Expression::Binary {
@@ -325,8 +325,8 @@ impl Expression {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use mathlex::ast::{Expression, MathConstant};
+    /// ```
+    /// use mathlex::ast::{Expression, MathConstant, BinaryOp};
     ///
     /// // 2 * π + e
     /// let expr = Expression::Binary {
@@ -458,8 +458,8 @@ impl Expression {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use mathlex::ast::Expression;
+    /// ```
+    /// use mathlex::ast::{Expression, BinaryOp};
     ///
     /// // Simple leaf: x
     /// let leaf = Expression::Variable("x".to_string());
@@ -585,8 +585,8 @@ impl Expression {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use mathlex::ast::Expression;
+    /// ```
+    /// use mathlex::ast::{Expression, BinaryOp};
     ///
     /// // Simple leaf: x
     /// let leaf = Expression::Variable("x".to_string());

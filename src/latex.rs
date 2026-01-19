@@ -24,8 +24,8 @@
 //!
 //! ## Examples
 //!
-//! ```ignore
-//! use mathlex::ast::{Expression, BinaryOp};
+//! ```
+//! use mathlex::ast::Expression;
 //! use mathlex::latex::ToLatex;
 //!
 //! // 1/2 → "\frac{1}{2}"
@@ -45,7 +45,7 @@ use crate::ast::*;
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use mathlex::ast::{Expression, MathConstant};
 /// use mathlex::latex::ToLatex;
 ///

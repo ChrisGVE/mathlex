@@ -20,7 +20,7 @@
 //!
 //! ## Examples
 //!
-//! ```ignore
+//! ```
 //! use mathlex::ast::{Expression, BinaryOp, MathConstant};
 //!
 //! // Representing: 2 * π
@@ -29,6 +29,12 @@
 //!     left: Box::new(Expression::Integer(2)),
 //!     right: Box::new(Expression::Constant(MathConstant::Pi)),
 //! };
+//!
+//! // Verify structure
+//! match expr {
+//!     Expression::Binary { op: BinaryOp::Mul, .. } => println!("It's multiplication!"),
+//!     _ => panic!("Unexpected expression type"),
+//! }
 //! ```
 
 use ordered_float::OrderedFloat;
@@ -41,7 +47,7 @@ use std::fmt;
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use mathlex::ast::MathFloat;
 ///
 /// let f1 = MathFloat::from(3.14);
@@ -52,6 +58,7 @@ use std::fmt;
 /// assert_eq!(value, 3.14);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MathFloat(OrderedFloat<f64>);
 
 impl MathFloat {
@@ -94,13 +101,15 @@ impl fmt::Display for MathFloat {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use mathlex::ast::MathConstant;
 ///
 /// let pi = MathConstant::Pi;
 /// let euler = MathConstant::E;
+/// assert_ne!(pi, euler);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum MathConstant {
     /// The mathematical constant π (pi), approximately 3.14159...
     Pi,
@@ -124,13 +133,15 @@ pub enum MathConstant {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use mathlex::ast::BinaryOp;
 ///
 /// let add = BinaryOp::Add;  // +
 /// let pow = BinaryOp::Pow;  // ^
+/// assert_ne!(add, pow);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum BinaryOp {
     /// Addition operator (+)
     Add,
@@ -157,13 +168,15 @@ pub enum BinaryOp {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use mathlex::ast::UnaryOp;
 ///
 /// let neg = UnaryOp::Neg;        // Negation
 /// let fact = UnaryOp::Factorial; // Factorial (!)
+/// assert_ne!(neg, fact);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum UnaryOp {
     /// Negation operator (-)
     Neg,
@@ -184,14 +197,16 @@ pub enum UnaryOp {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use mathlex::ast::Direction;
 ///
 /// let from_left = Direction::Left;   // lim x→a⁻
 /// let from_right = Direction::Right; // lim x→a⁺
 /// let both = Direction::Both;        // lim x→a
+/// assert_ne!(from_left, both);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Direction {
     /// Approach from the left (values less than the limit point)
     Left,
@@ -209,14 +224,16 @@ pub enum Direction {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use mathlex::ast::InequalityOp;
 ///
 /// let less_than = InequalityOp::Lt;     // <
 /// let less_equal = InequalityOp::Le;    // ≤
 /// let not_equal = InequalityOp::Ne;     // ≠
+/// assert_ne!(less_than, less_equal);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum InequalityOp {
     /// Less than (<)
     Lt,
@@ -240,7 +257,7 @@ pub enum InequalityOp {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use mathlex::ast::{IntegralBounds, Expression};
 ///
 /// // Integral from 0 to 1
@@ -248,8 +265,14 @@ pub enum InequalityOp {
 ///     lower: Box::new(Expression::Integer(0)),
 ///     upper: Box::new(Expression::Integer(1)),
 /// };
+///
+/// match (*bounds.lower, *bounds.upper) {
+///     (Expression::Integer(0), Expression::Integer(1)) => println!("Bounds are 0 to 1"),
+///     _ => panic!("Unexpected bounds"),
+/// }
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct IntegralBounds {
     /// Lower bound of integration
     pub lower: Box<Expression>,
@@ -296,7 +319,7 @@ pub struct IntegralBounds {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use mathlex::ast::{Expression, BinaryOp, MathConstant};
 ///
 /// // 2 * π
@@ -305,8 +328,15 @@ pub struct IntegralBounds {
 ///     left: Box::new(Expression::Integer(2)),
 ///     right: Box::new(Expression::Constant(MathConstant::Pi)),
 /// };
+///
+/// // Pattern match to verify structure
+/// match expr {
+///     Expression::Binary { op: BinaryOp::Mul, .. } => println!("Multiplication expression"),
+///     _ => panic!("Unexpected expression"),
+/// }
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Expression {
     /// Integer literal.
     ///
