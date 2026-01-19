@@ -1,3 +1,4 @@
+#![allow(clippy::approx_constant)]
 //! Round-trip Tests for mathlex
 //!
 //! This module tests that parse -> to_string -> parse and parse_latex -> to_latex -> parse_latex

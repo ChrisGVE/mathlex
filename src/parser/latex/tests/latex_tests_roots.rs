@@ -50,7 +50,13 @@ fn test_sqrt_expression_addition() {
         Expression::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
-            assert!(matches!(args[0], Expression::Binary { op: BinaryOp::Add, .. }));
+            assert!(matches!(
+                args[0],
+                Expression::Binary {
+                    op: BinaryOp::Add,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected function call"),
     }
@@ -70,7 +76,13 @@ fn test_sqrt_expression_power() {
                     left,
                     ..
                 } => {
-                    assert!(matches!(**left, Expression::Binary { op: BinaryOp::Pow, .. }));
+                    assert!(matches!(
+                        **left,
+                        Expression::Binary {
+                            op: BinaryOp::Pow,
+                            ..
+                        }
+                    ));
                 }
                 _ => panic!("Expected addition"),
             }
@@ -86,7 +98,13 @@ fn test_sqrt_expression_multiplication() {
         Expression::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
-            assert!(matches!(args[0], Expression::Binary { op: BinaryOp::Mul, .. }));
+            assert!(matches!(
+                args[0],
+                Expression::Binary {
+                    op: BinaryOp::Mul,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected function call"),
     }
@@ -188,7 +206,13 @@ fn test_root_expression_index() {
             assert_eq!(name, "root");
             assert_eq!(args.len(), 2);
             assert_eq!(args[0], Expression::Variable("x".to_string()));
-            assert!(matches!(args[1], Expression::Binary { op: BinaryOp::Add, .. }));
+            assert!(matches!(
+                args[1],
+                Expression::Binary {
+                    op: BinaryOp::Add,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected function call"),
     }
@@ -202,7 +226,13 @@ fn test_root_complex_radicand() {
             assert_eq!(name, "root");
             assert_eq!(args.len(), 2);
             // Radicand should be a complex expression
-            assert!(matches!(args[0], Expression::Binary { op: BinaryOp::Add, .. }));
+            assert!(matches!(
+                args[0],
+                Expression::Binary {
+                    op: BinaryOp::Add,
+                    ..
+                }
+            ));
             assert_eq!(args[1], Expression::Integer(4));
         }
         _ => panic!("Expected function call"),
@@ -281,7 +311,13 @@ fn test_sqrt_with_fraction() {
         Expression::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
-            assert!(matches!(args[0], Expression::Binary { op: BinaryOp::Div, .. }));
+            assert!(matches!(
+                args[0],
+                Expression::Binary {
+                    op: BinaryOp::Div,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected function call"),
     }
@@ -319,26 +355,18 @@ fn test_multiple_roots() {
             op: BinaryOp::Add,
             left,
             right,
-        } => {
-            match (*left, *right) {
-                (
-                    Expression::Function {
-                        name: n1,
-                        args: a1,
-                    },
-                    Expression::Function {
-                        name: n2,
-                        args: a2,
-                    },
-                ) => {
-                    assert_eq!(n1, "sqrt");
-                    assert_eq!(a1.len(), 1);
-                    assert_eq!(n2, "root");
-                    assert_eq!(a2.len(), 2);
-                }
-                _ => panic!("Expected two function calls"),
+        } => match (*left, *right) {
+            (
+                Expression::Function { name: n1, args: a1 },
+                Expression::Function { name: n2, args: a2 },
+            ) => {
+                assert_eq!(n1, "sqrt");
+                assert_eq!(a1.len(), 1);
+                assert_eq!(n2, "root");
+                assert_eq!(a2.len(), 2);
             }
-        }
+            _ => panic!("Expected two function calls"),
+        },
         _ => panic!("Expected addition"),
     }
 }

@@ -91,8 +91,20 @@ fn test_frac_nested_both() {
             right,
         } => {
             // Both numerator and denominator should be divisions
-            assert!(matches!(*left, Expression::Binary { op: BinaryOp::Div, .. }));
-            assert!(matches!(*right, Expression::Binary { op: BinaryOp::Div, .. }));
+            assert!(matches!(
+                *left,
+                Expression::Binary {
+                    op: BinaryOp::Div,
+                    ..
+                }
+            ));
+            assert!(matches!(
+                *right,
+                Expression::Binary {
+                    op: BinaryOp::Div,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected division"),
     }
@@ -114,7 +126,13 @@ fn test_frac_nested_three_levels() {
                     left: inner_left,
                     ..
                 } => {
-                    assert!(matches!(*inner_left, Expression::Binary { op: BinaryOp::Div, .. }));
+                    assert!(matches!(
+                        *inner_left,
+                        Expression::Binary {
+                            op: BinaryOp::Div,
+                            ..
+                        }
+                    ));
                 }
                 _ => panic!("Expected nested divisions"),
             }
@@ -135,7 +153,9 @@ fn test_frac_complex_numerator() {
         } => {
             // Numerator should be an addition
             match *left {
-                Expression::Binary { op: BinaryOp::Add, .. } => {}
+                Expression::Binary {
+                    op: BinaryOp::Add, ..
+                } => {}
                 _ => panic!("Expected addition in numerator"),
             }
             assert_eq!(*right, Expression::Integer(2));
@@ -156,7 +176,9 @@ fn test_frac_complex_denominator() {
             assert_eq!(*left, Expression::Integer(1));
             // Denominator should be an addition
             match *right {
-                Expression::Binary { op: BinaryOp::Add, .. } => {}
+                Expression::Binary {
+                    op: BinaryOp::Add, ..
+                } => {}
                 _ => panic!("Expected addition in denominator"),
             }
         }
@@ -175,12 +197,16 @@ fn test_frac_both_complex() {
         } => {
             // Numerator should be an addition with power
             match *left {
-                Expression::Binary { op: BinaryOp::Add, .. } => {}
+                Expression::Binary {
+                    op: BinaryOp::Add, ..
+                } => {}
                 _ => panic!("Expected addition in numerator"),
             }
             // Denominator should be a subtraction
             match *right {
-                Expression::Binary { op: BinaryOp::Sub, .. } => {}
+                Expression::Binary {
+                    op: BinaryOp::Sub, ..
+                } => {}
                 _ => panic!("Expected subtraction in denominator"),
             }
         }
@@ -197,8 +223,20 @@ fn test_frac_with_multiplication() {
             left,
             right,
         } => {
-            assert!(matches!(*left, Expression::Binary { op: BinaryOp::Mul, .. }));
-            assert!(matches!(*right, Expression::Binary { op: BinaryOp::Mul, .. }));
+            assert!(matches!(
+                *left,
+                Expression::Binary {
+                    op: BinaryOp::Mul,
+                    ..
+                }
+            ));
+            assert!(matches!(
+                *right,
+                Expression::Binary {
+                    op: BinaryOp::Mul,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected division"),
     }
@@ -213,8 +251,20 @@ fn test_frac_with_powers() {
             left,
             right,
         } => {
-            assert!(matches!(*left, Expression::Binary { op: BinaryOp::Pow, .. }));
-            assert!(matches!(*right, Expression::Binary { op: BinaryOp::Pow, .. }));
+            assert!(matches!(
+                *left,
+                Expression::Binary {
+                    op: BinaryOp::Pow,
+                    ..
+                }
+            ));
+            assert!(matches!(
+                *right,
+                Expression::Binary {
+                    op: BinaryOp::Pow,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected division"),
     }
@@ -228,15 +278,13 @@ fn test_frac_with_floats() {
             op: BinaryOp::Div,
             left,
             right,
-        } => {
-            match (*left, *right) {
-                (Expression::Float(f1), Expression::Float(f2)) => {
-                    assert!((f1.value() - 1.5).abs() < 1e-10);
-                    assert!((f2.value() - 2.7).abs() < 1e-10);
-                }
-                _ => panic!("Expected floats"),
+        } => match (*left, *right) {
+            (Expression::Float(f1), Expression::Float(f2)) => {
+                assert!((f1.value() - 1.5).abs() < 1e-10);
+                assert!((f2.value() - 2.7).abs() < 1e-10);
             }
-        }
+            _ => panic!("Expected floats"),
+        },
         _ => panic!("Expected division"),
     }
 }
@@ -252,7 +300,13 @@ fn test_frac_in_expression() {
             right,
         } => {
             assert_eq!(*left, Expression::Integer(1));
-            assert!(matches!(*right, Expression::Binary { op: BinaryOp::Div, .. }));
+            assert!(matches!(
+                *right,
+                Expression::Binary {
+                    op: BinaryOp::Div,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected addition"),
     }
@@ -268,8 +322,20 @@ fn test_multiple_fracs() {
             left,
             right,
         } => {
-            assert!(matches!(*left, Expression::Binary { op: BinaryOp::Div, .. }));
-            assert!(matches!(*right, Expression::Binary { op: BinaryOp::Div, .. }));
+            assert!(matches!(
+                *left,
+                Expression::Binary {
+                    op: BinaryOp::Div,
+                    ..
+                }
+            ));
+            assert!(matches!(
+                *right,
+                Expression::Binary {
+                    op: BinaryOp::Div,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected addition"),
     }
@@ -285,8 +351,20 @@ fn test_frac_with_parentheses() {
             right,
         } => {
             // Parentheses are transparent in the AST
-            assert!(matches!(*left, Expression::Binary { op: BinaryOp::Add, .. }));
-            assert!(matches!(*right, Expression::Binary { op: BinaryOp::Sub, .. }));
+            assert!(matches!(
+                *left,
+                Expression::Binary {
+                    op: BinaryOp::Add,
+                    ..
+                }
+            ));
+            assert!(matches!(
+                *right,
+                Expression::Binary {
+                    op: BinaryOp::Sub,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected division"),
     }

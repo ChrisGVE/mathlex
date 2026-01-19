@@ -12,29 +12,17 @@ use mathlex::{parse, parse_latex, ToLatex};
 fn benchmark_text_parser_simple(c: &mut Criterion) {
     let mut group = c.benchmark_group("text_parser_simple");
 
-    group.bench_function("literal_integer", |b| {
-        b.iter(|| parse(black_box("42")))
-    });
+    group.bench_function("literal_integer", |b| b.iter(|| parse(black_box("42"))));
 
-    group.bench_function("literal_float", |b| {
-        b.iter(|| parse(black_box("3.14159")))
-    });
+    group.bench_function("literal_float", |b| b.iter(|| parse(black_box("3.14159"))));
 
-    group.bench_function("variable", |b| {
-        b.iter(|| parse(black_box("x")))
-    });
+    group.bench_function("variable", |b| b.iter(|| parse(black_box("x"))));
 
-    group.bench_function("addition", |b| {
-        b.iter(|| parse(black_box("2 + 3")))
-    });
+    group.bench_function("addition", |b| b.iter(|| parse(black_box("2 + 3"))));
 
-    group.bench_function("multiplication", |b| {
-        b.iter(|| parse(black_box("2 * 3")))
-    });
+    group.bench_function("multiplication", |b| b.iter(|| parse(black_box("2 * 3"))));
 
-    group.bench_function("power", |b| {
-        b.iter(|| parse(black_box("x^2")))
-    });
+    group.bench_function("power", |b| b.iter(|| parse(black_box("x^2"))));
 
     group.finish();
 }
@@ -51,9 +39,7 @@ fn benchmark_text_parser_medium(c: &mut Criterion) {
         b.iter(|| parse(black_box("(a + b) * (c - d)")))
     });
 
-    group.bench_function("function_call", |b| {
-        b.iter(|| parse(black_box("sin(x)")))
-    });
+    group.bench_function("function_call", |b| b.iter(|| parse(black_box("sin(x)"))));
 
     group.bench_function("multiple_functions", |b| {
         b.iter(|| parse(black_box("sin(x) + cos(y)")))
@@ -152,27 +138,15 @@ fn benchmark_latex_parser_matrices(c: &mut Criterion) {
     let mut group = c.benchmark_group("latex_parser_matrices");
 
     group.bench_function("vector_2d", |b| {
-        b.iter(|| {
-            parse_latex(black_box(
-                r"\begin{pmatrix} 1 \\ 2 \end{pmatrix}",
-            ))
-        })
+        b.iter(|| parse_latex(black_box(r"\begin{pmatrix} 1 \\ 2 \end{pmatrix}")))
     });
 
     group.bench_function("vector_3d", |b| {
-        b.iter(|| {
-            parse_latex(black_box(
-                r"\begin{pmatrix} x \\ y \\ z \end{pmatrix}",
-            ))
-        })
+        b.iter(|| parse_latex(black_box(r"\begin{pmatrix} x \\ y \\ z \end{pmatrix}")))
     });
 
     group.bench_function("matrix_2x2", |b| {
-        b.iter(|| {
-            parse_latex(black_box(
-                r"\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}",
-            ))
-        })
+        b.iter(|| parse_latex(black_box(r"\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}")))
     });
 
     group.bench_function("matrix_3x3", |b| {
@@ -199,11 +173,7 @@ fn benchmark_latex_parser_complex(c: &mut Criterion) {
     let mut group = c.benchmark_group("latex_parser_complex");
 
     group.bench_function("quadratic_formula", |b| {
-        b.iter(|| {
-            parse_latex(black_box(
-                r"\frac{-b \pm \sqrt{b^2 - 4ac}}{2a}",
-            ))
-        })
+        b.iter(|| parse_latex(black_box(r"\frac{-b \pm \sqrt{b^2 - 4ac}}{2a}")))
     });
 
     group.bench_function("summation", |b| {
@@ -215,11 +185,7 @@ fn benchmark_latex_parser_complex(c: &mut Criterion) {
     });
 
     group.bench_function("limit", |b| {
-        b.iter(|| {
-            parse_latex(black_box(
-                r"\lim_{x \to 0} \frac{\sin(x)}{x}",
-            ))
-        })
+        b.iter(|| parse_latex(black_box(r"\lim_{x \to 0} \frac{\sin(x)}{x}")))
     });
 
     group.bench_function("derivative", |b| {
@@ -238,13 +204,9 @@ fn benchmark_utilities_find_variables(c: &mut Criterion) {
     let medium = parse("sin(x) + cos(y) * exp(z)").unwrap();
     let complex = parse("x^2 + y^2 + z^2 + w^2 + u^2 + v^2").unwrap();
 
-    group.bench_function("simple", |b| {
-        b.iter(|| black_box(&simple).find_variables())
-    });
+    group.bench_function("simple", |b| b.iter(|| black_box(&simple).find_variables()));
 
-    group.bench_function("medium", |b| {
-        b.iter(|| black_box(&medium).find_variables())
-    });
+    group.bench_function("medium", |b| b.iter(|| black_box(&medium).find_variables()));
 
     group.bench_function("complex", |b| {
         b.iter(|| black_box(&complex).find_variables())
@@ -262,13 +224,9 @@ fn benchmark_utilities_find_functions(c: &mut Criterion) {
     let medium = parse("sin(x) + cos(y) + tan(z)").unwrap();
     let complex = parse("sin(cos(tan(x)))").unwrap();
 
-    group.bench_function("simple", |b| {
-        b.iter(|| black_box(&simple).find_functions())
-    });
+    group.bench_function("simple", |b| b.iter(|| black_box(&simple).find_functions()));
 
-    group.bench_function("medium", |b| {
-        b.iter(|| black_box(&medium).find_functions())
-    });
+    group.bench_function("medium", |b| b.iter(|| black_box(&medium).find_functions()));
 
     group.bench_function("complex", |b| {
         b.iter(|| black_box(&complex).find_functions())
@@ -286,17 +244,11 @@ fn benchmark_utilities_metrics(c: &mut Criterion) {
     let medium = parse("(x + y) * (z - w)").unwrap();
     let deep = parse("((((a + b) * c) - d) / e) ^ f").unwrap();
 
-    group.bench_function("depth_shallow", |b| {
-        b.iter(|| black_box(&shallow).depth())
-    });
+    group.bench_function("depth_shallow", |b| b.iter(|| black_box(&shallow).depth()));
 
-    group.bench_function("depth_medium", |b| {
-        b.iter(|| black_box(&medium).depth())
-    });
+    group.bench_function("depth_medium", |b| b.iter(|| black_box(&medium).depth()));
 
-    group.bench_function("depth_deep", |b| {
-        b.iter(|| black_box(&deep).depth())
-    });
+    group.bench_function("depth_deep", |b| b.iter(|| black_box(&deep).depth()));
 
     group.bench_function("node_count_shallow", |b| {
         b.iter(|| black_box(&shallow).node_count())
@@ -322,17 +274,11 @@ fn benchmark_display_to_string(c: &mut Criterion) {
     let medium = parse("sin(x^2) + cos(y)").unwrap();
     let complex = parse("(a + b) * (c - d) / (e + f)").unwrap();
 
-    group.bench_function("simple", |b| {
-        b.iter(|| format!("{}", black_box(&simple)))
-    });
+    group.bench_function("simple", |b| b.iter(|| format!("{}", black_box(&simple))));
 
-    group.bench_function("medium", |b| {
-        b.iter(|| format!("{}", black_box(&medium)))
-    });
+    group.bench_function("medium", |b| b.iter(|| format!("{}", black_box(&medium))));
 
-    group.bench_function("complex", |b| {
-        b.iter(|| format!("{}", black_box(&complex)))
-    });
+    group.bench_function("complex", |b| b.iter(|| format!("{}", black_box(&complex))));
 
     group.finish();
 }
@@ -346,17 +292,11 @@ fn benchmark_to_latex(c: &mut Criterion) {
     let fraction = parse("(x + 1) / (x - 1)").unwrap();
     let complex = parse("sin(x^2) + cos(y) * exp(z)").unwrap();
 
-    group.bench_function("simple", |b| {
-        b.iter(|| black_box(&simple).to_latex())
-    });
+    group.bench_function("simple", |b| b.iter(|| black_box(&simple).to_latex()));
 
-    group.bench_function("fraction", |b| {
-        b.iter(|| black_box(&fraction).to_latex())
-    });
+    group.bench_function("fraction", |b| b.iter(|| black_box(&fraction).to_latex()));
 
-    group.bench_function("complex", |b| {
-        b.iter(|| black_box(&complex).to_latex())
-    });
+    group.bench_function("complex", |b| b.iter(|| black_box(&complex).to_latex()));
 
     group.finish();
 }

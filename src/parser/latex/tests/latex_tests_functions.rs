@@ -293,7 +293,13 @@ fn test_sin_of_addition() {
         Expression::Function { name, args } => {
             assert_eq!(name, "sin");
             assert_eq!(args.len(), 1);
-            assert!(matches!(args[0], Expression::Binary { op: BinaryOp::Add, .. }));
+            assert!(matches!(
+                args[0],
+                Expression::Binary {
+                    op: BinaryOp::Add,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected function call"),
     }
@@ -306,7 +312,13 @@ fn test_cos_of_multiplication() {
         Expression::Function { name, args } => {
             assert_eq!(name, "cos");
             assert_eq!(args.len(), 1);
-            assert!(matches!(args[0], Expression::Binary { op: BinaryOp::Mul, .. }));
+            assert!(matches!(
+                args[0],
+                Expression::Binary {
+                    op: BinaryOp::Mul,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected function call"),
     }
@@ -319,7 +331,13 @@ fn test_tan_of_fraction() {
         Expression::Function { name, args } => {
             assert_eq!(name, "tan");
             assert_eq!(args.len(), 1);
-            assert!(matches!(args[0], Expression::Binary { op: BinaryOp::Div, .. }));
+            assert!(matches!(
+                args[0],
+                Expression::Binary {
+                    op: BinaryOp::Div,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected function call"),
     }
@@ -332,7 +350,13 @@ fn test_ln_of_power() {
         Expression::Function { name, args } => {
             assert_eq!(name, "ln");
             assert_eq!(args.len(), 1);
-            assert!(matches!(args[0], Expression::Binary { op: BinaryOp::Pow, .. }));
+            assert!(matches!(
+                args[0],
+                Expression::Binary {
+                    op: BinaryOp::Pow,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected function call"),
     }
@@ -345,7 +369,13 @@ fn test_exp_of_negative() {
         Expression::Function { name, args } => {
             assert_eq!(name, "exp");
             assert_eq!(args.len(), 1);
-            assert!(matches!(args[0], Expression::Unary { op: crate::ast::UnaryOp::Neg, .. }));
+            assert!(matches!(
+                args[0],
+                Expression::Unary {
+                    op: crate::ast::UnaryOp::Neg,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected function call"),
     }
@@ -426,18 +456,13 @@ fn test_sin_plus_cos() {
             op: BinaryOp::Add,
             left,
             right,
-        } => {
-            match (*left, *right) {
-                (
-                    Expression::Function { name: n1, .. },
-                    Expression::Function { name: n2, .. },
-                ) => {
-                    assert_eq!(n1, "sin");
-                    assert_eq!(n2, "cos");
-                }
-                _ => panic!("Expected two functions"),
+        } => match (*left, *right) {
+            (Expression::Function { name: n1, .. }, Expression::Function { name: n2, .. }) => {
+                assert_eq!(n1, "sin");
+                assert_eq!(n2, "cos");
             }
-        }
+            _ => panic!("Expected two functions"),
+        },
         _ => panic!("Expected addition"),
     }
 }
@@ -450,18 +475,13 @@ fn test_sin_times_cos() {
             op: BinaryOp::Mul,
             left,
             right,
-        } => {
-            match (*left, *right) {
-                (
-                    Expression::Function { name: n1, .. },
-                    Expression::Function { name: n2, .. },
-                ) => {
-                    assert_eq!(n1, "sin");
-                    assert_eq!(n2, "cos");
-                }
-                _ => panic!("Expected two functions"),
+        } => match (*left, *right) {
+            (Expression::Function { name: n1, .. }, Expression::Function { name: n2, .. }) => {
+                assert_eq!(n1, "sin");
+                assert_eq!(n2, "cos");
             }
-        }
+            _ => panic!("Expected two functions"),
+        },
         _ => panic!("Expected multiplication"),
     }
 }

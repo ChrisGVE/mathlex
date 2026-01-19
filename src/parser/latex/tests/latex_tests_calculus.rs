@@ -50,7 +50,9 @@ fn test_derivative_of_expression() {
             assert_eq!(var, "x");
             assert_eq!(order, 1);
             match *expr {
-                Expression::Binary { op: BinaryOp::Add, .. } => {}
+                Expression::Binary {
+                    op: BinaryOp::Add, ..
+                } => {}
                 _ => panic!("Expected addition in derivative"),
             }
         }
@@ -136,7 +138,9 @@ fn test_partial_derivative_of_expression() {
             assert_eq!(var, "x");
             assert_eq!(order, 1);
             match *expr {
-                Expression::Binary { op: BinaryOp::Mul, .. } => {}
+                Expression::Binary {
+                    op: BinaryOp::Mul, ..
+                } => {}
                 _ => panic!("Expected multiplication"),
             }
         }
@@ -194,7 +198,9 @@ fn test_integral_indefinite_expression() {
         } => {
             assert_eq!(var, "x");
             match *integrand {
-                Expression::Binary { op: BinaryOp::Add, .. } => {}
+                Expression::Binary {
+                    op: BinaryOp::Add, ..
+                } => {}
                 _ => panic!("Expected addition"),
             }
             assert!(bounds.is_none());
@@ -228,7 +234,7 @@ fn test_integral_definite_negative_bounds() {
     let expr = parse_latex(r"\int_{-1}^{1} x dx").unwrap();
     match expr {
         Expression::Integral {
-            integrand,
+            integrand: _,
             var,
             bounds,
         } => {
@@ -299,7 +305,9 @@ fn test_integral_complex_integrand() {
         } => {
             assert_eq!(var, "x");
             match *integrand {
-                Expression::Binary { op: BinaryOp::Add, .. } => {}
+                Expression::Binary {
+                    op: BinaryOp::Add, ..
+                } => {}
                 _ => panic!("Expected addition"),
             }
             assert!(bounds.is_some());
@@ -418,7 +426,9 @@ fn test_limit_of_expression() {
             assert_eq!(*to, Expression::Integer(0));
             assert_eq!(direction, Direction::Both);
             match *expr {
-                Expression::Binary { op: BinaryOp::Add, .. } => {}
+                Expression::Binary {
+                    op: BinaryOp::Add, ..
+                } => {}
                 _ => panic!("Expected addition"),
             }
         }
@@ -462,7 +472,9 @@ fn test_limit_of_fraction() {
             assert_eq!(*to, Expression::Integer(0));
             assert_eq!(direction, Direction::Both);
             match *expr {
-                Expression::Binary { op: BinaryOp::Div, .. } => {}
+                Expression::Binary {
+                    op: BinaryOp::Div, ..
+                } => {}
                 _ => panic!("Expected division"),
             }
         }
@@ -543,7 +555,9 @@ fn test_sum_complex_body() {
             assert_eq!(*lower, Expression::Integer(1));
             assert_eq!(*upper, Expression::Variable("n".to_string()));
             match *body {
-                Expression::Binary { op: BinaryOp::Pow, .. } => {}
+                Expression::Binary {
+                    op: BinaryOp::Pow, ..
+                } => {}
                 _ => panic!("Expected power"),
             }
         }
@@ -564,7 +578,9 @@ fn test_sum_expression_bounds() {
             assert_eq!(index, "i");
             assert_eq!(*lower, Expression::Integer(1));
             match *upper {
-                Expression::Binary { op: BinaryOp::Add, .. } => {}
+                Expression::Binary {
+                    op: BinaryOp::Add, ..
+                } => {}
                 _ => panic!("Expected addition in upper bound"),
             }
             assert_eq!(*body, Expression::Variable("i".to_string()));
@@ -627,7 +643,9 @@ fn test_product_complex_body() {
             assert_eq!(*lower, Expression::Integer(1));
             assert_eq!(*upper, Expression::Variable("n".to_string()));
             match *body {
-                Expression::Binary { op: BinaryOp::Mul, .. } => {}
+                Expression::Binary {
+                    op: BinaryOp::Mul, ..
+                } => {}
                 _ => panic!("Expected multiplication"),
             }
         }
@@ -648,7 +666,9 @@ fn test_product_expression_bounds() {
             assert_eq!(index, "k");
             assert_eq!(*lower, Expression::Integer(2));
             match *upper {
-                Expression::Binary { op: BinaryOp::Sub, .. } => {}
+                Expression::Binary {
+                    op: BinaryOp::Sub, ..
+                } => {}
                 _ => panic!("Expected subtraction in upper bound"),
             }
             assert_eq!(*body, Expression::Variable("k".to_string()));

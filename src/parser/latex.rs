@@ -1,3 +1,6 @@
+// Allow large error variants - boxing would be a breaking API change
+#![allow(clippy::result_large_err)]
+
 //! LaTeX expression parser for mathematical notation.
 //!
 //! This module provides parsing capabilities for LaTeX mathematical expressions,
@@ -410,7 +413,9 @@ impl LatexParser {
                 let denominator = self.braced(|p| p.parse_expression())?;
 
                 // Try to parse as derivative
-                if let Some(derivative) = self.try_parse_derivative(numerator.clone(), denominator.clone())? {
+                if let Some(derivative) =
+                    self.try_parse_derivative(numerator.clone(), denominator.clone())?
+                {
                     return Ok(derivative);
                 }
 
@@ -899,7 +904,7 @@ impl LatexParser {
             "matrix" | "bmatrix" | "pmatrix" | "vmatrix" | "Bmatrix" | "Vmatrix" => {}
             _ => {
                 return Err(ParseError::invalid_latex_command(
-                    &format!("\\begin{{{}}}", env_name),
+                    format!("\\begin{{{}}}", env_name),
                     Some(self.current_span()),
                 ));
             }
@@ -941,11 +946,11 @@ impl LatexParser {
             match self.peek() {
                 Some((LatexToken::Ampersand, _)) => {
                     self.next(); // consume &
-                    // Continue parsing current row
+                                 // Continue parsing current row
                 }
                 Some((LatexToken::DoubleBackslash, _)) => {
                     self.next(); // consume \\
-                    // End current row and start new one
+                                 // End current row and start new one
                     rows.push(current_row);
                     current_row = Vec::new();
                 }
@@ -1006,6 +1011,7 @@ mod fractions_tests;
 
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_roots.rs"]
+#[allow(clippy::approx_constant)]
 mod roots_tests;
 
 #[cfg(test)]
@@ -1014,6 +1020,7 @@ mod powers_subscripts_tests;
 
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_functions.rs"]
+#[allow(clippy::approx_constant)]
 mod functions_tests;
 
 #[cfg(test)]
@@ -1025,6 +1032,7 @@ mod calculus_tests;
 mod errors_tests;
 
 #[cfg(test)]
+#[allow(clippy::approx_constant)]
 mod tests {
     use super::*;
 
@@ -1718,7 +1726,8 @@ mod tests {
 
     #[test]
     fn test_parse_3x3_matrix() {
-        let expr = parse_latex(r"\begin{bmatrix}1 & 2 & 3 \\ 4 & 5 & 6 \\ 7 & 8 & 9\end{bmatrix}").unwrap();
+        let expr = parse_latex(r"\begin{bmatrix}1 & 2 & 3 \\ 4 & 5 & 6 \\ 7 & 8 & 9\end{bmatrix}")
+            .unwrap();
         match expr {
             Expression::Matrix(rows) => {
                 assert_eq!(rows.len(), 3);

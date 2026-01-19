@@ -713,9 +713,7 @@ impl Expression {
     pub fn substitute(&self, var: &str, replacement: &Expression) -> Expression {
         match self {
             // Leaf nodes - check for variable match
-            Expression::Integer(_) | Expression::Float(_) | Expression::Constant(_) => {
-                self.clone()
-            }
+            Expression::Integer(_) | Expression::Float(_) | Expression::Constant(_) => self.clone(),
 
             Expression::Variable(name) => {
                 if name == var {
@@ -765,7 +763,10 @@ impl Expression {
             // Functions - recurse on all arguments
             Expression::Function { name, args } => Expression::Function {
                 name: name.clone(),
-                args: args.iter().map(|arg| arg.substitute(var, replacement)).collect(),
+                args: args
+                    .iter()
+                    .map(|arg| arg.substitute(var, replacement))
+                    .collect(),
             },
 
             // Derivative - var is bound in expr
@@ -938,12 +939,13 @@ impl Expression {
     ///
     /// Same scoping rules as [`substitute`](Expression::substitute) apply.
     /// See that method's documentation for details on bound variables.
-    pub fn substitute_all(&self, subs: &std::collections::HashMap<String, Expression>) -> Expression {
+    pub fn substitute_all(
+        &self,
+        subs: &std::collections::HashMap<String, Expression>,
+    ) -> Expression {
         match self {
             // Leaf nodes - check for variable match
-            Expression::Integer(_) | Expression::Float(_) | Expression::Constant(_) => {
-                self.clone()
-            }
+            Expression::Integer(_) | Expression::Float(_) | Expression::Constant(_) => self.clone(),
 
             Expression::Variable(name) => {
                 if let Some(replacement) = subs.get(name) {

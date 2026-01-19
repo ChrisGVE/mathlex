@@ -1,3 +1,4 @@
+#![allow(clippy::approx_constant)]
 //! Property-based tests using proptest to verify parser invariants and edge cases.
 //!
 //! This module uses proptest to generate arbitrary expressions and verify
@@ -20,7 +21,7 @@ fn arb_expression() -> impl Strategy<Value = Expression> {
             .prop_filter("No NaN", |f| !f.is_nan())
             .prop_map(|f| Expression::Float(MathFloat::from(f))),
         // Single-letter variables
-        "[a-z]".prop_map(|s| Expression::Variable(s)),
+        "[a-z]".prop_map(Expression::Variable),
         // Mathematical constants
         prop_oneof![
             Just(Expression::Constant(MathConstant::Pi)),
@@ -49,9 +50,11 @@ fn arb_expression() -> impl Strategy<Value = Expression> {
                     operand: Box::new(operand),
                 }),
                 // Functions with 1-2 arguments
-                (arb_function_name(), prop::collection::vec(inner.clone(), 1..=2)).prop_map(
-                    |(name, args)| Expression::Function { name, args }
-                ),
+                (
+                    arb_function_name(),
+                    prop::collection::vec(inner.clone(), 1..=2)
+                )
+                    .prop_map(|(name, args)| Expression::Function { name, args }),
                 // Vectors with 1-3 elements
                 prop::collection::vec(inner.clone(), 1..=3).prop_map(Expression::Vector),
             ]

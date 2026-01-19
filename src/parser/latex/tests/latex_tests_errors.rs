@@ -265,7 +265,9 @@ fn test_integral_upper_bound_without_lower() {
     let result = parse_latex(r"\int^1 x dx");
     assert!(result.is_err());
     if let Err(e) = result {
-        assert!(e.to_string().contains("upper bound must also have lower bound"));
+        assert!(e
+            .to_string()
+            .contains("upper bound must also have lower bound"));
     }
 }
 
@@ -274,7 +276,9 @@ fn test_integral_lower_bound_without_upper() {
     let result = parse_latex(r"\int_0 x dx");
     assert!(result.is_err());
     if let Err(e) = result {
-        assert!(e.to_string().contains("lower bound must also have upper bound"));
+        assert!(e
+            .to_string()
+            .contains("lower bound must also have upper bound"));
     }
 }
 
@@ -439,13 +443,15 @@ fn test_multiple_decimal_points() {
     let result = parse_latex("3.14.15");
     // This might tokenize as 3.14 followed by .15 (error) or as an error
     // Either way, it should not succeed as a valid expression
-    assert!(result.is_err() || {
-        // If it parses, check what we got
-        if let Ok(expr) = result {
-            // Should not be a single float with value 3.14.15
-            !matches!(expr, Expression::Float(_))
-        } else {
-            true
+    assert!(
+        result.is_err() || {
+            // If it parses, check what we got
+            if let Ok(expr) = result {
+                // Should not be a single float with value 3.14.15
+                !matches!(expr, Expression::Float(_))
+            } else {
+                true
+            }
         }
-    });
+    );
 }

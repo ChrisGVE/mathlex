@@ -340,6 +340,7 @@ impl fmt::Display for Expression {
 }
 
 #[cfg(test)]
+#[allow(clippy::approx_constant)]
 mod tests {
     use super::*;
 

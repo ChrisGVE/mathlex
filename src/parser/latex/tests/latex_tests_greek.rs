@@ -26,8 +26,7 @@ fn test_lowercase_greek_letters() {
 #[test]
 fn test_uppercase_greek_letters() {
     let greek_letters = [
-        "Gamma", "Delta", "Theta", "Lambda", "Xi", "Pi", "Sigma", "Upsilon", "Phi", "Psi",
-        "Omega",
+        "Gamma", "Delta", "Theta", "Lambda", "Xi", "Pi", "Sigma", "Upsilon", "Phi", "Psi", "Omega",
     ];
 
     for letter in &greek_letters {
@@ -216,13 +215,23 @@ fn test_complex_expression_with_greek_letters() {
 
     // Verify structure
     match &expr {
-        Expression::Binary { op: BinaryOp::Add, left, right } => {
+        Expression::Binary {
+            op: BinaryOp::Add,
+            left,
+            right,
+        } => {
             assert_eq!(**left, Expression::Variable("alpha".to_string()));
             match &**right {
-                Expression::Binary { op: BinaryOp::Mul, left, right } => {
+                Expression::Binary {
+                    op: BinaryOp::Mul,
+                    left,
+                    right,
+                } => {
                     assert_eq!(**left, Expression::Variable("beta".to_string()));
                     match &**right {
-                        Expression::Binary { op: BinaryOp::Pow, .. } => {}
+                        Expression::Binary {
+                            op: BinaryOp::Pow, ..
+                        } => {}
                         _ => panic!("Expected power"),
                     }
                 }
@@ -259,8 +268,7 @@ fn test_all_lowercase_greek_round_trip() {
 #[test]
 fn test_all_uppercase_greek_round_trip() {
     let greek_letters = [
-        "Gamma", "Delta", "Theta", "Lambda", "Xi", "Pi", "Sigma", "Upsilon", "Phi", "Psi",
-        "Omega",
+        "Gamma", "Delta", "Theta", "Lambda", "Xi", "Pi", "Sigma", "Upsilon", "Phi", "Psi", "Omega",
     ];
 
     for letter in &greek_letters {

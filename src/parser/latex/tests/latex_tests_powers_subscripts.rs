@@ -39,7 +39,13 @@ fn test_power_expression_simple() {
             right,
         } => {
             assert_eq!(*left, Expression::Variable("x".to_string()));
-            assert!(matches!(*right, Expression::Binary { op: BinaryOp::Add, .. }));
+            assert!(matches!(
+                *right,
+                Expression::Binary {
+                    op: BinaryOp::Add,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected power expression"),
     }
@@ -62,7 +68,13 @@ fn test_power_expression_complex() {
                     left: add_left,
                     ..
                 } => {
-                    assert!(matches!(*add_left, Expression::Binary { op: BinaryOp::Mul, .. }));
+                    assert!(matches!(
+                        *add_left,
+                        Expression::Binary {
+                            op: BinaryOp::Mul,
+                            ..
+                        }
+                    ));
                 }
                 _ => panic!("Expected addition in exponent"),
             }
@@ -110,8 +122,18 @@ fn test_power_triple_nested() {
             assert_eq!(*left, Expression::Variable("a".to_string()));
             // Verify triple nesting
             match *right {
-                Expression::Binary { op: BinaryOp::Pow, right: r1, .. } => {
-                    assert!(matches!(*r1, Expression::Binary { op: BinaryOp::Pow, .. }));
+                Expression::Binary {
+                    op: BinaryOp::Pow,
+                    right: r1,
+                    ..
+                } => {
+                    assert!(matches!(
+                        *r1,
+                        Expression::Binary {
+                            op: BinaryOp::Pow,
+                            ..
+                        }
+                    ));
                 }
                 _ => panic!("Expected nested powers"),
             }
@@ -168,7 +190,13 @@ fn test_power_fraction_exponent() {
             right,
         } => {
             assert_eq!(*left, Expression::Variable("x".to_string()));
-            assert!(matches!(*right, Expression::Binary { op: BinaryOp::Div, .. }));
+            assert!(matches!(
+                *right,
+                Expression::Binary {
+                    op: BinaryOp::Div,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected power expression"),
     }
@@ -277,8 +305,20 @@ fn test_power_in_addition() {
             left,
             right,
         } => {
-            assert!(matches!(*left, Expression::Binary { op: BinaryOp::Pow, .. }));
-            assert!(matches!(*right, Expression::Binary { op: BinaryOp::Pow, .. }));
+            assert!(matches!(
+                *left,
+                Expression::Binary {
+                    op: BinaryOp::Pow,
+                    ..
+                }
+            ));
+            assert!(matches!(
+                *right,
+                Expression::Binary {
+                    op: BinaryOp::Pow,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected addition"),
     }
@@ -294,7 +334,13 @@ fn test_power_in_multiplication() {
             right,
         } => {
             assert_eq!(*left, Expression::Integer(2));
-            assert!(matches!(*right, Expression::Binary { op: BinaryOp::Pow, .. }));
+            assert!(matches!(
+                *right,
+                Expression::Binary {
+                    op: BinaryOp::Pow,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected multiplication"),
     }
@@ -309,7 +355,13 @@ fn test_power_of_sum() {
             left,
             right,
         } => {
-            assert!(matches!(*left, Expression::Binary { op: BinaryOp::Add, .. }));
+            assert!(matches!(
+                *left,
+                Expression::Binary {
+                    op: BinaryOp::Add,
+                    ..
+                }
+            ));
             assert_eq!(*right, Expression::Integer(2));
         }
         _ => panic!("Expected power expression"),
@@ -325,7 +377,13 @@ fn test_power_of_product() {
             left,
             right,
         } => {
-            assert!(matches!(*left, Expression::Binary { op: BinaryOp::Mul, .. }));
+            assert!(matches!(
+                *left,
+                Expression::Binary {
+                    op: BinaryOp::Mul,
+                    ..
+                }
+            ));
             assert_eq!(*right, Expression::Variable("n".to_string()));
         }
         _ => panic!("Expected power expression"),
