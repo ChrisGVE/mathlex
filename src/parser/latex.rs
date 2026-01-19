@@ -651,7 +651,7 @@ impl LatexParser {
 }
 
 #[cfg(test)]
-#[path = "latex_tests_greek.rs"]
+#[path = "latex/tests/latex_tests_greek.rs"]
 mod greek_tests;
 
 #[cfg(test)]
