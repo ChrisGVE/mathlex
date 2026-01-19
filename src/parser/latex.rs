@@ -362,6 +362,11 @@ impl LatexParser {
                         self.next(); // consume
                         Ok(Expression::Constant(MathConstant::Infinity))
                     }
+                    LatexToken::BeginEnv(env_name) => {
+                        let env_name = env_name.clone();
+                        self.next(); // consume
+                        self.parse_matrix_environment(&env_name)
+                    }
                     _ => Err(ParseError::unexpected_token(
                         vec!["expression"],
                         format!("{:?}", token),
