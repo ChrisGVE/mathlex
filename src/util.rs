@@ -689,6 +689,469 @@ impl Expression {
             }
         }
     }
+
+    /// Substitutes all occurrences of a variable with a replacement expression.
+    ///
+    /// This method performs variable substitution throughout the expression tree,
+    /// respecting bound variable scoping rules. Bound variables in calculus and
+    /// iterator constructs are not substituted within their scope.
+    ///
+    /// # Bound Variables
+    ///
+    /// The following constructs introduce bound variables that are NOT substituted
+    /// within their scope:
+    ///
+    /// - `Sum { index, ... }` - `index` is bound in `body`
+    /// - `Product { index, ... }` - `index` is bound in `body`
+    /// - `Integral { var, ... }` - `var` is bound in `integrand`
+    /// - `Limit { var, ... }` - `var` is bound in `expr`
+    /// - `Derivative { var, ... }` - `var` is bound in `expr`
+    /// - `PartialDerivative { var, ... }` - `var` is bound in `expr`
+    ///
+    /// However, variables in bounds and limits (e.g., `lower`, `upper`, `to`)
+    /// are still substituted since they are outside the binding scope.
+    pub fn substitute(&self, var: &str, replacement: &Expression) -> Expression {
+        match self {
+            // Leaf nodes - check for variable match
+            Expression::Integer(_) | Expression::Float(_) | Expression::Constant(_) => {
+                self.clone()
+            }
+
+            Expression::Variable(name) => {
+                if name == var {
+                    replacement.clone()
+                } else {
+                    self.clone()
+                }
+            }
+
+            // Binary operations - recurse on both operands
+            Expression::Rational {
+                numerator,
+                denominator,
+            } => Expression::Rational {
+                numerator: Box::new(numerator.substitute(var, replacement)),
+                denominator: Box::new(denominator.substitute(var, replacement)),
+            },
+
+            Expression::Complex { real, imaginary } => Expression::Complex {
+                real: Box::new(real.substitute(var, replacement)),
+                imaginary: Box::new(imaginary.substitute(var, replacement)),
+            },
+
+            Expression::Binary { op, left, right } => Expression::Binary {
+                op: *op,
+                left: Box::new(left.substitute(var, replacement)),
+                right: Box::new(right.substitute(var, replacement)),
+            },
+
+            Expression::Equation { left, right } => Expression::Equation {
+                left: Box::new(left.substitute(var, replacement)),
+                right: Box::new(right.substitute(var, replacement)),
+            },
+
+            Expression::Inequality { op, left, right } => Expression::Inequality {
+                op: *op,
+                left: Box::new(left.substitute(var, replacement)),
+                right: Box::new(right.substitute(var, replacement)),
+            },
+
+            // Unary operations - recurse on operand
+            Expression::Unary { op, operand } => Expression::Unary {
+                op: *op,
+                operand: Box::new(operand.substitute(var, replacement)),
+            },
+
+            // Functions - recurse on all arguments
+            Expression::Function { name, args } => Expression::Function {
+                name: name.clone(),
+                args: args.iter().map(|arg| arg.substitute(var, replacement)).collect(),
+            },
+
+            // Derivative - var is bound in expr
+            Expression::Derivative {
+                expr,
+                var: diff_var,
+                order,
+            } => {
+                if diff_var == var {
+                    // var is bound in expr, don't substitute there
+                    self.clone()
+                } else {
+                    Expression::Derivative {
+                        expr: Box::new(expr.substitute(var, replacement)),
+                        var: diff_var.clone(),
+                        order: *order,
+                    }
+                }
+            }
+
+            // PartialDerivative - var is bound in expr
+            Expression::PartialDerivative {
+                expr,
+                var: diff_var,
+                order,
+            } => {
+                if diff_var == var {
+                    // var is bound in expr, don't substitute there
+                    self.clone()
+                } else {
+                    Expression::PartialDerivative {
+                        expr: Box::new(expr.substitute(var, replacement)),
+                        var: diff_var.clone(),
+                        order: *order,
+                    }
+                }
+            }
+
+            // Integral - var is bound in integrand but not in bounds
+            Expression::Integral {
+                integrand,
+                var: int_var,
+                bounds,
+            } => {
+                if int_var == var {
+                    // var is bound in integrand, don't substitute there
+                    // but still substitute in bounds
+                    Expression::Integral {
+                        integrand: integrand.clone(),
+                        var: int_var.clone(),
+                        bounds: bounds.as_ref().map(|b| crate::ast::IntegralBounds {
+                            lower: Box::new(b.lower.substitute(var, replacement)),
+                            upper: Box::new(b.upper.substitute(var, replacement)),
+                        }),
+                    }
+                } else {
+                    Expression::Integral {
+                        integrand: Box::new(integrand.substitute(var, replacement)),
+                        var: int_var.clone(),
+                        bounds: bounds.as_ref().map(|b| crate::ast::IntegralBounds {
+                            lower: Box::new(b.lower.substitute(var, replacement)),
+                            upper: Box::new(b.upper.substitute(var, replacement)),
+                        }),
+                    }
+                }
+            }
+
+            // Limit - var is bound in expr but not in to
+            Expression::Limit {
+                expr,
+                var: limit_var,
+                to,
+                direction,
+            } => {
+                if limit_var == var {
+                    // var is bound in expr, don't substitute there
+                    // but still substitute in to
+                    Expression::Limit {
+                        expr: expr.clone(),
+                        var: limit_var.clone(),
+                        to: Box::new(to.substitute(var, replacement)),
+                        direction: *direction,
+                    }
+                } else {
+                    Expression::Limit {
+                        expr: Box::new(expr.substitute(var, replacement)),
+                        var: limit_var.clone(),
+                        to: Box::new(to.substitute(var, replacement)),
+                        direction: *direction,
+                    }
+                }
+            }
+
+            // Sum - index is bound in body but not in lower/upper
+            Expression::Sum {
+                index,
+                lower,
+                upper,
+                body,
+            } => {
+                if index == var {
+                    // index is bound in body, don't substitute there
+                    // but still substitute in bounds
+                    Expression::Sum {
+                        index: index.clone(),
+                        lower: Box::new(lower.substitute(var, replacement)),
+                        upper: Box::new(upper.substitute(var, replacement)),
+                        body: body.clone(),
+                    }
+                } else {
+                    Expression::Sum {
+                        index: index.clone(),
+                        lower: Box::new(lower.substitute(var, replacement)),
+                        upper: Box::new(upper.substitute(var, replacement)),
+                        body: Box::new(body.substitute(var, replacement)),
+                    }
+                }
+            }
+
+            // Product - index is bound in body but not in lower/upper
+            Expression::Product {
+                index,
+                lower,
+                upper,
+                body,
+            } => {
+                if index == var {
+                    // index is bound in body, don't substitute there
+                    // but still substitute in bounds
+                    Expression::Product {
+                        index: index.clone(),
+                        lower: Box::new(lower.substitute(var, replacement)),
+                        upper: Box::new(upper.substitute(var, replacement)),
+                        body: body.clone(),
+                    }
+                } else {
+                    Expression::Product {
+                        index: index.clone(),
+                        lower: Box::new(lower.substitute(var, replacement)),
+                        upper: Box::new(upper.substitute(var, replacement)),
+                        body: Box::new(body.substitute(var, replacement)),
+                    }
+                }
+            }
+
+            // Vector - recurse on all elements
+            Expression::Vector(elements) => Expression::Vector(
+                elements
+                    .iter()
+                    .map(|e| e.substitute(var, replacement))
+                    .collect(),
+            ),
+
+            // Matrix - recurse on all elements in all rows
+            Expression::Matrix(rows) => Expression::Matrix(
+                rows.iter()
+                    .map(|row| row.iter().map(|e| e.substitute(var, replacement)).collect())
+                    .collect(),
+            ),
+        }
+    }
+
+    /// Substitutes multiple variables simultaneously with replacement expressions.
+    ///
+    /// This method performs simultaneous substitution of multiple variables,
+    /// respecting bound variable scoping rules. The substitutions are applied
+    /// simultaneously, meaning that replacements don't affect each other.
+    ///
+    /// # Bound Variables
+    ///
+    /// Same scoping rules as [`substitute`](Expression::substitute) apply.
+    /// See that method's documentation for details on bound variables.
+    pub fn substitute_all(&self, subs: &std::collections::HashMap<String, Expression>) -> Expression {
+        match self {
+            // Leaf nodes - check for variable match
+            Expression::Integer(_) | Expression::Float(_) | Expression::Constant(_) => {
+                self.clone()
+            }
+
+            Expression::Variable(name) => {
+                if let Some(replacement) = subs.get(name) {
+                    replacement.clone()
+                } else {
+                    self.clone()
+                }
+            }
+
+            // Binary operations - recurse on both operands
+            Expression::Rational {
+                numerator,
+                denominator,
+            } => Expression::Rational {
+                numerator: Box::new(numerator.substitute_all(subs)),
+                denominator: Box::new(denominator.substitute_all(subs)),
+            },
+
+            Expression::Complex { real, imaginary } => Expression::Complex {
+                real: Box::new(real.substitute_all(subs)),
+                imaginary: Box::new(imaginary.substitute_all(subs)),
+            },
+
+            Expression::Binary { op, left, right } => Expression::Binary {
+                op: *op,
+                left: Box::new(left.substitute_all(subs)),
+                right: Box::new(right.substitute_all(subs)),
+            },
+
+            Expression::Equation { left, right } => Expression::Equation {
+                left: Box::new(left.substitute_all(subs)),
+                right: Box::new(right.substitute_all(subs)),
+            },
+
+            Expression::Inequality { op, left, right } => Expression::Inequality {
+                op: *op,
+                left: Box::new(left.substitute_all(subs)),
+                right: Box::new(right.substitute_all(subs)),
+            },
+
+            // Unary operations - recurse on operand
+            Expression::Unary { op, operand } => Expression::Unary {
+                op: *op,
+                operand: Box::new(operand.substitute_all(subs)),
+            },
+
+            // Functions - recurse on all arguments
+            Expression::Function { name, args } => Expression::Function {
+                name: name.clone(),
+                args: args.iter().map(|arg| arg.substitute_all(subs)).collect(),
+            },
+
+            // Derivative - var is bound in expr
+            Expression::Derivative {
+                expr,
+                var: diff_var,
+                order,
+            } => {
+                if subs.contains_key(diff_var) {
+                    // var is bound in expr, don't substitute there
+                    self.clone()
+                } else {
+                    Expression::Derivative {
+                        expr: Box::new(expr.substitute_all(subs)),
+                        var: diff_var.clone(),
+                        order: *order,
+                    }
+                }
+            }
+
+            // PartialDerivative - var is bound in expr
+            Expression::PartialDerivative {
+                expr,
+                var: diff_var,
+                order,
+            } => {
+                if subs.contains_key(diff_var) {
+                    // var is bound in expr, don't substitute there
+                    self.clone()
+                } else {
+                    Expression::PartialDerivative {
+                        expr: Box::new(expr.substitute_all(subs)),
+                        var: diff_var.clone(),
+                        order: *order,
+                    }
+                }
+            }
+
+            // Integral - var is bound in integrand but not in bounds
+            Expression::Integral {
+                integrand,
+                var: int_var,
+                bounds,
+            } => {
+                if subs.contains_key(int_var) {
+                    // var is bound in integrand, don't substitute there
+                    // but still substitute in bounds
+                    Expression::Integral {
+                        integrand: integrand.clone(),
+                        var: int_var.clone(),
+                        bounds: bounds.as_ref().map(|b| crate::ast::IntegralBounds {
+                            lower: Box::new(b.lower.substitute_all(subs)),
+                            upper: Box::new(b.upper.substitute_all(subs)),
+                        }),
+                    }
+                } else {
+                    Expression::Integral {
+                        integrand: Box::new(integrand.substitute_all(subs)),
+                        var: int_var.clone(),
+                        bounds: bounds.as_ref().map(|b| crate::ast::IntegralBounds {
+                            lower: Box::new(b.lower.substitute_all(subs)),
+                            upper: Box::new(b.upper.substitute_all(subs)),
+                        }),
+                    }
+                }
+            }
+
+            // Limit - var is bound in expr but not in to
+            Expression::Limit {
+                expr,
+                var: limit_var,
+                to,
+                direction,
+            } => {
+                if subs.contains_key(limit_var) {
+                    // var is bound in expr, don't substitute there
+                    // but still substitute in to
+                    Expression::Limit {
+                        expr: expr.clone(),
+                        var: limit_var.clone(),
+                        to: Box::new(to.substitute_all(subs)),
+                        direction: *direction,
+                    }
+                } else {
+                    Expression::Limit {
+                        expr: Box::new(expr.substitute_all(subs)),
+                        var: limit_var.clone(),
+                        to: Box::new(to.substitute_all(subs)),
+                        direction: *direction,
+                    }
+                }
+            }
+
+            // Sum - index is bound in body but not in lower/upper
+            Expression::Sum {
+                index,
+                lower,
+                upper,
+                body,
+            } => {
+                if subs.contains_key(index) {
+                    // index is bound in body, don't substitute there
+                    // but still substitute in bounds
+                    Expression::Sum {
+                        index: index.clone(),
+                        lower: Box::new(lower.substitute_all(subs)),
+                        upper: Box::new(upper.substitute_all(subs)),
+                        body: body.clone(),
+                    }
+                } else {
+                    Expression::Sum {
+                        index: index.clone(),
+                        lower: Box::new(lower.substitute_all(subs)),
+                        upper: Box::new(upper.substitute_all(subs)),
+                        body: Box::new(body.substitute_all(subs)),
+                    }
+                }
+            }
+
+            // Product - index is bound in body but not in lower/upper
+            Expression::Product {
+                index,
+                lower,
+                upper,
+                body,
+            } => {
+                if subs.contains_key(index) {
+                    // index is bound in body, don't substitute there
+                    // but still substitute in bounds
+                    Expression::Product {
+                        index: index.clone(),
+                        lower: Box::new(lower.substitute_all(subs)),
+                        upper: Box::new(upper.substitute_all(subs)),
+                        body: body.clone(),
+                    }
+                } else {
+                    Expression::Product {
+                        index: index.clone(),
+                        lower: Box::new(lower.substitute_all(subs)),
+                        upper: Box::new(upper.substitute_all(subs)),
+                        body: Box::new(body.substitute_all(subs)),
+                    }
+                }
+            }
+
+            // Vector - recurse on all elements
+            Expression::Vector(elements) => {
+                Expression::Vector(elements.iter().map(|e| e.substitute_all(subs)).collect())
+            }
+
+            // Matrix - recurse on all elements in all rows
+            Expression::Matrix(rows) => Expression::Matrix(
+                rows.iter()
+                    .map(|row| row.iter().map(|e| e.substitute_all(subs)).collect())
+                    .collect(),
+            ),
+        }
+    }
 }
 
 #[cfg(test)]
