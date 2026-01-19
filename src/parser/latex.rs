@@ -23,7 +23,9 @@
 //! // Returns: Binary { op: Div, left: Integer(1), right: Integer(2) }
 //! ```
 
-use crate::ast::{BinaryOp, Expression, InequalityOp, MathConstant, MathFloat};
+use crate::ast::{
+    BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, MathConstant, MathFloat,
+};
 use crate::error::{ParseError, ParseResult, Span};
 use crate::parser::latex_tokenizer::{tokenize_latex, LatexToken};
 use crate::parser::Spanned;
@@ -402,9 +404,17 @@ impl LatexParser {
     fn parse_command(&mut self, cmd: &str, span: Span) -> ParseResult<Expression> {
         match cmd {
             // Fractions: \frac{num}{denom}
+            // Also handles derivatives: \frac{d}{dx} or \frac{\partial}{\partial x}
             "frac" => {
                 let numerator = self.braced(|p| p.parse_expression())?;
                 let denominator = self.braced(|p| p.parse_expression())?;
+
+                // Try to parse as derivative
+                if let Some(derivative) = self.try_parse_derivative(numerator.clone(), denominator.clone())? {
+                    return Ok(derivative);
+                }
+
+                // Otherwise, it's a regular fraction
                 Ok(Expression::Binary {
                     op: BinaryOp::Div,
                     left: Box::new(numerator),
@@ -483,6 +493,12 @@ impl LatexParser {
                 })
             }
 
+            // Calculus commands
+            "int" => self.parse_integral(),
+            "lim" => self.parse_limit(),
+            "sum" => self.parse_sum(),
+            "prod" => self.parse_product(),
+
             _ => Err(ParseError::invalid_latex_command(cmd, Some(span))),
         }
     }
@@ -544,6 +560,333 @@ impl LatexParser {
                 Some(self.current_span()),
             )),
         }
+    }
+
+    /// Tries to parse a \frac as a derivative.
+    /// Returns Some(derivative_expr) if it matches the pattern, None otherwise.
+    fn try_parse_derivative(
+        &mut self,
+        numerator: Expression,
+        denominator: Expression,
+    ) -> ParseResult<Option<Expression>> {
+        // Check numerator pattern: d, d^n, \partial, or \partial^n
+        let (is_partial, num_order) = match &numerator {
+            Expression::Variable(s) if s == "d" => (false, 1),
+            Expression::Variable(s) if s == "partial" => (true, 1),
+            Expression::Binary {
+                op: BinaryOp::Pow,
+                left,
+                right,
+            } => {
+                // Check if left is 'd' or 'partial'
+                let is_partial = match &**left {
+                    Expression::Variable(s) if s == "d" => false,
+                    Expression::Variable(s) if s == "partial" => true,
+                    _ => return Ok(None),
+                };
+
+                // Check if right is an integer (order)
+                let order = match &**right {
+                    Expression::Integer(n) if *n > 0 => *n as u32,
+                    _ => return Ok(None),
+                };
+
+                (is_partial, order)
+            }
+            _ => return Ok(None),
+        };
+
+        // Check denominator pattern: d var, d var^n, \partial var, or \partial var^n
+        let (denom_is_partial, var, denom_order) = match &denominator {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                let is_partial = match &**left {
+                    Expression::Variable(s) if s == "d" => false,
+                    Expression::Variable(s) if s == "partial" => true,
+                    _ => return Ok(None),
+                };
+
+                // Check if right is a power expression or a simple variable
+                match &**right {
+                    Expression::Variable(v) => {
+                        // Simple case: d x or \partial x
+                        (is_partial, v.clone(), 1)
+                    }
+                    Expression::Binary {
+                        op: BinaryOp::Pow,
+                        left: var_expr,
+                        right: order_expr,
+                    } => {
+                        // With power: d x^2 or \partial x^2
+                        let var = match &**var_expr {
+                            Expression::Variable(v) => v.clone(),
+                            _ => return Ok(None),
+                        };
+
+                        let order = match &**order_expr {
+                            Expression::Integer(n) if *n > 0 => *n as u32,
+                            _ => return Ok(None),
+                        };
+
+                        (is_partial, var, order)
+                    }
+                    _ => return Ok(None),
+                }
+            }
+            _ => return Ok(None),
+        };
+
+        // Verify numerator and denominator types match
+        if is_partial != denom_is_partial {
+            return Ok(None);
+        }
+
+        // Verify orders match
+        if num_order != denom_order {
+            return Ok(None);
+        }
+
+        // Parse the expression being differentiated
+        let expr = self.parse_power()?;
+
+        // Create appropriate derivative expression
+        let derivative = if is_partial {
+            Expression::PartialDerivative {
+                expr: Box::new(expr),
+                var,
+                order: num_order,
+            }
+        } else {
+            Expression::Derivative {
+                expr: Box::new(expr),
+                var,
+                order: num_order,
+            }
+        };
+
+        Ok(Some(derivative))
+    }
+
+    /// Parses an integral: \int f(x) dx or \int_a^b f(x) dx
+    fn parse_integral(&mut self) -> ParseResult<Expression> {
+        // Check for subscript (lower bound)
+        let bounds = if self.check(&LatexToken::Underscore) {
+            self.next(); // consume _
+            let lower = self.parse_braced_or_atom()?;
+
+            // Must have superscript (upper bound) if we have subscript
+            if !self.check(&LatexToken::Caret) {
+                return Err(ParseError::custom(
+                    "integral with lower bound must also have upper bound".to_string(),
+                    Some(self.current_span()),
+                ));
+            }
+            self.next(); // consume ^
+            let upper = self.parse_braced_or_atom()?;
+
+            Some(IntegralBounds {
+                lower: Box::new(lower),
+                upper: Box::new(upper),
+            })
+        } else if self.check(&LatexToken::Caret) {
+            // Upper bound without lower bound is an error
+            return Err(ParseError::custom(
+                "integral with upper bound must also have lower bound".to_string(),
+                Some(self.current_span()),
+            ));
+        } else {
+            None
+        };
+
+        // Parse integrand
+        let integrand = self.parse_multiplicative()?;
+
+        // Expect 'd' followed by variable name
+        if let Some((LatexToken::Letter('d'), _)) = self.peek() {
+            self.next(); // consume 'd'
+
+            // Next should be the variable
+            if let Some((LatexToken::Letter(var_ch), _)) = self.peek() {
+                let var = var_ch.to_string();
+                self.next(); // consume variable
+
+                Ok(Expression::Integral {
+                    integrand: Box::new(integrand),
+                    var,
+                    bounds,
+                })
+            } else {
+                Err(ParseError::custom(
+                    "expected variable name after 'd' in integral".to_string(),
+                    Some(self.current_span()),
+                ))
+            }
+        } else {
+            Err(ParseError::custom(
+                "expected 'd' followed by variable in integral".to_string(),
+                Some(self.current_span()),
+            ))
+        }
+    }
+
+    /// Parses a limit: \lim_{x \to a} or \lim_{x \to a^+}
+    fn parse_limit(&mut self) -> ParseResult<Expression> {
+        // Expect subscript with pattern: var \to value
+        if !self.check(&LatexToken::Underscore) {
+            return Err(ParseError::custom(
+                "limit must have subscript with approach pattern".to_string(),
+                Some(self.current_span()),
+            ));
+        }
+        self.next(); // consume _
+
+        // Parse the subscript content
+        self.consume(LatexToken::LBrace)?;
+
+        // Expect variable
+        let var = if let Some((LatexToken::Letter(ch), _)) = self.peek() {
+            let v = ch.to_string();
+            self.next(); // consume variable
+            v
+        } else {
+            return Err(ParseError::custom(
+                "expected variable in limit subscript".to_string(),
+                Some(self.current_span()),
+            ));
+        };
+
+        // Expect \to
+        if let Some((LatexToken::To, _)) = self.peek() {
+            self.next(); // consume \to
+        } else {
+            return Err(ParseError::custom(
+                "expected \\to in limit subscript".to_string(),
+                Some(self.current_span()),
+            ));
+        }
+
+        // Parse approach value (just primary for now, will be a number, variable, or constant)
+        let to = self.parse_primary()?;
+
+        // Check for direction (^+ or ^-) before the closing brace
+        let direction = if self.check(&LatexToken::Caret) {
+            self.next(); // consume ^
+
+            match self.peek() {
+                Some((LatexToken::Plus, _)) => {
+                    self.next();
+                    Direction::Right
+                }
+                Some((LatexToken::Minus, _)) => {
+                    self.next();
+                    Direction::Left
+                }
+                _ => {
+                    return Err(ParseError::custom(
+                        "expected + or - after ^ in limit direction".to_string(),
+                        Some(self.current_span()),
+                    ));
+                }
+            }
+        } else {
+            Direction::Both
+        };
+
+        self.consume(LatexToken::RBrace)?;
+
+        // Parse the expression
+        let expr = self.parse_primary()?;
+
+        Ok(Expression::Limit {
+            expr: Box::new(expr),
+            var,
+            to: Box::new(to),
+            direction,
+        })
+    }
+
+    /// Parses a sum: \sum_{i=1}^{n} expr
+    fn parse_sum(&mut self) -> ParseResult<Expression> {
+        let (index, lower, upper) = self.parse_iterator_bounds()?;
+        let body = self.parse_primary()?;
+
+        Ok(Expression::Sum {
+            index,
+            lower: Box::new(lower),
+            upper: Box::new(upper),
+            body: Box::new(body),
+        })
+    }
+
+    /// Parses a product: \prod_{i=1}^{n} expr
+    fn parse_product(&mut self) -> ParseResult<Expression> {
+        let (index, lower, upper) = self.parse_iterator_bounds()?;
+        let body = self.parse_primary()?;
+
+        Ok(Expression::Product {
+            index,
+            lower: Box::new(lower),
+            upper: Box::new(upper),
+            body: Box::new(body),
+        })
+    }
+
+    /// Helper to parse iterator bounds: _{var=lower}^{upper}
+    fn parse_iterator_bounds(&mut self) -> ParseResult<(String, Expression, Expression)> {
+        // Expect subscript with pattern: var = value
+        if !self.check(&LatexToken::Underscore) {
+            return Err(ParseError::custom(
+                "iterator must have subscript with index=lower pattern".to_string(),
+                Some(self.current_span()),
+            ));
+        }
+        self.next(); // consume _
+
+        // Parse the subscript content
+        self.consume(LatexToken::LBrace)?;
+
+        // Expect variable
+        let index = if let Some((LatexToken::Letter(ch), _)) = self.peek() {
+            let v = ch.to_string();
+            self.next(); // consume variable
+            v
+        } else {
+            return Err(ParseError::custom(
+                "expected index variable in iterator subscript".to_string(),
+                Some(self.current_span()),
+            ));
+        };
+
+        // Expect =
+        if let Some((LatexToken::Equals, _)) = self.peek() {
+            self.next(); // consume =
+        } else {
+            return Err(ParseError::custom(
+                "expected = in iterator subscript".to_string(),
+                Some(self.current_span()),
+            ));
+        }
+
+        // Parse lower bound
+        let lower = self.parse_additive()?;
+
+        self.consume(LatexToken::RBrace)?;
+
+        // Expect superscript with upper bound
+        if !self.check(&LatexToken::Caret) {
+            return Err(ParseError::custom(
+                "iterator must have superscript with upper bound".to_string(),
+                Some(self.current_span()),
+            ));
+        }
+        self.next(); // consume ^
+
+        let upper = self.parse_braced_or_atom()?;
+
+        Ok((index, lower, upper))
     }
 
     /// Parses a matrix environment (\begin{matrix}...\end{matrix} and variants).
@@ -1429,6 +1772,210 @@ mod tests {
                 }
             }
             _ => panic!("Expected Matrix variant"),
+        }
+    }
+
+    // Calculus tests
+
+    // Derivative tests
+    #[test]
+    fn test_parse_derivative_first_order() {
+        let expr = parse_latex(r"\frac{d}{dx}x").unwrap();
+        match expr {
+            Expression::Derivative { expr, var, order } => {
+                assert_eq!(var, "x");
+                assert_eq!(order, 1);
+                assert_eq!(*expr, Expression::Variable("x".to_string()));
+            }
+            _ => panic!("Expected Derivative variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_derivative_second_order() {
+        let expr = parse_latex(r"\frac{d^2}{dx^2}f").unwrap();
+        match expr {
+            Expression::Derivative { expr, var, order } => {
+                assert_eq!(var, "x");
+                assert_eq!(order, 2);
+                assert_eq!(*expr, Expression::Variable("f".to_string()));
+            }
+            _ => panic!("Expected Derivative variant"),
+        }
+    }
+
+    // Partial derivative tests
+    #[test]
+    fn test_parse_partial_derivative_first_order() {
+        let expr = parse_latex(r"\frac{\partial}{\partial x}f").unwrap();
+        match expr {
+            Expression::PartialDerivative { expr, var, order } => {
+                assert_eq!(var, "x");
+                assert_eq!(order, 1);
+                assert_eq!(*expr, Expression::Variable("f".to_string()));
+            }
+            _ => panic!("Expected PartialDerivative variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_partial_derivative_second_order() {
+        let expr = parse_latex(r"\frac{\partial^2}{\partial x^2}f").unwrap();
+        match expr {
+            Expression::PartialDerivative { expr, var, order } => {
+                assert_eq!(var, "x");
+                assert_eq!(order, 2);
+                assert_eq!(*expr, Expression::Variable("f".to_string()));
+            }
+            _ => panic!("Expected PartialDerivative variant"),
+        }
+    }
+
+    // Test that regular fractions still work
+    #[test]
+    fn test_parse_frac_not_derivative() {
+        let expr = parse_latex(r"\frac{x+1}{y-2}").unwrap();
+        match expr {
+            Expression::Binary { op, left, right } => {
+                assert_eq!(op, BinaryOp::Div);
+                assert!(matches!(*left, Expression::Binary { .. }));
+                assert!(matches!(*right, Expression::Binary { .. }));
+            }
+            _ => panic!("Expected Binary division"),
+        }
+    }
+
+    // Integral tests
+    #[test]
+    fn test_parse_integral_indefinite() {
+        let expr = parse_latex(r"\int x dx").unwrap();
+        match expr {
+            Expression::Integral {
+                integrand,
+                var,
+                bounds,
+            } => {
+                assert_eq!(var, "x");
+                assert_eq!(*integrand, Expression::Variable("x".to_string()));
+                assert!(bounds.is_none());
+            }
+            _ => panic!("Expected Integral variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_integral_definite() {
+        let expr = parse_latex(r"\int_0^1 x dx").unwrap();
+        match expr {
+            Expression::Integral {
+                integrand,
+                var,
+                bounds,
+            } => {
+                assert_eq!(var, "x");
+                assert_eq!(*integrand, Expression::Variable("x".to_string()));
+                assert!(bounds.is_some());
+                let bounds = bounds.unwrap();
+                assert_eq!(*bounds.lower, Expression::Integer(0));
+                assert_eq!(*bounds.upper, Expression::Integer(1));
+            }
+            _ => panic!("Expected Integral variant"),
+        }
+    }
+
+    // Limit tests
+    #[test]
+    fn test_parse_limit_both_sides() {
+        let expr = parse_latex(r"\lim_{x \to 0} x").unwrap();
+        match expr {
+            Expression::Limit {
+                expr,
+                var,
+                to,
+                direction,
+            } => {
+                assert_eq!(var, "x");
+                assert_eq!(*to, Expression::Integer(0));
+                assert_eq!(direction, Direction::Both);
+                assert_eq!(*expr, Expression::Variable("x".to_string()));
+            }
+            _ => panic!("Expected Limit variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_limit_from_right() {
+        let expr = parse_latex(r"\lim_{x \to 0^+} x").unwrap();
+        match expr {
+            Expression::Limit {
+                expr: _,
+                var,
+                to,
+                direction,
+            } => {
+                assert_eq!(var, "x");
+                assert_eq!(*to, Expression::Integer(0));
+                assert_eq!(direction, Direction::Right);
+            }
+            _ => panic!("Expected Limit variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_limit_from_left() {
+        let expr = parse_latex(r"\lim_{x \to 0^-} x").unwrap();
+        match expr {
+            Expression::Limit {
+                expr: _,
+                var,
+                to,
+                direction,
+            } => {
+                assert_eq!(var, "x");
+                assert_eq!(*to, Expression::Integer(0));
+                assert_eq!(direction, Direction::Left);
+            }
+            _ => panic!("Expected Limit variant"),
+        }
+    }
+
+    // Sum tests
+    #[test]
+    fn test_parse_sum_simple() {
+        let expr = parse_latex(r"\sum_{i=1}^{n} i").unwrap();
+        match expr {
+            Expression::Sum {
+                index,
+                lower,
+                upper,
+                body,
+            } => {
+                assert_eq!(index, "i");
+                assert_eq!(*lower, Expression::Integer(1));
+                assert_eq!(*upper, Expression::Variable("n".to_string()));
+                assert_eq!(*body, Expression::Variable("i".to_string()));
+            }
+            _ => panic!("Expected Sum variant"),
+        }
+    }
+
+    // Product tests
+    #[test]
+    fn test_parse_product_simple() {
+        let expr = parse_latex(r"\prod_{i=1}^{n} i").unwrap();
+        match expr {
+            Expression::Product {
+                index,
+                lower,
+                upper,
+                body,
+            } => {
+                assert_eq!(index, "i");
+                assert_eq!(*lower, Expression::Integer(1));
+                assert_eq!(*upper, Expression::Variable("n".to_string()));
+                assert_eq!(*body, Expression::Variable("i".to_string()));
+            }
+            _ => panic!("Expected Product variant"),
         }
     }
 }
