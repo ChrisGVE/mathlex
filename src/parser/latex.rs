@@ -1001,6 +1001,30 @@ impl LatexParser {
 mod greek_tests;
 
 #[cfg(test)]
+#[path = "latex/tests/latex_tests_fractions.rs"]
+mod fractions_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_roots.rs"]
+mod roots_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_powers_subscripts.rs"]
+mod powers_subscripts_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_functions.rs"]
+mod functions_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_calculus.rs"]
+mod calculus_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_errors.rs"]
+mod errors_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
