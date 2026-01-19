@@ -23,7 +23,7 @@
 //! // Returns: Binary { op: Div, left: Integer(1), right: Integer(2) }
 //! ```
 
-use crate::ast::{BinaryOp, Expression, MathConstant, MathFloat};
+use crate::ast::{BinaryOp, Expression, InequalityOp, MathConstant, MathFloat};
 use crate::error::{ParseError, ParseResult, Span};
 use crate::parser::latex_tokenizer::{tokenize_latex, LatexToken};
 use crate::parser::Spanned;
@@ -88,16 +88,14 @@ impl LatexParser {
 
     /// Returns the current position/span for error reporting.
     fn current_span(&self) -> Span {
-        self.peek()
-            .map(|(_, span)| *span)
-            .unwrap_or_else(|| {
-                // Use the last token's end position if we're at EOF
-                if let Some((_, last_span)) = self.tokens.last() {
-                    Span::at(last_span.end)
-                } else {
-                    Span::start()
-                }
-            })
+        self.peek().map(|(_, span)| *span).unwrap_or_else(|| {
+            // Use the last token's end position if we're at EOF
+            if let Some((_, last_span)) = self.tokens.last() {
+                Span::at(last_span.end)
+            } else {
+                Span::start()
+            }
+        })
     }
 
     /// Checks if current token matches a pattern without consuming.
@@ -145,7 +143,73 @@ impl LatexParser {
 
     /// Parses an expression (entry point for recursive descent).
     fn parse_expression(&mut self) -> ParseResult<Expression> {
-        self.parse_additive()
+        self.parse_relation()
+    }
+
+    /// Parses relational expressions (=, <, >, \leq, \geq, \neq, etc.).
+    fn parse_relation(&mut self) -> ParseResult<Expression> {
+        let left = self.parse_additive()?;
+
+        // Check for relation operator
+        if let Some((token, span)) = self.peek() {
+            let span = *span;
+            let relation = match token {
+                LatexToken::Equals => Some((None, span)), // None indicates equation
+                LatexToken::Less => Some((Some(InequalityOp::Lt), span)),
+                LatexToken::Greater => Some((Some(InequalityOp::Gt), span)),
+                LatexToken::Command(cmd) => match cmd.as_str() {
+                    "lt" => Some((Some(InequalityOp::Lt), span)),
+                    "gt" => Some((Some(InequalityOp::Gt), span)),
+                    "leq" | "le" => Some((Some(InequalityOp::Le), span)),
+                    "geq" | "ge" => Some((Some(InequalityOp::Ge), span)),
+                    "neq" | "ne" => Some((Some(InequalityOp::Ne), span)),
+                    _ => None,
+                },
+                _ => None,
+            };
+
+            if let Some((rel_op, _)) = relation {
+                self.next(); // consume relation operator
+                let right = self.parse_additive()?;
+
+                // Check for chained relations and error if found
+                if let Some((next_token, next_span)) = self.peek() {
+                    let is_relation = matches!(
+                        next_token,
+                        LatexToken::Equals | LatexToken::Less | LatexToken::Greater
+                    ) || matches!(
+                        next_token,
+                        LatexToken::Command(cmd) if matches!(
+                            cmd.as_str(),
+                            "lt" | "gt" | "leq" | "le" | "geq" | "ge" | "neq" | "ne"
+                        )
+                    );
+
+                    if is_relation {
+                        return Err(ParseError::custom(
+                            "chained relations are not supported; use explicit grouping"
+                                .to_string(),
+                            Some(*next_span),
+                        ));
+                    }
+                }
+
+                // Return Equation or Inequality
+                return Ok(match rel_op {
+                    None => Expression::Equation {
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    },
+                    Some(op) => Expression::Inequality {
+                        op,
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    },
+                });
+            }
+        }
+
+        Ok(left)
     }
 
     /// Parses additive expressions (+ and -).
@@ -265,9 +329,7 @@ impl LatexParser {
                         self.consume(LatexToken::RParen)?;
                         Ok(expr)
                     }
-                    LatexToken::LBrace => {
-                        self.braced(|parser| parser.parse_expression())
-                    }
+                    LatexToken::LBrace => self.braced(|parser| parser.parse_expression()),
                     LatexToken::Pipe => {
                         // Absolute value: |expr|
                         self.next(); // consume |
@@ -318,12 +380,14 @@ impl LatexParser {
     fn parse_number(&self, num_str: &str, span: Span) -> ParseResult<Expression> {
         if num_str.contains('.') {
             // Float
-            num_str.parse::<f64>()
+            num_str
+                .parse::<f64>()
                 .map(|f| Expression::Float(MathFloat::from(f)))
                 .map_err(|_| ParseError::invalid_number(num_str, "invalid float", Some(span)))
         } else {
             // Integer
-            num_str.parse::<i64>()
+            num_str
+                .parse::<i64>()
                 .map(Expression::Integer)
                 .map_err(|_| ParseError::invalid_number(num_str, "invalid integer", Some(span)))
         }
@@ -365,11 +429,10 @@ impl LatexParser {
             }
 
             // Greek letters -> Variables
-            "alpha" | "beta" | "gamma" | "delta" | "epsilon" | "zeta" | "eta" | "theta" |
-            "iota" | "kappa" | "lambda" | "mu" | "nu" | "xi" | "omicron" | "pi" | "rho" |
-            "sigma" | "tau" | "upsilon" | "phi" | "chi" | "psi" | "omega" |
-            "Gamma" | "Delta" | "Theta" | "Lambda" | "Xi" | "Pi" | "Sigma" | "Upsilon" |
-            "Phi" | "Psi" | "Omega" => {
+            "alpha" | "beta" | "gamma" | "delta" | "epsilon" | "zeta" | "eta" | "theta"
+            | "iota" | "kappa" | "lambda" | "mu" | "nu" | "xi" | "omicron" | "pi" | "rho"
+            | "sigma" | "tau" | "upsilon" | "phi" | "chi" | "psi" | "omega" | "Gamma" | "Delta"
+            | "Theta" | "Lambda" | "Xi" | "Pi" | "Sigma" | "Upsilon" | "Phi" | "Psi" | "Omega" => {
                 // Special case: \pi is a constant
                 if cmd == "pi" {
                     Ok(Expression::Constant(MathConstant::Pi))
@@ -379,8 +442,8 @@ impl LatexParser {
             }
 
             // Trigonometric functions
-            "sin" | "cos" | "tan" | "sec" | "csc" | "cot" |
-            "arcsin" | "arccos" | "arctan" | "sinh" | "cosh" | "tanh" => {
+            "sin" | "cos" | "tan" | "sec" | "csc" | "cot" | "arcsin" | "arccos" | "arctan"
+            | "sinh" | "cosh" | "tanh" => {
                 let arg = self.parse_function_arg()?;
                 Ok(Expression::Function {
                     name: cmd.to_string(),
@@ -475,6 +538,109 @@ impl LatexParser {
                 "subscript must be a simple value (number or variable)",
                 Some(self.current_span()),
             )),
+        }
+    }
+
+    /// Parses a matrix environment (\begin{matrix}...\end{matrix} and variants).
+    fn parse_matrix_environment(&mut self, env_name: &str) -> ParseResult<Expression> {
+        // Validate environment name
+        match env_name {
+            "matrix" | "bmatrix" | "pmatrix" | "vmatrix" | "Bmatrix" | "Vmatrix" => {}
+            _ => {
+                return Err(ParseError::invalid_latex_command(
+                    &format!("\\begin{{{}}}", env_name),
+                    Some(self.current_span()),
+                ));
+            }
+        }
+
+        let mut rows: Vec<Vec<Expression>> = Vec::new();
+        let mut current_row: Vec<Expression> = Vec::new();
+
+        // Parse matrix content
+        loop {
+            // Check for end of environment
+            if let Some((LatexToken::EndEnv(end_name), _)) = self.peek() {
+                let end_name = end_name.clone();
+                self.next(); // consume EndEnv
+
+                // Validate matching environment name
+                if end_name != env_name {
+                    return Err(ParseError::custom(
+                        format!(
+                            "mismatched environment: \\begin{{{}}} ended with \\end{{{}}}",
+                            env_name, end_name
+                        ),
+                        Some(self.current_span()),
+                    ));
+                }
+
+                // Add last row if not empty
+                if !current_row.is_empty() {
+                    rows.push(current_row);
+                }
+                break;
+            }
+
+            // Parse expression
+            let expr = self.parse_expression()?;
+            current_row.push(expr);
+
+            // Check what comes next
+            match self.peek() {
+                Some((LatexToken::Ampersand, _)) => {
+                    self.next(); // consume &
+                    // Continue parsing current row
+                }
+                Some((LatexToken::DoubleBackslash, _)) => {
+                    self.next(); // consume \\
+                    // End current row and start new one
+                    rows.push(current_row);
+                    current_row = Vec::new();
+                }
+                Some((LatexToken::EndEnv(_), _)) => {
+                    // Will be handled in next iteration
+                }
+                Some((token, span)) => {
+                    return Err(ParseError::unexpected_token(
+                        vec!["&", "\\\\", "\\end"],
+                        format!("{:?}", token),
+                        Some(*span),
+                    ));
+                }
+                None => {
+                    return Err(ParseError::unexpected_eof(
+                        vec!["&", "\\\\", "\\end"],
+                        Some(self.current_span()),
+                    ));
+                }
+            }
+        }
+
+        // Validate all rows have the same number of columns
+        if !rows.is_empty() {
+            let first_col_count = rows[0].len();
+            for (i, row) in rows.iter().enumerate() {
+                if row.len() != first_col_count {
+                    return Err(ParseError::custom(
+                        format!(
+                            "inconsistent matrix row lengths: row 0 has {} columns, row {} has {} columns",
+                            first_col_count, i, row.len()
+                        ),
+                        Some(self.current_span()),
+                    ));
+                }
+            }
+        }
+
+        // Convert single-column matrices to vectors
+        if !rows.is_empty() && rows[0].len() == 1 {
+            // All rows have exactly 1 column - this is a column vector
+            let elements: Vec<Expression> = rows.into_iter().map(|mut row| row.remove(0)).collect();
+            Ok(Expression::Vector(elements))
+        } else {
+            // Regular matrix
+            Ok(Expression::Matrix(rows))
         }
     }
 }
@@ -575,10 +741,16 @@ mod tests {
     fn test_parse_power_braced() {
         let expr = parse_latex("x^{2+3}").unwrap();
         match expr {
-            Expression::Binary { op: BinaryOp::Pow, left, right } => {
+            Expression::Binary {
+                op: BinaryOp::Pow,
+                left,
+                right,
+            } => {
                 assert_eq!(*left, Expression::Variable("x".to_string()));
                 match *right {
-                    Expression::Binary { op: BinaryOp::Add, .. } => {}
+                    Expression::Binary {
+                        op: BinaryOp::Add, ..
+                    } => {}
                     _ => panic!("Expected addition in exponent"),
                 }
             }
@@ -738,9 +910,15 @@ mod tests {
         // (2 + 3) * 4
         let expr = parse_latex("(2 + 3) * 4").unwrap();
         match expr {
-            Expression::Binary { op: BinaryOp::Mul, left, right } => {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
                 match *left {
-                    Expression::Binary { op: BinaryOp::Add, .. } => {}
+                    Expression::Binary {
+                        op: BinaryOp::Add, ..
+                    } => {}
                     _ => panic!("Expected addition in left"),
                 }
                 assert_eq!(*right, Expression::Integer(4));
@@ -754,10 +932,16 @@ mod tests {
         // 2 + 3 * 4 should be 2 + (3 * 4)
         let expr = parse_latex("2 + 3 * 4").unwrap();
         match expr {
-            Expression::Binary { op: BinaryOp::Add, left, right } => {
+            Expression::Binary {
+                op: BinaryOp::Add,
+                left,
+                right,
+            } => {
                 assert_eq!(*left, Expression::Integer(2));
                 match *right {
-                    Expression::Binary { op: BinaryOp::Mul, .. } => {}
+                    Expression::Binary {
+                        op: BinaryOp::Mul, ..
+                    } => {}
                     _ => panic!("Expected multiplication in right"),
                 }
             }
@@ -770,10 +954,16 @@ mod tests {
         // 2 * x^3 should be 2 * (x^3)
         let expr = parse_latex("2 * x^3").unwrap();
         match expr {
-            Expression::Binary { op: BinaryOp::Mul, left, right } => {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
                 assert_eq!(*left, Expression::Integer(2));
                 match *right {
-                    Expression::Binary { op: BinaryOp::Pow, .. } => {}
+                    Expression::Binary {
+                        op: BinaryOp::Pow, ..
+                    } => {}
                     _ => panic!("Expected power in right"),
                 }
             }
@@ -786,14 +976,227 @@ mod tests {
         // \frac{\frac{1}{2}}{3}
         let expr = parse_latex(r"\frac{\frac{1}{2}}{3}").unwrap();
         match expr {
-            Expression::Binary { op: BinaryOp::Div, left, right } => {
+            Expression::Binary {
+                op: BinaryOp::Div,
+                left,
+                right,
+            } => {
                 match *left {
-                    Expression::Binary { op: BinaryOp::Div, .. } => {}
+                    Expression::Binary {
+                        op: BinaryOp::Div, ..
+                    } => {}
                     _ => panic!("Expected nested division"),
                 }
                 assert_eq!(*right, Expression::Integer(3));
             }
             _ => panic!("Expected division"),
+        }
+    }
+
+    // Relation tests
+
+    #[test]
+    fn test_latex_simple_equation() {
+        let expr = parse_latex("x = 5").unwrap();
+        match expr {
+            Expression::Equation { left, right } => {
+                assert_eq!(*left, Expression::Variable("x".to_string()));
+                assert_eq!(*right, Expression::Integer(5));
+            }
+            _ => panic!("Expected Equation variant"),
+        }
+    }
+
+    #[test]
+    fn test_latex_inequality_less() {
+        let expr = parse_latex("x < 5").unwrap();
+        match expr {
+            Expression::Inequality { op, left, right } => {
+                assert_eq!(op, InequalityOp::Lt);
+                assert_eq!(*left, Expression::Variable("x".to_string()));
+                assert_eq!(*right, Expression::Integer(5));
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_latex_inequality_less_command() {
+        let expr = parse_latex(r"x \lt 5").unwrap();
+        match expr {
+            Expression::Inequality { op, .. } => {
+                assert_eq!(op, InequalityOp::Lt);
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_latex_inequality_greater() {
+        let expr = parse_latex("x > 0").unwrap();
+        match expr {
+            Expression::Inequality { op, left, right } => {
+                assert_eq!(op, InequalityOp::Gt);
+                assert_eq!(*left, Expression::Variable("x".to_string()));
+                assert_eq!(*right, Expression::Integer(0));
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_latex_inequality_greater_command() {
+        let expr = parse_latex(r"x \gt 0").unwrap();
+        match expr {
+            Expression::Inequality { op, .. } => {
+                assert_eq!(op, InequalityOp::Gt);
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_latex_inequality_leq() {
+        let expr = parse_latex(r"x \leq 3").unwrap();
+        match expr {
+            Expression::Inequality { op, left, right } => {
+                assert_eq!(op, InequalityOp::Le);
+                assert_eq!(*left, Expression::Variable("x".to_string()));
+                assert_eq!(*right, Expression::Integer(3));
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_latex_inequality_le() {
+        let expr = parse_latex(r"x \le 3").unwrap();
+        match expr {
+            Expression::Inequality { op, .. } => {
+                assert_eq!(op, InequalityOp::Le);
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_latex_inequality_geq() {
+        let expr = parse_latex(r"x \geq -1").unwrap();
+        match expr {
+            Expression::Inequality { op, .. } => {
+                assert_eq!(op, InequalityOp::Ge);
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_latex_inequality_ge() {
+        let expr = parse_latex(r"x \ge -1").unwrap();
+        match expr {
+            Expression::Inequality { op, .. } => {
+                assert_eq!(op, InequalityOp::Ge);
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_latex_inequality_neq() {
+        let expr = parse_latex(r"x \neq 0").unwrap();
+        match expr {
+            Expression::Inequality { op, left, right } => {
+                assert_eq!(op, InequalityOp::Ne);
+                assert_eq!(*left, Expression::Variable("x".to_string()));
+                assert_eq!(*right, Expression::Integer(0));
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_latex_inequality_ne() {
+        let expr = parse_latex(r"a \ne b").unwrap();
+        match expr {
+            Expression::Inequality { op, .. } => {
+                assert_eq!(op, InequalityOp::Ne);
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_latex_complex_equation() {
+        // \frac{x}{2} = 3
+        let expr = parse_latex(r"\frac{x}{2} = 3").unwrap();
+        match expr {
+            Expression::Equation { left, right } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Div,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Integer(3));
+            }
+            _ => panic!("Expected Equation variant"),
+        }
+    }
+
+    #[test]
+    fn test_latex_complex_inequality() {
+        // a + b < c + d
+        let expr = parse_latex("a + b < c + d").unwrap();
+        match expr {
+            Expression::Inequality { op, left, right } => {
+                assert_eq!(op, InequalityOp::Lt);
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+                assert!(matches!(
+                    *right,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_latex_chained_relation_error() {
+        // a < b < c should error
+        let result = parse_latex("a < b < c");
+        assert!(result.is_err());
+        if let Err(e) = result {
+            let error_msg = e.to_string();
+            assert!(error_msg.contains("chained relations"));
+        }
+    }
+
+    #[test]
+    fn test_latex_relation_precedence() {
+        // 2 + 3 = 5 should parse as (2 + 3) = 5
+        let expr = parse_latex("2 + 3 = 5").unwrap();
+        match expr {
+            Expression::Equation { left, right } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Integer(5));
+            }
+            _ => panic!("Expected Equation variant"),
         }
     }
 }

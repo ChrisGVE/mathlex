@@ -135,7 +135,6 @@ impl<T> Spanned<T> {
     }
 }
 
-
 /// A token with span information.
 pub type SpannedToken = Spanned<Token>;
 
@@ -276,12 +275,20 @@ impl<'a> Tokenizer<'a> {
         if has_dot || has_exp {
             match number_str.parse::<f64>() {
                 Ok(n) => Ok((Token::Float(n), span)),
-                Err(_) => Err(ParseError::invalid_number(&number_str, "invalid float", Some(span))),
+                Err(_) => Err(ParseError::invalid_number(
+                    &number_str,
+                    "invalid float",
+                    Some(span),
+                )),
             }
         } else {
             match number_str.parse::<i64>() {
                 Ok(n) => Ok((Token::Integer(n), span)),
-                Err(_) => Err(ParseError::invalid_number(&number_str, "invalid integer", Some(span))),
+                Err(_) => Err(ParseError::invalid_number(
+                    &number_str,
+                    "invalid integer",
+                    Some(span),
+                )),
             }
         }
     }
@@ -337,7 +344,7 @@ impl<'a> Tokenizer<'a> {
             return Ok(Some(SpannedToken::new(token, span)));
         }
 
-        // Multi-character operators
+        // Multi-character operators and Unicode symbols
         match ch {
             '!' => {
                 self.consume();
@@ -378,6 +385,31 @@ impl<'a> Tokenizer<'a> {
                 let end = self.position();
                 return Ok(Some(SpannedToken::new(
                     Token::Greater,
+                    Span::new(start, end),
+                )));
+            }
+            // Unicode inequality symbols
+            '≤' => {
+                self.consume();
+                let end = self.position();
+                return Ok(Some(SpannedToken::new(
+                    Token::LessEq,
+                    Span::new(start, end),
+                )));
+            }
+            '≥' => {
+                self.consume();
+                let end = self.position();
+                return Ok(Some(SpannedToken::new(
+                    Token::GreaterEq,
+                    Span::new(start, end),
+                )));
+            }
+            '≠' => {
+                self.consume();
+                let end = self.position();
+                return Ok(Some(SpannedToken::new(
+                    Token::NotEquals,
                     Span::new(start, end),
                 )));
             }
@@ -529,6 +561,15 @@ mod tests {
         assert_eq!(tokens[3].value, Token::LessEq);
         assert_eq!(tokens[4].value, Token::Greater);
         assert_eq!(tokens[5].value, Token::GreaterEq);
+    }
+
+    #[test]
+    fn test_tokenize_unicode_relations() {
+        let tokens = tokenize("≤ ≥ ≠").unwrap();
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens[0].value, Token::LessEq);
+        assert_eq!(tokens[1].value, Token::GreaterEq);
+        assert_eq!(tokens[2].value, Token::NotEquals);
     }
 
     #[test]

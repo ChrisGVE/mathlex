@@ -5,11 +5,12 @@
 //!
 //! # Operator Precedence (lowest to highest)
 //!
-//! 1. Addition, Subtraction (+, -)
-//! 2. Multiplication, Division, Modulo (*, /, %)
-//! 3. Power (^) - RIGHT ASSOCIATIVE
-//! 4. Unary operators (-, +, !)
-//! 5. Function calls and atoms
+//! 1. Relations (=, <, >, <=, >=, !=)
+//! 2. Addition, Subtraction (+, -)
+//! 3. Multiplication, Division, Modulo (*, /, %)
+//! 4. Power (^) - RIGHT ASSOCIATIVE
+//! 5. Unary operators (-, +, !)
+//! 6. Function calls and atoms
 //!
 //! # Examples
 //!
@@ -23,11 +24,12 @@
 //! // Parses as: 2^(3^4) - right associative
 //! ```
 
-use crate::ast::{BinaryOp, Expression, MathConstant, MathFloat, UnaryOp};
+use crate::ast::{BinaryOp, Expression, InequalityOp, MathConstant, MathFloat, UnaryOp};
 use crate::error::{ParseError, ParseResult, Span};
 use crate::parser::tokenizer::{tokenize, SpannedToken, Token};
+use crate::ParserConfig;
 
-/// Parses a plain text mathematical expression.
+/// Parses a plain text mathematical expression with default configuration.
 ///
 /// # Arguments
 ///
@@ -45,8 +47,34 @@ use crate::parser::tokenizer::{tokenize, SpannedToken, Token};
 /// let expr = parse("sin(x) + 2").unwrap();
 /// ```
 pub fn parse(input: &str) -> ParseResult<Expression> {
+    parse_with_config(input, &ParserConfig::default())
+}
+
+/// Parses a plain text mathematical expression with custom configuration.
+///
+/// # Arguments
+///
+/// * `input` - The mathematical expression string to parse
+/// * `config` - Parser configuration options
+///
+/// # Returns
+///
+/// A `ParseResult<Expression>` containing the parsed AST or an error.
+///
+/// # Examples
+///
+/// ```
+/// use mathlex::parser::parse_with_config;
+/// use mathlex::ParserConfig;
+///
+/// let config = ParserConfig {
+///     implicit_multiplication: true,
+/// };
+/// let expr = parse_with_config("2x", &config).unwrap();
+/// ```
+pub fn parse_with_config(input: &str, config: &ParserConfig) -> ParseResult<Expression> {
     let tokens = tokenize(input)?;
-    let parser = TextParser::new(tokens);
+    let parser = TextParser::new(tokens, *config);
     parser.parse()
 }
 
@@ -56,12 +84,21 @@ struct TextParser {
     tokens: Vec<SpannedToken>,
     /// Current position in token stream
     pos: usize,
+    /// Parser configuration
+    config: ParserConfig,
+    /// Tracks if the last token consumed was a closing parenthesis
+    last_token_was_rparen: bool,
 }
 
 impl TextParser {
     /// Creates a new parser from a token stream.
-    fn new(tokens: Vec<SpannedToken>) -> Self {
-        Self { tokens, pos: 0 }
+    fn new(tokens: Vec<SpannedToken>, config: ParserConfig) -> Self {
+        Self {
+            tokens,
+            pos: 0,
+            config,
+            last_token_was_rparen: false,
+        }
     }
 
     /// Returns the current token without consuming it.
@@ -72,29 +109,68 @@ impl TextParser {
     /// Returns the current token and advances position.
     fn next(&mut self) -> Option<SpannedToken> {
         let token = self.tokens.get(self.pos).cloned();
-        if token.is_some() {
+        if let Some(ref t) = token {
             self.pos += 1;
+            self.last_token_was_rparen = matches!(t.value, Token::RParen);
         }
         token
     }
 
     /// Returns the current position/span for error reporting.
     fn current_span(&self) -> Span {
-        self.peek()
-            .map(|token| token.span)
-            .unwrap_or_else(|| {
-                // Use the last token's end position if we're at EOF
-                if let Some(last_token) = self.tokens.last() {
-                    Span::at(last_token.span.end)
-                } else {
-                    Span::start()
-                }
-            })
+        self.peek().map(|token| token.span).unwrap_or_else(|| {
+            // Use the last token's end position if we're at EOF
+            if let Some(last_token) = self.tokens.last() {
+                Span::at(last_token.span.end)
+            } else {
+                Span::start()
+            }
+        })
     }
 
     /// Checks if current token matches a pattern without consuming.
     fn check(&self, expected: &Token) -> bool {
-        self.peek().map(|token| &token.value == expected).unwrap_or(false)
+        self.peek()
+            .map(|token| &token.value == expected)
+            .unwrap_or(false)
+    }
+
+    /// Determines if implicit multiplication should be inserted.
+    ///
+    /// Returns true when:
+    /// - Config has implicit_multiplication enabled AND
+    /// - The left expression and next token form an implicit multiplication pattern:
+    ///   - Integer/Float followed by Identifier: `2x`
+    ///   - Integer/Float followed by LParen: `2(x+1)`
+    ///   - Variable/Constant followed by Identifier: `xy`, `pi x`
+    ///   - Expression ending with RParen followed by LParen: `(a)(b)`
+    ///   - Expression ending with RParen followed by Identifier: `(a)x`
+    fn should_insert_implicit_mult(&self, left: &Expression) -> bool {
+        if !self.config.implicit_multiplication {
+            return false;
+        }
+
+        let next_token = match self.peek() {
+            Some(token) => &token.value,
+            None => return false,
+        };
+
+        // Check for patterns based on left expression type and next token
+        match left {
+            // Number followed by identifier or (
+            Expression::Integer(_) | Expression::Float(_) => {
+                matches!(next_token, Token::Identifier(_) | Token::LParen)
+            }
+            // Variable or constant followed by identifier
+            Expression::Variable(_) | Expression::Constant(_) => {
+                matches!(next_token, Token::Identifier(_))
+            }
+            // After closing paren, followed by ( or identifier
+            _ if self.last_token_was_rparen => {
+                matches!(next_token, Token::LParen | Token::Identifier(_))
+            }
+            _ => false,
+        }
     }
 
     /// Consumes a token if it matches the expected token.
@@ -136,7 +212,63 @@ impl TextParser {
 
     /// Parses an expression (entry point for recursive descent).
     fn parse_expression(&mut self) -> ParseResult<Expression> {
-        self.parse_additive()
+        self.parse_relation()
+    }
+
+    /// Parses relational expressions (=, <, >, <=, >=, !=).
+    fn parse_relation(&mut self) -> ParseResult<Expression> {
+        let left = self.parse_additive()?;
+
+        // Check for relation operator
+        if let Some(token) = self.peek() {
+            let relation = match &token.value {
+                Token::Equals => Some(None), // None indicates equation
+                Token::Less => Some(Some(InequalityOp::Lt)),
+                Token::Greater => Some(Some(InequalityOp::Gt)),
+                Token::LessEq => Some(Some(InequalityOp::Le)),
+                Token::GreaterEq => Some(Some(InequalityOp::Ge)),
+                Token::NotEquals => Some(Some(InequalityOp::Ne)),
+                _ => None,
+            };
+
+            if let Some(rel_op) = relation {
+                self.next(); // consume relation operator
+                let right = self.parse_additive()?;
+
+                // Check for chained relations and error if found
+                if let Some(next_token) = self.peek() {
+                    if matches!(
+                        next_token.value,
+                        Token::Equals
+                            | Token::Less
+                            | Token::Greater
+                            | Token::LessEq
+                            | Token::GreaterEq
+                            | Token::NotEquals
+                    ) {
+                        return Err(ParseError::custom(
+                            "chained relations are not supported; use explicit grouping (e.g., (a < b) and (b < c))".to_string(),
+                            Some(next_token.span),
+                        ));
+                    }
+                }
+
+                // Return Equation or Inequality
+                return Ok(match rel_op {
+                    None => Expression::Equation {
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    },
+                    Some(op) => Expression::Inequality {
+                        op,
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    },
+                });
+            }
+        }
+
+        Ok(left)
     }
 
     /// Parses additive expressions (+ and -).
@@ -167,22 +299,42 @@ impl TextParser {
     fn parse_multiplicative(&mut self) -> ParseResult<Expression> {
         let mut left = self.parse_power()?;
 
-        while let Some(token) = self.peek() {
-            let op = match &token.value {
-                Token::Star => BinaryOp::Mul,
-                Token::Slash => BinaryOp::Div,
-                Token::Percent => BinaryOp::Mod,
-                _ => break,
+        loop {
+            // Check for explicit multiplication operators
+            let op = if let Some(token) = self.peek() {
+                match &token.value {
+                    Token::Star => Some(BinaryOp::Mul),
+                    Token::Slash => Some(BinaryOp::Div),
+                    Token::Percent => Some(BinaryOp::Mod),
+                    _ => None,
+                }
+            } else {
+                None
             };
 
-            self.next(); // consume operator
-            let right = self.parse_power()?;
+            if let Some(op) = op {
+                // Explicit operator found
+                self.next(); // consume operator
+                let right = self.parse_power()?;
 
-            left = Expression::Binary {
-                op,
-                left: Box::new(left),
-                right: Box::new(right),
-            };
+                left = Expression::Binary {
+                    op,
+                    left: Box::new(left),
+                    right: Box::new(right),
+                };
+            } else if self.should_insert_implicit_mult(&left) {
+                // Implicit multiplication detected
+                let right = self.parse_power()?;
+
+                left = Expression::Binary {
+                    op: BinaryOp::Mul,
+                    left: Box::new(left),
+                    right: Box::new(right),
+                };
+            } else {
+                // No more multiplication operations
+                break;
+            }
         }
 
         Ok(left)
@@ -247,10 +399,7 @@ impl TextParser {
     /// Parses primary expressions (atoms, functions, parenthesized).
     fn parse_primary(&mut self) -> ParseResult<Expression> {
         let token = self.peek().ok_or_else(|| {
-            ParseError::unexpected_eof(
-                vec!["expression"],
-                Some(self.current_span()),
-            )
+            ParseError::unexpected_eof(vec!["expression"], Some(self.current_span()))
         })?;
 
         match &token.value {
@@ -911,7 +1060,13 @@ mod tests {
             Expression::Function { name, args } => {
                 assert_eq!(name, "sin");
                 assert_eq!(args.len(), 1);
-                assert!(matches!(args[0], Expression::Binary { op: BinaryOp::Add, .. }));
+                assert!(matches!(
+                    args[0],
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
             }
             _ => panic!("Expected function"),
         }
@@ -923,7 +1078,13 @@ mod tests {
                 assert_eq!(name, "log");
                 assert_eq!(args.len(), 2);
                 assert!(matches!(args[0], Expression::Integer(2)));
-                assert!(matches!(args[1], Expression::Binary { op: BinaryOp::Add, .. }));
+                assert!(matches!(
+                    args[1],
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
             }
             _ => panic!("Expected function"),
         }
@@ -934,7 +1095,13 @@ mod tests {
             Expression::Function { name, args } => {
                 assert_eq!(name, "sqrt");
                 assert_eq!(args.len(), 1);
-                assert!(matches!(args[0], Expression::Binary { op: BinaryOp::Add, .. }));
+                assert!(matches!(
+                    args[0],
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
             }
             _ => panic!("Expected function"),
         }
@@ -968,9 +1135,15 @@ mod tests {
         // 2 * sin(x) + cos(y)
         let expr = parse("2 * sin(x) + cos(y)").unwrap();
         match expr {
-            Expression::Binary { op: BinaryOp::Add, left, right } => {
+            Expression::Binary {
+                op: BinaryOp::Add,
+                left,
+                right,
+            } => {
                 match *left {
-                    Expression::Binary { op: BinaryOp::Mul, .. } => {}
+                    Expression::Binary {
+                        op: BinaryOp::Mul, ..
+                    } => {}
                     _ => panic!("Expected multiplication on left"),
                 }
                 match *right {
@@ -1058,5 +1231,594 @@ mod tests {
     fn test_extra_closing_parenthesis() {
         let result = parse("2 + 3)");
         assert!(result.is_err());
+    }
+
+    // Relation tests
+
+    #[test]
+    fn test_parse_simple_equation() {
+        let expr = parse("x = 5").unwrap();
+        match expr {
+            Expression::Equation { left, right } => {
+                assert_eq!(*left, Expression::Variable("x".to_string()));
+                assert_eq!(*right, Expression::Integer(5));
+            }
+            _ => panic!("Expected Equation variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_inequality_less_than() {
+        let expr = parse("x < 5").unwrap();
+        match expr {
+            Expression::Inequality { op, left, right } => {
+                assert_eq!(op, InequalityOp::Lt);
+                assert_eq!(*left, Expression::Variable("x".to_string()));
+                assert_eq!(*right, Expression::Integer(5));
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_inequality_greater_than() {
+        let expr = parse("x > 0").unwrap();
+        match expr {
+            Expression::Inequality { op, left, right } => {
+                assert_eq!(op, InequalityOp::Gt);
+                assert_eq!(*left, Expression::Variable("x".to_string()));
+                assert_eq!(*right, Expression::Integer(0));
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_inequality_less_equal() {
+        let expr = parse("x <= 3").unwrap();
+        match expr {
+            Expression::Inequality { op, left, right } => {
+                assert_eq!(op, InequalityOp::Le);
+                assert_eq!(*left, Expression::Variable("x".to_string()));
+                assert_eq!(*right, Expression::Integer(3));
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_inequality_greater_equal() {
+        let expr = parse("x >= -1").unwrap();
+        match expr {
+            Expression::Inequality { op, .. } => {
+                assert_eq!(op, InequalityOp::Ge);
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_inequality_not_equal() {
+        let expr = parse("x != 0").unwrap();
+        match expr {
+            Expression::Inequality { op, left, right } => {
+                assert_eq!(op, InequalityOp::Ne);
+                assert_eq!(*left, Expression::Variable("x".to_string()));
+                assert_eq!(*right, Expression::Integer(0));
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_inequality_unicode_le() {
+        let expr = parse("x ≤ 3").unwrap();
+        match expr {
+            Expression::Inequality { op, .. } => {
+                assert_eq!(op, InequalityOp::Le);
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_inequality_unicode_ge() {
+        let expr = parse("x ≥ -1").unwrap();
+        match expr {
+            Expression::Inequality { op, .. } => {
+                assert_eq!(op, InequalityOp::Ge);
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_inequality_unicode_ne() {
+        let expr = parse("a ≠ b").unwrap();
+        match expr {
+            Expression::Inequality { op, .. } => {
+                assert_eq!(op, InequalityOp::Ne);
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_complex_equation() {
+        // 2*x + 1 = 5
+        let expr = parse("2*x + 1 = 5").unwrap();
+        match expr {
+            Expression::Equation { left, right } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Integer(5));
+            }
+            _ => panic!("Expected Equation variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_complex_inequality() {
+        // a + b < c + d
+        let expr = parse("a + b < c + d").unwrap();
+        match expr {
+            Expression::Inequality { op, left, right } => {
+                assert_eq!(op, InequalityOp::Lt);
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+                assert!(matches!(
+                    *right,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    #[test]
+    fn test_chained_relation_error() {
+        // a < b < c should error
+        let result = parse("a < b < c");
+        assert!(result.is_err());
+        if let Err(e) = result {
+            let error_msg = e.to_string();
+            assert!(error_msg.contains("chained relations"));
+        }
+    }
+
+    #[test]
+    fn test_relation_precedence_over_addition() {
+        // 2 + 3 = 5 should parse as (2 + 3) = 5
+        let expr = parse("2 + 3 = 5").unwrap();
+        match expr {
+            Expression::Equation { left, right } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Integer(5));
+            }
+            _ => panic!("Expected Equation variant"),
+        }
+    }
+
+    #[test]
+    fn test_relation_with_parentheses() {
+        // (x + 1) > y
+        let expr = parse("(x + 1) > y").unwrap();
+        match expr {
+            Expression::Inequality { op, left, right } => {
+                assert_eq!(op, InequalityOp::Gt);
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Variable("y".to_string()));
+            }
+            _ => panic!("Expected Inequality variant"),
+        }
+    }
+
+    // Implicit multiplication tests
+
+    #[test]
+    fn test_implicit_mult_number_variable() {
+        // 2x should parse as 2*x
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("2x", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Integer(2));
+                assert_eq!(*right, Expression::Variable("x".to_string()));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_float_variable() {
+        // 3.14r should parse as 3.14*r
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("3.14r", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert!(matches!(*left, Expression::Float(_)));
+                assert_eq!(*right, Expression::Variable("r".to_string()));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_number_parens() {
+        // 2(x+1) should parse as 2*(x+1)
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("2(x+1)", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Integer(2));
+                assert!(matches!(
+                    *right,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_variable_variable() {
+        // xy should parse as x*y
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("xy", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Variable("x".to_string()));
+                assert_eq!(*right, Expression::Variable("y".to_string()));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_variable_chain() {
+        // xyz should parse as x*(y*z)
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("xyz", &config).unwrap();
+        // Due to left-associativity, this will be (x*y)*z
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Mul,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Variable("z".to_string()));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_constant_variable() {
+        // pi x should parse as pi*x
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("pi x", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Constant(MathConstant::Pi));
+                assert_eq!(*right, Expression::Variable("x".to_string()));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_parens_parens() {
+        // (a)(b) should parse as (a)*(b)
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("(a)(b)", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Variable("a".to_string()));
+                assert_eq!(*right, Expression::Variable("b".to_string()));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_parens_variable() {
+        // (a)x should parse as (a)*x
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("(a)x", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Variable("a".to_string()));
+                assert_eq!(*right, Expression::Variable("x".to_string()));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_complex_expression() {
+        // 2x + 3y should parse as (2*x) + (3*y)
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("2x + 3y", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Add,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Mul,
+                        ..
+                    }
+                ));
+                assert!(matches!(
+                    *right,
+                    Expression::Binary {
+                        op: BinaryOp::Mul,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected addition"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_with_power() {
+        // 2x^2 should parse as 2*(x^2)
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("2x^2", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Integer(2));
+                assert!(matches!(
+                    *right,
+                    Expression::Binary {
+                        op: BinaryOp::Pow,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_no_implicit_mult_function_call() {
+        // sin(x) should remain a function call, NOT s*i*n*(x)
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("sin(x)", &config).unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "sin");
+                assert_eq!(args.len(), 1);
+            }
+            _ => panic!("Expected function call, not implicit multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_disabled() {
+        // With implicit multiplication disabled, 2x should fail
+        let config = ParserConfig {
+            implicit_multiplication: false,
+        };
+        let result = parse_with_config("2x", &config);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_implicit_mult_mixed_with_explicit() {
+        // 2x * 3y should parse as (2*x) * (3*y)
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("2x * 3y", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Mul,
+                        ..
+                    }
+                ));
+                assert!(matches!(
+                    *right,
+                    Expression::Binary {
+                        op: BinaryOp::Mul,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_parenthesized_sum() {
+        // (a + b)(c + d) should parse as (a+b)*(c+d)
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("(a + b)(c + d)", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+                assert!(matches!(
+                    *right,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_number_function() {
+        // 2sin(x) should parse as 2*sin(x)
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("2sin(x)", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Integer(2));
+                match *right {
+                    Expression::Function { name, .. } => assert_eq!(name, "sin"),
+                    _ => panic!("Expected function on right"),
+                }
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_default_config() {
+        // Default config should have implicit multiplication enabled
+        let expr = parse("2x").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul, ..
+            } => {}
+            _ => panic!("Expected multiplication with default config"),
+        }
+    }
+
+    #[test]
+    fn test_implicit_mult_precedence() {
+        // 2x + 1 should parse as (2*x) + 1, not 2*(x+1)
+        let config = ParserConfig {
+            implicit_multiplication: true,
+        };
+        let expr = parse_with_config("2x + 1", &config).unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Add,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Mul,
+                        ..
+                    }
+                ));
+                assert_eq!(*right, Expression::Integer(1));
+            }
+            _ => panic!("Expected addition at top level"),
+        }
     }
 }
