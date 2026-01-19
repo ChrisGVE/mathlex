@@ -1964,4 +1964,371 @@ mod tests {
         assert_eq!(e1, e2);
         assert_ne!(e1, e3);
     }
+
+    // Tests for serde serialization/deserialization
+    #[cfg(feature = "serde")]
+    mod serde_tests {
+        use super::*;
+
+        #[test]
+        fn test_serialize_deserialize_integer() {
+            let expr = Expression::Integer(42);
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_float() {
+            let expr = Expression::Float(MathFloat::from(3.14159));
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_variable() {
+            let expr = Expression::Variable("x".to_string());
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_constant() {
+            let expr = Expression::Constant(MathConstant::Pi);
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_binary() {
+            let expr = Expression::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::Integer(2)),
+                right: Box::new(Expression::Variable("x".to_string())),
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_unary() {
+            let expr = Expression::Unary {
+                op: UnaryOp::Neg,
+                operand: Box::new(Expression::Integer(5)),
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_function() {
+            let expr = Expression::Function {
+                name: "sin".to_string(),
+                args: vec![Expression::Variable("x".to_string())],
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_rational() {
+            let expr = Expression::Rational {
+                numerator: Box::new(Expression::Integer(1)),
+                denominator: Box::new(Expression::Integer(2)),
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_complex() {
+            let expr = Expression::Complex {
+                real: Box::new(Expression::Integer(3)),
+                imaginary: Box::new(Expression::Integer(4)),
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_derivative() {
+            let expr = Expression::Derivative {
+                expr: Box::new(Expression::Variable("f".to_string())),
+                var: "x".to_string(),
+                order: 2,
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_partial_derivative() {
+            let expr = Expression::PartialDerivative {
+                expr: Box::new(Expression::Variable("f".to_string())),
+                var: "x".to_string(),
+                order: 1,
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_integral_indefinite() {
+            let expr = Expression::Integral {
+                integrand: Box::new(Expression::Variable("x".to_string())),
+                var: "x".to_string(),
+                bounds: None,
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_integral_definite() {
+            let expr = Expression::Integral {
+                integrand: Box::new(Expression::Variable("x".to_string())),
+                var: "x".to_string(),
+                bounds: Some(IntegralBounds {
+                    lower: Box::new(Expression::Integer(0)),
+                    upper: Box::new(Expression::Integer(1)),
+                }),
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_limit() {
+            let expr = Expression::Limit {
+                expr: Box::new(Expression::Variable("f".to_string())),
+                var: "x".to_string(),
+                to: Box::new(Expression::Integer(0)),
+                direction: Direction::Both,
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_sum() {
+            let expr = Expression::Sum {
+                index: "i".to_string(),
+                lower: Box::new(Expression::Integer(1)),
+                upper: Box::new(Expression::Variable("n".to_string())),
+                body: Box::new(Expression::Variable("i".to_string())),
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_product() {
+            let expr = Expression::Product {
+                index: "i".to_string(),
+                lower: Box::new(Expression::Integer(1)),
+                upper: Box::new(Expression::Variable("n".to_string())),
+                body: Box::new(Expression::Variable("i".to_string())),
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_vector() {
+            let expr = Expression::Vector(vec![
+                Expression::Integer(1),
+                Expression::Integer(2),
+                Expression::Integer(3),
+            ]);
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_matrix() {
+            let expr = Expression::Matrix(vec![
+                vec![Expression::Integer(1), Expression::Integer(2)],
+                vec![Expression::Integer(3), Expression::Integer(4)],
+            ]);
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_equation() {
+            let expr = Expression::Equation {
+                left: Box::new(Expression::Variable("x".to_string())),
+                right: Box::new(Expression::Integer(5)),
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_inequality() {
+            let expr = Expression::Inequality {
+                op: InequalityOp::Lt,
+                left: Box::new(Expression::Variable("x".to_string())),
+                right: Box::new(Expression::Integer(5)),
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_nested_expression() {
+            // (2 + x) * 3
+            let expr = Expression::Binary {
+                op: BinaryOp::Mul,
+                left: Box::new(Expression::Binary {
+                    op: BinaryOp::Add,
+                    left: Box::new(Expression::Integer(2)),
+                    right: Box::new(Expression::Variable("x".to_string())),
+                }),
+                right: Box::new(Expression::Integer(3)),
+            };
+            let json = serde_json::to_string(&expr).unwrap();
+            let parsed: Expression = serde_json::from_str(&json).unwrap();
+            assert_eq!(expr, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_math_float() {
+            let float = MathFloat::from(3.14159);
+            let json = serde_json::to_string(&float).unwrap();
+            let parsed: MathFloat = serde_json::from_str(&json).unwrap();
+            assert_eq!(float, parsed);
+        }
+
+        #[test]
+        fn test_serialize_deserialize_all_constants() {
+            let constants = vec![
+                MathConstant::Pi,
+                MathConstant::E,
+                MathConstant::I,
+                MathConstant::Infinity,
+                MathConstant::NegInfinity,
+            ];
+            for constant in constants {
+                let json = serde_json::to_string(&constant).unwrap();
+                let parsed: MathConstant = serde_json::from_str(&json).unwrap();
+                assert_eq!(constant, parsed);
+            }
+        }
+
+        #[test]
+        fn test_serialize_deserialize_all_binary_ops() {
+            let ops = vec![
+                BinaryOp::Add,
+                BinaryOp::Sub,
+                BinaryOp::Mul,
+                BinaryOp::Div,
+                BinaryOp::Pow,
+                BinaryOp::Mod,
+            ];
+            for op in ops {
+                let json = serde_json::to_string(&op).unwrap();
+                let parsed: BinaryOp = serde_json::from_str(&json).unwrap();
+                assert_eq!(op, parsed);
+            }
+        }
+
+        #[test]
+        fn test_serialize_deserialize_all_unary_ops() {
+            let ops = vec![
+                UnaryOp::Neg,
+                UnaryOp::Pos,
+                UnaryOp::Factorial,
+                UnaryOp::Transpose,
+            ];
+            for op in ops {
+                let json = serde_json::to_string(&op).unwrap();
+                let parsed: UnaryOp = serde_json::from_str(&json).unwrap();
+                assert_eq!(op, parsed);
+            }
+        }
+
+        #[test]
+        fn test_serialize_deserialize_all_directions() {
+            let directions = vec![Direction::Left, Direction::Right, Direction::Both];
+            for direction in directions {
+                let json = serde_json::to_string(&direction).unwrap();
+                let parsed: Direction = serde_json::from_str(&json).unwrap();
+                assert_eq!(direction, parsed);
+            }
+        }
+
+        #[test]
+        fn test_serialize_deserialize_all_inequality_ops() {
+            let ops = vec![
+                InequalityOp::Lt,
+                InequalityOp::Le,
+                InequalityOp::Gt,
+                InequalityOp::Ge,
+                InequalityOp::Ne,
+            ];
+            for op in ops {
+                let json = serde_json::to_string(&op).unwrap();
+                let parsed: InequalityOp = serde_json::from_str(&json).unwrap();
+                assert_eq!(op, parsed);
+            }
+        }
+
+        #[test]
+        fn test_serialize_deserialize_integral_bounds() {
+            let bounds = IntegralBounds {
+                lower: Box::new(Expression::Integer(0)),
+                upper: Box::new(Expression::Integer(10)),
+            };
+            let json = serde_json::to_string(&bounds).unwrap();
+            let parsed: IntegralBounds = serde_json::from_str(&json).unwrap();
+            assert_eq!(bounds, parsed);
+        }
+
+        #[test]
+        fn test_math_float_nan_serialization() {
+            // Note: JSON doesn't natively support NaN, it serializes to null
+            // This is expected behavior from ordered-float's serde implementation
+            let nan = MathFloat::from(f64::NAN);
+            let json = serde_json::to_string(&nan).unwrap();
+            assert_eq!(json, "null");
+
+            // For actual round-trip preservation of NaN, use binary formats like bincode
+            // JSON explicitly doesn't support NaN per spec
+        }
+
+        #[test]
+        fn test_math_float_infinity_serialization() {
+            // Note: JSON doesn't natively support Infinity, it serializes to null
+            // This is expected behavior from ordered-float's serde implementation
+            let inf = MathFloat::from(f64::INFINITY);
+            let json = serde_json::to_string(&inf).unwrap();
+            assert_eq!(json, "null");
+
+            let neg_inf = MathFloat::from(f64::NEG_INFINITY);
+            let json = serde_json::to_string(&neg_inf).unwrap();
+            assert_eq!(json, "null");
+
+            // For actual round-trip preservation of special floats, use binary formats
+        }
+    }
 }
