@@ -923,8 +923,8 @@ impl LatexParser {
 
         self.consume(LatexToken::RBrace)?;
 
-        // Parse the expression
-        let expr = self.parse_primary()?;
+        // Parse the expression - use parse_multiplicative to capture full expressions
+        let expr = self.parse_multiplicative()?;
 
         Ok(Expression::Limit {
             expr: Box::new(expr),
