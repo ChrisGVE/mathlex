@@ -582,3 +582,18 @@ fn test_function_of_float() {
         _ => panic!("Expected function call"),
     }
 }
+
+// Determinant tests
+
+#[test]
+fn test_det_braced() {
+    let expr = parse_latex(r"\det{A}").unwrap();
+    match expr {
+        Expression::Function { name, args } => {
+            assert_eq\!(name, "det");
+            assert_eq\!(args.len(), 1);
+            assert_eq\!(args[0], Expression::Variable("A".to_string()));
+        }
+        _ => panic\!("Expected function call"),
+    }
+}
