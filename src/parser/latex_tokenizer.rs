@@ -280,6 +280,7 @@ impl<'a> Tokenizer<'a> {
                 }
                 "to" => Ok((LatexToken::To, span)),
                 "infty" => Ok((LatexToken::Infty, span)),
+                "cdot" | "times" => Ok((LatexToken::Star, span)),
                 "left" => {
                     // Handle \left( or \left[ or \left|
                     self.skip_whitespace();
@@ -763,5 +764,37 @@ mod tests {
         assert!(matches!(tokens[1].0, LatexToken::LBrace));
         assert_eq!(tokens[2].0, LatexToken::Number("2".to_string()));
         assert!(matches!(tokens[3].0, LatexToken::RBrace));
+    }
+
+    #[test]
+    fn test_tokenize_cdot() {
+        let tokens = tokenize_latex(r"\cdot").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::Star));
+    }
+
+    #[test]
+    fn test_tokenize_times() {
+        let tokens = tokenize_latex(r"\times").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::Star));
+    }
+
+    #[test]
+    fn test_tokenize_cdot_multiplication() {
+        let tokens = tokenize_latex(r"a \cdot b").unwrap();
+        assert_eq!(tokens.len(), 4); // a, \cdot, b, eof
+        assert_eq!(tokens[0].0, LatexToken::Letter('a'));
+        assert!(matches!(tokens[1].0, LatexToken::Star));
+        assert_eq!(tokens[2].0, LatexToken::Letter('b'));
+    }
+
+    #[test]
+    fn test_tokenize_times_multiplication() {
+        let tokens = tokenize_latex(r"2 \times 3").unwrap();
+        assert_eq!(tokens.len(), 4); // 2, \times, 3, eof
+        assert_eq!(tokens[0].0, LatexToken::Number("2".to_string()));
+        assert!(matches!(tokens[1].0, LatexToken::Star));
+        assert_eq!(tokens[2].0, LatexToken::Number("3".to_string()));
     }
 }

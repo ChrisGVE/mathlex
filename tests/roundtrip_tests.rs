@@ -474,3 +474,53 @@ fn test_latex_complex_calculus() {
     // Derivative of an integral with correct syntax
     assert_roundtrip_latex(r"\frac{d}{d*x}\int_0^x \sin\left(t\right) dt");
 }
+
+// ============================================================================
+// Multiplication Operator Round-trip Tests
+// ============================================================================
+
+#[test]
+fn test_latex_cdot_simple() {
+    // Test that \cdot round-trips correctly
+    assert_roundtrip_latex(r"a \cdot b");
+    assert_roundtrip_latex(r"2 \cdot 3");
+}
+
+#[test]
+fn test_latex_times_simple() {
+    // Test that \times round-trips correctly
+    assert_roundtrip_latex(r"a \times b");
+    assert_roundtrip_latex(r"2 \times 3");
+}
+
+#[test]
+fn test_latex_cdot_complex() {
+    // Test \cdot in complex expressions
+    assert_roundtrip_latex(r"2 \cdot x + 3");
+    assert_roundtrip_latex(r"(a + b) \cdot (c - d)");
+    assert_roundtrip_latex(r"x \cdot y \cdot z");
+}
+
+#[test]
+fn test_latex_times_complex() {
+    // Test \times in complex expressions
+    assert_roundtrip_latex(r"2 \times x + 3");
+    assert_roundtrip_latex(r"(a + b) \times (c - d)");
+    assert_roundtrip_latex(r"x \times y \times z");
+}
+
+#[test]
+fn test_latex_cdot_precedence() {
+    // Test that \cdot has correct precedence
+    assert_roundtrip_latex(r"a + b \cdot c");
+    assert_roundtrip_latex(r"a \cdot b + c");
+    assert_roundtrip_latex(r"a \cdot b^{2}");
+}
+
+#[test]
+fn test_latex_times_precedence() {
+    // Test that \times has correct precedence
+    assert_roundtrip_latex(r"a + b \times c");
+    assert_roundtrip_latex(r"a \times b + c");
+    assert_roundtrip_latex(r"a \times b^{2}");
+}
