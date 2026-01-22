@@ -244,24 +244,56 @@ impl LatexParser {
     fn parse_multiplicative(&mut self) -> ParseResult<Expression> {
         let mut left = self.parse_power()?;
 
-        while let Some((token, _)) = self.peek() {
-            let op = match token {
-                LatexToken::Star => BinaryOp::Mul,
-                LatexToken::Slash => BinaryOp::Div,
-                _ => break,
-            };
+        loop {
+            if let Some((token, _)) = self.peek() {
+                let op = match token {
+                    LatexToken::Star => BinaryOp::Mul,
+                    LatexToken::Slash => BinaryOp::Div,
+                    _ => {
+                        // Check for implicit multiplication (e.g., dx means d*x)
+                        if self.should_insert_implicit_mult(&left) {
+                            BinaryOp::Mul
+                        } else {
+                            break;
+                        }
+                    }
+                };
 
-            self.next(); // consume operator
-            let right = self.parse_power()?;
-            left = Expression::Binary {
-                op,
-                left: Box::new(left),
-                right: Box::new(right),
-            };
+                // Consume explicit operator (but not for implicit multiplication)
+                if matches!(token, LatexToken::Star | LatexToken::Slash) {
+                    self.next();
+                }
+
+                let right = self.parse_power()?;
+                left = Expression::Binary {
+                    op,
+                    left: Box::new(left),
+                    right: Box::new(right),
+                };
+            } else {
+                break;
+            }
         }
 
         Ok(left)
     }
+
+    /// Determines if implicit multiplication should be inserted in LaTeX.
+    /// This is used for patterns like dx (d*x) in derivatives.
+    fn should_insert_implicit_mult(&self, left: &Expression) -> bool {
+        // Only insert implicit mult when left is a simple variable
+        if !matches!(left, Expression::Variable(_)) {
+            return false;
+        }
+
+        // Check if next token is something that could start a multiplicand
+        match self.peek() {
+            Some((LatexToken::Letter(_), _)) => true,
+            Some((LatexToken::Command(_), _)) => true,
+            _ => false,
+        }
+    }
+
 
     /// Parses power expressions (^) and subscripts (_).
     fn parse_power(&mut self) -> ParseResult<Expression> {
@@ -475,12 +507,30 @@ impl LatexParser {
             }
 
             // Logarithms
-            "ln" | "log" => {
+            "ln" => {
                 let arg = self.parse_function_arg()?;
                 Ok(Expression::Function {
-                    name: cmd.to_string(),
+                    name: "ln".to_string(),
                     args: vec![arg],
                 })
+            }
+            "log" => {
+                // Check for subscript base: \log_b{x} or \log_b(x)
+                if self.check(&LatexToken::Underscore) {
+                    self.next(); // consume _
+                    let base = self.parse_braced_or_atom()?;
+                    let arg = self.parse_function_arg()?;
+                    Ok(Expression::Function {
+                        name: "log".to_string(),
+                        args: vec![arg, base],
+                    })
+                } else {
+                    let arg = self.parse_function_arg()?;
+                    Ok(Expression::Function {
+                        name: "log".to_string(),
+                        args: vec![arg],
+                    })
+                }
             }
 
             // Exponential
@@ -492,6 +542,15 @@ impl LatexParser {
                 })
             }
 
+
+            // Determinant
+            "det" => {
+                let arg = self.parse_function_arg()?;
+                Ok(Expression::Function {
+                    name: "det".to_string(),
+                    args: vec![arg],
+                })
+            }
             // Other common functions
             "min" | "max" | "gcd" | "lcm" => {
                 let arg = self.parse_function_arg()?;
