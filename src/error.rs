@@ -29,6 +29,103 @@
 
 use std::fmt;
 
+/// Known mathematical functions that the parser recognizes.
+///
+/// Used for generating suggestions when an unknown function is encountered.
+const KNOWN_FUNCTIONS: &[&str] = &[
+    "sin", "cos", "tan", "csc", "sec", "cot", "arcsin", "arccos", "arctan", "sinh", "cosh",
+    "tanh", "log", "ln", "exp", "sqrt", "abs", "floor", "ceil", "round", "sign", "min", "max",
+    "gcd", "lcm",
+];
+
+/// Computes the Levenshtein distance between two strings.
+///
+/// The Levenshtein distance is the minimum number of single-character edits
+/// (insertions, deletions, or substitutions) required to change one string
+/// into another.
+///
+/// # Arguments
+///
+/// * `a` - First string
+/// * `b` - Second string
+///
+/// # Returns
+///
+/// The Levenshtein distance between the two strings.
+///
+/// # Example
+///
+/// ```
+/// use mathlex::error::levenshtein;
+///
+/// assert_eq!(levenshtein("sin", "sen"), 1);
+/// assert_eq!(levenshtein("cos", "coz"), 1);
+/// assert_eq!(levenshtein("tan", "tan"), 0);
+/// ```
+pub fn levenshtein(a: &str, b: &str) -> usize {
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    let a_len = a_chars.len();
+    let b_len = b_chars.len();
+
+    if a_len == 0 {
+        return b_len;
+    }
+    if b_len == 0 {
+        return a_len;
+    }
+
+    let mut prev_row: Vec<usize> = (0..=b_len).collect();
+    let mut curr_row: Vec<usize> = vec![0; b_len + 1];
+
+    for (i, a_char) in a_chars.iter().enumerate() {
+        curr_row[0] = i + 1;
+
+        for (j, b_char) in b_chars.iter().enumerate() {
+            let cost = if a_char == b_char { 0 } else { 1 };
+            curr_row[j + 1] = std::cmp::min(
+                std::cmp::min(curr_row[j] + 1, prev_row[j + 1] + 1),
+                prev_row[j] + cost,
+            );
+        }
+
+        std::mem::swap(&mut prev_row, &mut curr_row);
+    }
+
+    prev_row[b_len]
+}
+
+/// Suggests a known function name similar to the unknown name.
+///
+/// Uses Levenshtein distance to find known functions that are close to the
+/// given unknown function name. Only suggests functions within an edit distance
+/// of 2.
+///
+/// # Arguments
+///
+/// * `unknown` - The unknown function name
+///
+/// # Returns
+///
+/// An optional suggestion string if a similar function is found.
+///
+/// # Example
+///
+/// ```
+/// use mathlex::error::suggest_function;
+///
+/// assert_eq!(suggest_function("sen"), Some("Did you mean 'sin'?".to_string()));
+/// assert_eq!(suggest_function("coz"), Some("Did you mean 'cos'?".to_string()));
+/// assert_eq!(suggest_function("xyz"), None);
+/// ```
+pub fn suggest_function(unknown: &str) -> Option<String> {
+    KNOWN_FUNCTIONS
+        .iter()
+        .filter(|&&f| levenshtein(unknown, f) <= 2)
+        .min_by_key(|&&f| levenshtein(unknown, f))
+        .map(|&f| format!("Did you mean '{}'?", f))
+}
+
 /// A position in the source text.
 ///
 /// Tracks line number (1-indexed), column number (1-indexed), and byte offset
@@ -316,6 +413,8 @@ pub struct ParseError {
     pub span: Option<Span>,
     /// Additional context about the error
     pub context: Option<String>,
+    /// Helpful suggestion for fixing the error
+    pub suggestion: Option<String>,
 }
 
 impl ParseError {
@@ -341,6 +440,7 @@ impl ParseError {
             kind,
             span,
             context: None,
+            suggestion: None,
         }
     }
 
@@ -360,6 +460,25 @@ impl ParseError {
     /// ```
     pub fn with_context<S: Into<String>>(mut self, context: S) -> Self {
         self.context = Some(context.into());
+        self
+    }
+
+    /// Adds a suggestion to this error.
+    ///
+    /// # Arguments
+    ///
+    /// * `suggestion` - A helpful suggestion for fixing the error
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mathlex::error::{ParseError, ParseErrorKind};
+    ///
+    /// let error = ParseError::new(ParseErrorKind::EmptyExpression, None)
+    ///     .with_suggestion("Did you mean 'sin'?");
+    /// ```
+    pub fn with_suggestion<S: Into<String>>(mut self, suggestion: S) -> Self {
+        self.suggestion = Some(suggestion.into());
         self
     }
 
@@ -484,6 +603,8 @@ impl ParseError {
 
     /// Creates an unknown function error.
     ///
+    /// Automatically adds a suggestion if a similar known function is found.
+    ///
     /// # Example
     ///
     /// ```
@@ -495,7 +616,11 @@ impl ParseError {
     where
         S: Into<String>,
     {
-        Self::new(ParseErrorKind::UnknownFunction { name: name.into() }, span)
+        let name_str = name.into();
+        let suggestion = suggest_function(&name_str);
+        let mut error = Self::new(ParseErrorKind::UnknownFunction { name: name_str }, span);
+        error.suggestion = suggestion;
+        error
     }
 
     /// Creates an invalid subscript error.
@@ -602,6 +727,10 @@ impl fmt::Display for ParseError {
             write!(f, " ({})", ctx)?;
         }
 
+        if let Some(suggestion) = &self.suggestion {
+            write!(f, " {}", suggestion)?;
+        }
+
         Ok(())
     }
 }
@@ -630,6 +759,7 @@ pub struct ErrorBuilder {
     kind: ParseErrorKind,
     span: Option<Span>,
     context: Option<String>,
+    suggestion: Option<String>,
 }
 
 impl ErrorBuilder {
@@ -643,6 +773,7 @@ impl ErrorBuilder {
             kind,
             span: None,
             context: None,
+            suggestion: None,
         }
     }
 
@@ -676,12 +807,23 @@ impl ErrorBuilder {
         self
     }
 
+    /// Adds a suggestion to this error.
+    ///
+    /// # Arguments
+    ///
+    /// * `suggestion` - A helpful suggestion for fixing the error
+    pub fn with_suggestion<S: Into<String>>(mut self, suggestion: S) -> Self {
+        self.suggestion = Some(suggestion.into());
+        self
+    }
+
     /// Builds the parse error.
     pub fn build(self) -> ParseError {
         ParseError {
             kind: self.kind,
             span: self.span,
             context: self.context,
+            suggestion: self.suggestion,
         }
     }
 }
@@ -1133,5 +1275,159 @@ mod tests {
     fn test_parse_result_err() {
         let result: ParseResult<i32> = Err(ParseError::empty_expression(None));
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_levenshtein_identical() {
+        assert_eq!(levenshtein("sin", "sin"), 0);
+    }
+
+    #[test]
+    fn test_levenshtein_substitution() {
+        assert_eq!(levenshtein("sin", "sen"), 1);
+    }
+
+    #[test]
+    fn test_levenshtein_insertion() {
+        assert_eq!(levenshtein("sin", "sign"), 1);
+    }
+
+    #[test]
+    fn test_levenshtein_deletion() {
+        assert_eq!(levenshtein("sign", "sin"), 1);
+    }
+
+    #[test]
+    fn test_levenshtein_multiple_edits() {
+        assert_eq!(levenshtein("cos", "xyz"), 3);
+    }
+
+    #[test]
+    fn test_levenshtein_empty_strings() {
+        assert_eq!(levenshtein("", "sin"), 3);
+        assert_eq!(levenshtein("cos", ""), 3);
+        assert_eq!(levenshtein("", ""), 0);
+    }
+
+    #[test]
+    fn test_suggest_function_close_match() {
+        assert_eq!(suggest_function("sen"), Some("Did you mean 'sin'?".to_string()));
+        assert_eq!(suggest_function("coz"), Some("Did you mean 'cos'?".to_string()));
+        assert_eq!(
+            suggest_function("sqr"),
+            Some("Did you mean 'sqrt'?".to_string())
+        );
+    }
+
+    #[test]
+    fn test_suggest_function_exact_match() {
+        // Even exact matches get suggestions if distance is 0
+        assert_eq!(suggest_function("sin"), Some("Did you mean 'sin'?".to_string()));
+    }
+
+    #[test]
+    fn test_suggest_function_no_match() {
+        // Too far from any known function
+        assert_eq!(suggest_function("xyz"), None);
+        assert_eq!(suggest_function("foobar"), None);
+    }
+
+    #[test]
+    fn test_suggest_function_distance_2() {
+        // Should suggest if distance is exactly 2
+        assert_eq!(
+            suggest_function("sinn"),
+            Some("Did you mean 'sin'?".to_string())
+        );
+    }
+
+    #[test]
+    fn test_suggest_function_distance_3() {
+        // Should not suggest if distance is 3 or more
+        // "zzz" is at least 3 edits from any known function
+        assert_eq!(suggest_function("zzz"), None);
+    }
+
+    #[test]
+    fn test_unknown_function_with_suggestion() {
+        let error = ParseError::unknown_function("sen", None);
+        assert_eq!(
+            error.kind,
+            ParseErrorKind::UnknownFunction {
+                name: "sen".to_string(),
+            }
+        );
+        assert_eq!(
+            error.suggestion,
+            Some("Did you mean 'sin'?".to_string())
+        );
+    }
+
+    #[test]
+    fn test_unknown_function_no_suggestion() {
+        let error = ParseError::unknown_function("xyz", None);
+        assert_eq!(
+            error.kind,
+            ParseErrorKind::UnknownFunction {
+                name: "xyz".to_string(),
+            }
+        );
+        assert_eq!(error.suggestion, None);
+    }
+
+    #[test]
+    fn test_error_display_with_suggestion() {
+        let error = ParseError::new(ParseErrorKind::EmptyExpression, None)
+            .with_suggestion("Did you mean 'sin'?");
+        assert_eq!(
+            error.to_string(),
+            "empty expression Did you mean 'sin'?"
+        );
+    }
+
+    #[test]
+    fn test_error_display_with_span_and_suggestion() {
+        let pos = Position::new(1, 5, 4);
+        let span = Span::at(pos);
+        let error = ParseError::new(ParseErrorKind::EmptyExpression, Some(span))
+            .with_suggestion("Did you mean 'sin'?");
+        assert_eq!(
+            error.to_string(),
+            "empty expression at 1:5 Did you mean 'sin'?"
+        );
+    }
+
+    #[test]
+    fn test_error_display_with_context_and_suggestion() {
+        let error = ParseError::new(ParseErrorKind::EmptyExpression, None)
+            .with_context("while parsing function arguments")
+            .with_suggestion("Did you mean 'sin'?");
+        assert_eq!(
+            error.to_string(),
+            "empty expression (while parsing function arguments) Did you mean 'sin'?"
+        );
+    }
+
+    #[test]
+    fn test_error_builder_with_suggestion() {
+        let error = ErrorBuilder::new(ParseErrorKind::EmptyExpression)
+            .with_suggestion("Did you mean 'sin'?")
+            .build();
+
+        assert_eq!(
+            error.suggestion,
+            Some("Did you mean 'sin'?".to_string())
+        );
+    }
+
+    #[test]
+    fn test_with_suggestion_method() {
+        let error = ParseError::new(ParseErrorKind::EmptyExpression, None)
+            .with_suggestion("Try using 'sin' instead");
+
+        assert_eq!(
+            error.suggestion,
+            Some("Try using 'sin' instead".to_string())
+        );
     }
 }
