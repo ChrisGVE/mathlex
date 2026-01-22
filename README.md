@@ -27,7 +27,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mathlex = "0.1.0"
+mathlex = "0.1.1"
 ```
 
 ### Swift
@@ -36,7 +36,7 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ChrisGVE/mathlex.git", from: "0.1.0")
+    .package(url: "https://github.com/ChrisGVE/mathlex.git", from: "0.1.1")
 ]
 ```
 
@@ -149,7 +149,7 @@ This design allows different libraries to interpret the AST according to their c
 
 ```toml
 [dependencies]
-mathlex = { version = "0.1.0", features = ["serde"] }
+mathlex = { version = "0.1.1", features = ["serde"] }
 ```
 
 - `serde` - Enable serialization/deserialization of AST types
