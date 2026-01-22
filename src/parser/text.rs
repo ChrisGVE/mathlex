@@ -409,6 +409,31 @@ impl TextParser {
                     Ok(self.identifier_to_expression(name))
                 }
             }
+            Token::Pi => {
+                self.next();
+                Ok(Expression::Constant(MathConstant::Pi))
+            }
+            Token::Infinity => {
+                self.next();
+                Ok(Expression::Constant(MathConstant::Infinity))
+            }
+            Token::Sqrt => {
+                self.next();
+                // Parse √x or √(expr)
+                let arg = if self.check(&Token::LParen) {
+                    self.next(); // consume (
+                    let expr = self.parse_expression()?;
+                    self.consume(Token::RParen)?;
+                    expr
+                } else {
+                    // Parse a single primary expression (number, variable, or function call)
+                    self.parse_unary_prefix()?
+                };
+                Ok(Expression::Function {
+                    name: "sqrt".to_string(),
+                    args: vec![arg],
+                })
+            }
             Token::LParen => {
                 self.next(); // consume (
                 let expr = self.parse_expression()?;
@@ -2782,4 +2807,58 @@ mod stress_tests {
             _ => panic!("Expected power"),
         }
     }
+    #[test]
+    fn test_parse_unicode_pi() {
+        let expr = parse("2*π").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert!(matches!(*left, Expression::Integer(2)));
+                assert!(matches!(*right, Expression::Constant(MathConstant::Pi)));
+            }
+            _ => panic!("Expected multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_parse_unicode_infinity() {
+        let expr = parse("∞").unwrap();
+        assert_eq!(expr, Expression::Constant(MathConstant::Infinity));
+    }
+
+    #[test]
+    fn test_parse_unicode_sqrt() {
+        let expr = parse("√4").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "sqrt");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Integer(4)));
+            }
+            _ => panic!("Expected sqrt function call"),
+        }
+    }
+
+    #[test]
+    fn test_parse_unicode_sqrt_with_parens() {
+        let expr = parse("√(x+1)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "sqrt");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(
+                    args[0],
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected sqrt function call"),
+        }
+    }
+
 }

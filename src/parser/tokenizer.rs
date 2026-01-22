@@ -81,6 +81,14 @@ pub enum Token {
     Underscore,
     /// End of input
     Eof,
+
+    // Unicode mathematical symbols
+    /// Pi constant (π)
+    Pi,
+    /// Infinity constant (∞)
+    Infinity,
+    /// Square root symbol (√)
+    Sqrt,
 }
 
 impl std::fmt::Display for Token {
@@ -112,6 +120,9 @@ impl std::fmt::Display for Token {
             Token::GreaterEq => write!(f, ">="),
             Token::Underscore => write!(f, "_"),
             Token::Eof => write!(f, "<EOF>"),
+            Token::Pi => write!(f, "π"),
+            Token::Infinity => write!(f, "∞"),
+            Token::Sqrt => write!(f, "√"),
         }
     }
 }
@@ -413,6 +424,25 @@ impl<'a> Tokenizer<'a> {
                     Span::new(start, end),
                 )));
             }
+            // Unicode mathematical constants
+            'π' => {
+                self.consume();
+                let end = self.position();
+                return Ok(Some(SpannedToken::new(Token::Pi, Span::new(start, end))));
+            }
+            '∞' => {
+                self.consume();
+                let end = self.position();
+                return Ok(Some(SpannedToken::new(
+                    Token::Infinity,
+                    Span::new(start, end),
+                )));
+            }
+            '√' => {
+                self.consume();
+                let end = self.position();
+                return Ok(Some(SpannedToken::new(Token::Sqrt, Span::new(start, end))));
+            }
             _ => {}
         }
 
@@ -642,4 +672,40 @@ mod tests {
         assert_eq!(tokens[2].span.start.column, 5);
         assert_eq!(tokens[2].span.end.column, 6);
     }
+    #[test]
+    fn test_tokenize_unicode_pi() {
+        let tokens = tokenize("2*π").unwrap();
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens[0].value, Token::Integer(2));
+        assert_eq!(tokens[1].value, Token::Star);
+        assert_eq!(tokens[2].value, Token::Pi);
+    }
+
+    #[test]
+    fn test_tokenize_unicode_infinity() {
+        let tokens = tokenize("∞").unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].value, Token::Infinity);
+    }
+
+    #[test]
+    fn test_tokenize_unicode_sqrt() {
+        let tokens = tokenize("√4").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].value, Token::Sqrt);
+        assert_eq!(tokens[1].value, Token::Integer(4));
+    }
+
+    #[test]
+    fn test_tokenize_unicode_sqrt_with_parens() {
+        let tokens = tokenize("√(x+1)").unwrap();
+        assert_eq!(tokens.len(), 6);
+        assert_eq!(tokens[0].value, Token::Sqrt);
+        assert_eq!(tokens[1].value, Token::LParen);
+        assert_eq!(tokens[2].value, Token::Identifier("x".to_string()));
+        assert_eq!(tokens[3].value, Token::Plus);
+        assert_eq!(tokens[4].value, Token::Integer(1));
+        assert_eq!(tokens[5].value, Token::RParen);
+    }
+
 }
