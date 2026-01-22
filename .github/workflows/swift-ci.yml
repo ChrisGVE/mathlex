@@ -1,0 +1,35 @@
+name: Swift CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  swift-build:
+    name: Swift Package Build
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build Rust library with FFI
+        run: cargo build --release --features ffi
+
+      - name: Build Swift package
+        run: swift build
+
+      - name: Run Swift tests
+        run: swift test
