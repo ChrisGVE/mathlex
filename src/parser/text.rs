@@ -399,8 +399,44 @@ impl TextParser {
                 Ok(Expression::Float(MathFloat::from(value)))
             }
             Token::Identifier(name) => {
-                let name = name.clone();
+                let mut name = name.clone();
                 self.next();
+
+                // Check for subscript (followed by '_')
+                if self.check(&Token::Underscore) {
+                    self.next(); // consume '_'
+
+                    // Parse subscript: single char/number or identifier
+                    let subscript = if let Some(token) = self.peek() {
+                        match &token.value {
+                            Token::Integer(n) => {
+                                let sub = n.to_string();
+                                self.next();
+                                sub
+                            }
+                            Token::Identifier(id) => {
+                                let sub = id.clone();
+                                self.next();
+                                sub
+                            }
+                            _ => {
+                                return Err(ParseError::unexpected_token(
+                                    vec!["number", "identifier"],
+                                    format!("{}", token.value),
+                                    Some(token.span),
+                                ));
+                            }
+                        }
+                    } else {
+                        return Err(ParseError::unexpected_eof(
+                            vec!["subscript"],
+                            Some(self.current_span()),
+                        ));
+                    };
+
+                    // Combine identifier with subscript
+                    name = format!("{}_{}", name, subscript);
+                }
 
                 // Check if it's a function call (followed by '(')
                 if self.check(&Token::LParen) {
@@ -2970,6 +3006,55 @@ mod stress_tests {
             }
             _ => panic!("Expected sqrt function call"),
         }
+    }
+
+    // Tests for subscripts
+    #[test]
+    fn test_parse_subscript_with_single_digit() {
+        let expr = parse("x_1").unwrap();
+        assert_eq!(expr, Expression::Variable("x_1".to_string()));
+    }
+
+    #[test]
+    fn test_parse_subscript_with_identifier() {
+        let expr = parse("alpha_i").unwrap();
+        assert_eq!(expr, Expression::Variable("alpha_i".to_string()));
+    }
+
+    #[test]
+    fn test_parse_subscript_with_multiple_digits() {
+        let expr = parse("x_12").unwrap();
+        assert_eq!(expr, Expression::Variable("x_12".to_string()));
+    }
+
+    #[test]
+    fn test_parse_subscript_with_multi_char() {
+        let expr = parse("x_ij").unwrap();
+        assert_eq!(expr, Expression::Variable("x_ij".to_string()));
+    }
+
+    #[test]
+    fn test_parse_subscript_in_expression() {
+        let expr = parse("x_1 + y_2").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Add,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Variable("x_1".to_string()));
+                assert_eq!(*right, Expression::Variable("y_2".to_string()));
+            }
+            _ => panic!("Expected addition"),
+        }
+    }
+
+    #[test]
+    fn test_parse_subscript_round_trip() {
+        let input = "x_1";
+        let expr = parse(input).unwrap();
+        let output = format!("{}", expr);
+        assert_eq!(output, input);
     }
 
 }
