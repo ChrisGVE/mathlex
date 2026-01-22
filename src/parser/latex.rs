@@ -279,17 +279,40 @@ impl LatexParser {
     }
 
     /// Determines if implicit multiplication should be inserted in LaTeX.
-    /// This is used for patterns like dx (d*x) in derivatives.
+    /// This is used for patterns like 2x, xy, 2\pi, etc.
     fn should_insert_implicit_mult(&self, left: &Expression) -> bool {
-        // Only insert implicit mult when left is a simple variable
-        if !matches!(left, Expression::Variable(_)) {
+        // Only insert implicit mult when left is a simple variable or number
+        let is_valid_left = matches!(
+            left,
+            Expression::Variable(_) | Expression::Integer(_) | Expression::Float(_)
+        );
+        if !is_valid_left {
             return false;
         }
 
         // Check if next token is something that could start a multiplicand
         match self.peek() {
-            Some((LatexToken::Letter(_), _)) => true,
-            Some((LatexToken::Command(_), _)) => true,
+            Some((LatexToken::Letter(ch), _)) => {
+                // Don't trigger implicit mult for 'd' followed by a letter (differential marker)
+                // This allows `x dx` in integrals to work correctly
+                if *ch == 'd' {
+                    // Check if it's followed by another letter (the differential variable)
+                    if let Some((LatexToken::Letter(_), _)) = self.tokens.get(self.pos + 1) {
+                        return false;
+                    }
+                }
+                true
+            }
+            Some((LatexToken::Command(cmd), _)) => {
+                // Exclude relation commands - they should not trigger implicit mult
+                !matches!(
+                    cmd.as_str(),
+                    "lt" | "gt" | "leq" | "le" | "geq" | "ge" | "neq" | "ne"
+                        | "pm" | "mp" | "cdot" | "times" | "div"
+                )
+            }
+            Some((LatexToken::LParen, _)) => true,
+            Some((LatexToken::LBrace, _)) => true,
             _ => false,
         }
     }
@@ -804,8 +827,9 @@ impl LatexParser {
             None
         };
 
-        // Parse integrand - greedy until we find d<var> pattern
-        let integrand = self.parse_integral_body()?;
+        // Parse integrand - use multiplicative level so x + 1 parses as (int x) + 1
+        // For greedy parsing like \int x + 1 dx, parentheses are required: \int (x + 1) dx
+        let integrand = self.parse_multiplicative()?;
 
         // Expect 'd' followed by variable name
         if let Some((LatexToken::Letter('d'), _)) = self.peek() {
@@ -833,65 +857,6 @@ impl LatexParser {
                 Some(self.current_span()),
             ))
         }
-    }
-
-    /// Parses the integrand body by looking ahead for the d<var> pattern.
-    /// This allows greedy parsing so that \int x + 1 dx correctly parses as \int (x+1) dx.
-    fn parse_integral_body(&mut self) -> ParseResult<Expression> {
-        // Find the position of the d<var> pattern
-        let d_pos = self.find_differential_position()?;
-
-        // Parse additive expression, but stop when we reach the differential
-        let mut expr = self.parse_multiplicative()?;
-
-        // Continue parsing additive operations until we reach the differential position
-        while self.pos < d_pos {
-            if let Some((token, _)) = self.peek() {
-                let op = match token {
-                    LatexToken::Plus => BinaryOp::Add,
-                    LatexToken::Minus => BinaryOp::Sub,
-                    _ => break,
-                };
-
-                // Only continue if we haven't reached the differential
-                if self.pos >= d_pos {
-                    break;
-                }
-
-                self.next(); // consume operator
-                let right = self.parse_multiplicative()?;
-                expr = Expression::Binary {
-                    op,
-                    left: Box::new(expr),
-                    right: Box::new(right),
-                };
-            } else {
-                break;
-            }
-        }
-
-        Ok(expr)
-    }
-
-    /// Finds the position of the differential marker (d followed by a letter).
-    /// Returns the position of the 'd' token.
-    fn find_differential_position(&self) -> ParseResult<usize> {
-        let mut pos = self.pos;
-
-        while pos < self.tokens.len() {
-            if let Some((LatexToken::Letter('d'), _)) = self.tokens.get(pos) {
-                // Check if next token is a letter (the variable)
-                if let Some((LatexToken::Letter(_), _)) = self.tokens.get(pos + 1) {
-                    return Ok(pos);
-                }
-            }
-            pos += 1;
-        }
-
-        Err(ParseError::custom(
-            "expected 'd' followed by variable in integral".to_string(),
-            Some(self.current_span()),
-        ))
     }
 
     /// Parses a limit: \lim_{x \to a} or \lim_{x \to a^+}

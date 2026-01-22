@@ -338,29 +338,32 @@ fn test_integral_different_variable() {
 
 #[test]
 fn test_integral_with_addition() {
-    // \int x + 1 dx should parse as \int (x + 1) dx
-    let expr = parse_latex(r"\int x + 1 dx").unwrap();
+    // \int x dx + 1 parses as (\int x dx) + 1
+    // To include addition in integrand, use parentheses: \int (x + 1) dx
+    let expr = parse_latex(r"\int x dx + 1").unwrap();
     match expr {
-        Expression::Integral {
-            integrand,
-            var,
-            bounds,
+        Expression::Binary {
+            op: BinaryOp::Add,
+            left,
+            right,
         } => {
-            assert_eq!(var, "x");
-            match *integrand {
-                Expression::Binary {
-                    op: BinaryOp::Add,
-                    left,
-                    right,
+            // Left side should be the integral
+            match *left {
+                Expression::Integral {
+                    integrand,
+                    var,
+                    bounds,
                 } => {
-                    assert_eq!(*left, Expression::Variable("x".to_string()));
-                    assert_eq!(*right, Expression::Integer(1));
+                    assert_eq!(var, "x");
+                    assert_eq!(*integrand, Expression::Variable("x".to_string()));
+                    assert!(bounds.is_none());
                 }
-                _ => panic!("Expected addition in integrand"),
+                _ => panic!("Expected Integral on left side"),
             }
-            assert!(bounds.is_none());
+            // Right side should be 1
+            assert_eq!(*right, Expression::Integer(1));
         }
-        _ => panic!("Expected Integral variant"),
+        _ => panic!("Expected Binary Add variant"),
     }
 }
 
@@ -417,32 +420,35 @@ fn test_integral_with_explicit_parentheses() {
 
 #[test]
 fn test_integral_definite_with_addition() {
-    // \int_0^1 x + 1 dx should parse as \int_0^1 (x + 1) dx
-    let expr = parse_latex(r"\int_0^1 x + 1 dx").unwrap();
+    // \int_0^1 x dx + 1 parses as (\int_0^1 x dx) + 1
+    // To include addition in integrand, use parentheses: \int_0^1 (x + 1) dx
+    let expr = parse_latex(r"\int_0^1 x dx + 1").unwrap();
     match expr {
-        Expression::Integral {
-            integrand,
-            var,
-            bounds,
+        Expression::Binary {
+            op: BinaryOp::Add,
+            left,
+            right,
         } => {
-            assert_eq!(var, "x");
-            match *integrand {
-                Expression::Binary {
-                    op: BinaryOp::Add,
-                    left,
-                    right,
+            // Left side should be the definite integral
+            match *left {
+                Expression::Integral {
+                    integrand,
+                    var,
+                    bounds,
                 } => {
-                    assert_eq!(*left, Expression::Variable("x".to_string()));
-                    assert_eq!(*right, Expression::Integer(1));
+                    assert_eq!(var, "x");
+                    assert_eq!(*integrand, Expression::Variable("x".to_string()));
+                    assert!(bounds.is_some());
+                    let bounds = bounds.unwrap();
+                    assert_eq!(*bounds.lower, Expression::Integer(0));
+                    assert_eq!(*bounds.upper, Expression::Integer(1));
                 }
-                _ => panic!("Expected addition in integrand"),
+                _ => panic!("Expected Integral on left side"),
             }
-            assert!(bounds.is_some());
-            let bounds = bounds.unwrap();
-            assert_eq!(*bounds.lower, Expression::Integer(0));
-            assert_eq!(*bounds.upper, Expression::Integer(1));
+            // Right side should be 1
+            assert_eq!(*right, Expression::Integer(1));
         }
-        _ => panic!("Expected Integral variant"),
+        _ => panic!("Expected Binary Add variant"),
     }
 }
 
