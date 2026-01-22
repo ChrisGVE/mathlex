@@ -1,0 +1,33 @@
+[package]
+name = "mathlex-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+mathlex = { path = ".." }
+
+[[bin]]
+name = "fuzz_text_parser"
+path = "fuzz_targets/fuzz_text_parser.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_latex_parser"
+path = "fuzz_targets/fuzz_latex_parser.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_roundtrip"
+path = "fuzz_targets/fuzz_roundtrip.rs"
+test = false
+doc = false
+bench = false
