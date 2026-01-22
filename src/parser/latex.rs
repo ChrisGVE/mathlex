@@ -552,12 +552,48 @@ impl LatexParser {
                 })
             }
             // Other common functions
-            "min" | "max" | "gcd" | "lcm" => {
+            "min" | "max" | "gcd" | "lcm" | "abs" | "floor" | "ceil" | "sgn" => {
                 let arg = self.parse_function_arg()?;
                 Ok(Expression::Function {
                     name: cmd.to_string(),
                     args: vec![arg],
                 })
+            }
+
+            // Floor and ceiling with explicit delimiters
+            "lfloor" => {
+                let expr = self.parse_expression()?;
+                // Expect \rfloor
+                if let Some((LatexToken::Command(cmd), _)) = self.peek() {
+                    if cmd == "rfloor" {
+                        self.next(); // consume \rfloor
+                        return Ok(Expression::Function {
+                            name: "floor".to_string(),
+                            args: vec![expr],
+                        });
+                    }
+                }
+                Err(ParseError::custom(
+                    "expected \\rfloor after \\lfloor".to_string(),
+                    Some(self.current_span()),
+                ))
+            }
+            "lceil" => {
+                let expr = self.parse_expression()?;
+                // Expect \rceil
+                if let Some((LatexToken::Command(cmd), _)) = self.peek() {
+                    if cmd == "rceil" {
+                        self.next(); // consume \rceil
+                        return Ok(Expression::Function {
+                            name: "ceil".to_string(),
+                            args: vec![expr],
+                        });
+                    }
+                }
+                Err(ParseError::custom(
+                    "expected \\rceil after \\lceil".to_string(),
+                    Some(self.current_span()),
+                ))
             }
 
             // Calculus commands
