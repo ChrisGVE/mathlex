@@ -17,6 +17,8 @@ pub enum LatexToken {
     Number(String),
     /// Single letter variable
     Letter(char),
+    /// Explicit constant from \mathrm{e}, \mathrm{i}, \imath, \jmath
+    ExplicitConstant(char),
 
     // Operators
     /// Plus operator (+)
@@ -281,6 +283,39 @@ impl<'a> Tokenizer<'a> {
                 "to" => Ok((LatexToken::To, span)),
                 "infty" => Ok((LatexToken::Infty, span)),
                 "cdot" | "times" => Ok((LatexToken::Star, span)),
+                "mathrm" => {
+                    // Parse \mathrm{e} or \mathrm{i} as explicit constants
+                    self.skip_whitespace();
+                    if self.peek() != Some('{') {
+                        return Err(ParseError::custom(
+                            "\\mathrm must be followed by {content}".to_string(),
+                            Some(span),
+                        ));
+                    }
+                    self.consume(); // consume {
+                    let ch = self.peek();
+                    if ch.is_none() {
+                        return Err(ParseError::unexpected_eof(
+                            vec!["letter"],
+                            Some(span),
+                        ));
+                    }
+                    let ch = ch.unwrap();
+                    self.consume(); // consume letter
+                    if self.peek() != Some('}') {
+                        return Err(ParseError::custom(
+                            "\\mathrm{} must contain exactly one character for constant notation".to_string(),
+                            Some(span),
+                        ));
+                    }
+                    self.consume(); // consume }
+                    let end = self.position();
+                    match ch {
+                        'e' | 'i' => Ok((LatexToken::ExplicitConstant(ch), Span::new(start, end))),
+                        _ => Ok((LatexToken::Command(format!("mathrm_{}", ch)), Span::new(start, end))),
+                    }
+                }
+                "imath" | "jmath" => Ok((LatexToken::ExplicitConstant('i'), span)),
                 "left" => {
                     // Handle \left( or \left[ or \left|
                     self.skip_whitespace();

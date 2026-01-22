@@ -13,9 +13,54 @@
 //! - **Powers**: `x^2`, `x^{expr}` → Binary exponentiation
 //! - **Subscripts**: `x_1`, `x_i`, `x_{i+1}` → Variables with subscripts (supports expressions)
 //! - **Greek letters**: `\alpha`, `\beta`, etc. → Variables
-//! - **Constants**: `\pi`, `\infty` → Mathematical constants
+//! - **Constants**: `\pi`, `\infty`, `e`, `i` → Mathematical constants
 //! - **Trigonometric functions**: `\sin`, `\cos`, `\tan`, etc. → Functions
 //! - **Basic operators**: `+`, `-`, `*`, `/`
+//!
+//! # Context-Aware Parsing of `e` and `i`
+//!
+//! The letters `e` and `i` receive special treatment to distinguish between their use as
+//! mathematical constants (Euler's number and the imaginary unit) versus as variables.
+//!
+//! ## Explicit Markers (Always Constants)
+//!
+//! Use explicit markers to unambiguously specify constants:
+//! - `\mathrm{e}` → Euler's number `e ≈ 2.71828`
+//! - `\mathrm{i}` → Imaginary unit `i`
+//! - `\imath` → Imaginary unit (mathematical notation)
+//! - `\jmath` → Imaginary unit (engineering notation)
+//!
+//! ## Bound Variables in Iterators
+//!
+//! Index variables in `\sum` and `\prod` take precedence over constant interpretation:
+//! - `\sum_{i=1}^{n} i` → `i` is a variable (the summation index)
+//! - `\prod_{e=1}^{n} e` → `e` is a variable (the product index)
+//!
+//! ## Default Behavior
+//!
+//! When unbound and without explicit markers:
+//! - `e` defaults to `Constant(E)` (Euler's number)
+//! - `i` defaults to `Constant(I)` (imaginary unit)
+//!
+//! ## Exponential Normalization
+//!
+//! When `e` (Euler's number) is raised to a power, it's normalized to `exp()`:
+//! - `e^x` → `Function("exp", [x])`
+//! - `e^{i\pi}` → `Function("exp", [Constant(I) * Constant(Pi)])`
+//!
+//! This ensures equivalence with `\exp{x}`.
+//!
+//! ## Known Limitations
+//!
+//! 1. **Integral scope timing**: In `\int f(i) di`, the integrand is parsed before
+//!    the differential variable is known. The `i` in `f(i)` will be `Constant(I)`.
+//!    Workaround: use `\mathrm{i}` explicitly if you need `i` as a variable.
+//!
+//! 2. **Single-letter index only**: Index variables in `\sum` and `\prod` must be
+//!    single ASCII letters.
+//!
+//! 3. **No complex pattern detection**: Patterns like `a + bi` are not specially
+//!    detected; `i` defaults to constant regardless of context.
 //!
 //! # Example
 //!
@@ -25,6 +70,8 @@
 //! let expr = parse_latex(r"\frac{1}{2}").unwrap();
 //! // Returns: Binary { op: Div, left: Integer(1), right: Integer(2) }
 //! ```
+
+use std::collections::HashSet;
 
 use crate::ast::{
     BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, MathConstant, MathFloat,
@@ -69,12 +116,60 @@ struct LatexParser {
     tokens: Vec<Spanned<LatexToken>>,
     /// Current position in token stream
     pos: usize,
+    /// Stack of bound variable scopes (for sum/product index variables)
+    bound_scopes: Vec<HashSet<String>>,
 }
 
 impl LatexParser {
     /// Creates a new parser from a token stream.
     fn new(tokens: Vec<Spanned<LatexToken>>) -> Self {
-        Self { tokens, pos: 0 }
+        Self {
+            tokens,
+            pos: 0,
+            bound_scopes: Vec::new(),
+        }
+    }
+
+    /// Pushes a new scope with the given bound variables.
+    fn push_scope(&mut self, vars: impl IntoIterator<Item = String>) {
+        self.bound_scopes.push(vars.into_iter().collect());
+    }
+
+    /// Pops the current scope.
+    fn pop_scope(&mut self) {
+        self.bound_scopes.pop();
+    }
+
+    /// Checks if a variable name is bound in any current scope.
+    fn is_bound(&self, name: &str) -> bool {
+        self.bound_scopes.iter().any(|scope| scope.contains(name))
+    }
+
+    /// Resolves a letter to either a constant (for `e` and `i`) or a variable.
+    ///
+    /// Resolution rules:
+    /// 1. Bound variables (in sum/product scopes) are always variables
+    /// 2. Explicit markers (`\mathrm{e}`, `\mathrm{i}`, `\imath`, `\jmath`) are always constants
+    /// 3. By default, `e` is Euler's number and `i` is the imaginary unit
+    fn resolve_letter(&self, ch: char, is_explicit: bool) -> Expression {
+        let name = ch.to_string();
+
+        // Rule 1: Bound variables are always variables
+        if self.is_bound(&name) {
+            return Expression::Variable(name);
+        }
+
+        // Rule 2: Explicit markers are always constants
+        // Rule 3: Default for e and i (unbound)
+        if is_explicit || ch == 'e' || ch == 'i' {
+            return match ch {
+                'e' => Expression::Constant(MathConstant::E),
+                'i' => Expression::Constant(MathConstant::I),
+                _ => Expression::Variable(name),
+            };
+        }
+
+        Expression::Variable(name)
     }
 
     /// Returns the current token without consuming it.
@@ -281,12 +376,15 @@ impl LatexParser {
     }
 
     /// Determines if implicit multiplication should be inserted in LaTeX.
-    /// This is used for patterns like 2x, xy, 2\pi, etc.
+    /// This is used for patterns like 2x, xy, 2\pi, i\pi, etc.
     fn should_insert_implicit_mult(&self, left: &Expression) -> bool {
-        // Only insert implicit mult when left is a simple variable or number
+        // Only insert implicit mult when left is a simple variable, number, or constant
         let is_valid_left = matches!(
             left,
-            Expression::Variable(_) | Expression::Integer(_) | Expression::Float(_)
+            Expression::Variable(_)
+                | Expression::Integer(_)
+                | Expression::Float(_)
+                | Expression::Constant(_)
         );
         if !is_valid_left {
             return false;
@@ -322,6 +420,9 @@ impl LatexParser {
 
 
     /// Parses power expressions (^) and subscripts (_).
+    ///
+    /// Note: When the base is Euler's number `e` (Constant(E)), the expression
+    /// `e^x` is normalized to `exp(x)` for consistency with `\exp{x}`.
     fn parse_power(&mut self) -> ParseResult<Expression> {
         let mut base = self.parse_postfix()?;
 
@@ -329,6 +430,15 @@ impl LatexParser {
         if self.check(&LatexToken::Caret) {
             self.next(); // consume ^
             let exponent = self.parse_braced_or_atom()?;
+
+            // Normalize e^{...} to exp(...)
+            if matches!(base, Expression::Constant(MathConstant::E)) {
+                return Ok(Expression::Function {
+                    name: "exp".to_string(),
+                    args: vec![exponent],
+                });
+            }
+
             base = Expression::Binary {
                 op: BinaryOp::Pow,
                 left: Box::new(base),
@@ -379,7 +489,18 @@ impl LatexParser {
                     LatexToken::Letter(ch) => {
                         let ch = *ch;
                         self.next(); // consume
-                        Ok(Expression::Variable(ch.to_string()))
+                        // Use context-aware resolution for e and i
+                        if ch == 'e' || ch == 'i' {
+                            Ok(self.resolve_letter(ch, false))
+                        } else {
+                            Ok(Expression::Variable(ch.to_string()))
+                        }
+                    }
+                    LatexToken::ExplicitConstant(ch) => {
+                        let ch = *ch;
+                        self.next(); // consume
+                        // Explicit constants from \mathrm{e}, \mathrm{i}, \imath, \jmath
+                        Ok(self.resolve_letter(ch, true))
                     }
                     LatexToken::Command(cmd) => {
                         let cmd = cmd.clone();
@@ -685,6 +806,14 @@ impl LatexParser {
         match expr {
             Expression::Integer(n) => Ok(n.to_string()),
             Expression::Variable(s) => Ok(s.clone()),
+            // Constants in subscripts are converted to their letter representation
+            Expression::Constant(c) => Ok(match c {
+                MathConstant::E => "e".to_string(),
+                MathConstant::I => "i".to_string(),
+                MathConstant::Pi => "pi".to_string(),
+                MathConstant::Infinity => "inf".to_string(),
+                MathConstant::NegInfinity => "neginf".to_string(),
+            }),
             Expression::Binary { op, left, right } => {
                 let left_str = self.expression_to_subscript_string(left)?;
                 let right_str = self.expression_to_subscript_string(right)?;
@@ -967,7 +1096,10 @@ impl LatexParser {
     /// Parses a sum: \sum_{i=1}^{n} expr
     fn parse_sum(&mut self) -> ParseResult<Expression> {
         let (index, lower, upper) = self.parse_iterator_bounds()?;
+        // Bind the index variable in scope while parsing the body
+        self.push_scope(std::iter::once(index.clone()));
         let body = self.parse_multiplicative()?;
+        self.pop_scope();
 
         Ok(Expression::Sum {
             index,
@@ -980,7 +1112,10 @@ impl LatexParser {
     /// Parses a product: \prod_{i=1}^{n} expr
     fn parse_product(&mut self) -> ParseResult<Expression> {
         let (index, lower, upper) = self.parse_iterator_bounds()?;
+        // Bind the index variable in scope while parsing the body
+        self.push_scope(std::iter::once(index.clone()));
         let body = self.parse_multiplicative()?;
+        self.pop_scope();
 
         Ok(Expression::Product {
             index,
@@ -1174,6 +1309,10 @@ mod functions_tests;
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_calculus.rs"]
 mod calculus_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_constants.rs"]
+mod constants_tests;
 
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_errors.rs"]
