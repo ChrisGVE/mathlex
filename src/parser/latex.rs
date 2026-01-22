@@ -11,7 +11,7 @@
 //! - **Fractions**: `\frac{num}{denom}` → Binary division
 //! - **Roots**: `\sqrt{x}`, `\sqrt[n]{x}` → Function calls
 //! - **Powers**: `x^2`, `x^{expr}` → Binary exponentiation
-//! - **Subscripts**: `x_1`, `x_{sub}` → Variables with subscripts
+//! - **Subscripts**: `x_1`, `x_i`, `x_{i+1}` → Variables with subscripts (supports expressions)
 //! - **Greek letters**: `\alpha`, `\beta`, etc. → Variables
 //! - **Constants**: `\pi`, `\infty` → Mathematical constants
 //! - **Trigonometric functions**: `\sin`, `\cos`, `\tan`, etc. → Functions
@@ -680,12 +680,38 @@ impl LatexParser {
     }
 
     /// Converts an expression to a subscript string representation.
+    /// For complex expressions, creates a flattened representation suitable for variable names.
     fn expression_to_subscript_string(&self, expr: &Expression) -> ParseResult<String> {
         match expr {
             Expression::Integer(n) => Ok(n.to_string()),
             Expression::Variable(s) => Ok(s.clone()),
+            Expression::Binary { op, left, right } => {
+                let left_str = self.expression_to_subscript_string(left)?;
+                let right_str = self.expression_to_subscript_string(right)?;
+                let op_str = match op {
+                    BinaryOp::Add => "plus",
+                    BinaryOp::Sub => "minus",
+                    BinaryOp::Mul => "times",
+                    BinaryOp::Div => "div",
+                    BinaryOp::Pow => "pow",
+                    BinaryOp::Mod => "mod",
+                    BinaryOp::PlusMinus => "pm",
+                    BinaryOp::MinusPlus => "mp",
+                };
+                Ok(format!("{}{}{}", left_str, op_str, right_str))
+            }
+            Expression::Unary { op, operand } => {
+                let operand_str = self.expression_to_subscript_string(operand)?;
+                let op_str = match op {
+                    crate::ast::UnaryOp::Neg => "neg",
+                    crate::ast::UnaryOp::Pos => "pos",
+                    crate::ast::UnaryOp::Factorial => "fact",
+                    crate::ast::UnaryOp::Transpose => "T",
+                };
+                Ok(format!("{}{}", op_str, operand_str))
+            }
             _ => Err(ParseError::invalid_subscript(
-                "subscript must be a simple value (number or variable)",
+                "subscript contains unsupported expression type",
                 Some(self.current_span()),
             )),
         }
