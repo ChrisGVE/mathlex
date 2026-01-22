@@ -709,8 +709,8 @@ impl LatexParser {
             None
         };
 
-        // Parse integrand
-        let integrand = self.parse_multiplicative()?;
+        // Parse integrand - greedy until we find d<var> pattern
+        let integrand = self.parse_integral_body()?;
 
         // Expect 'd' followed by variable name
         if let Some((LatexToken::Letter('d'), _)) = self.peek() {
@@ -738,6 +738,65 @@ impl LatexParser {
                 Some(self.current_span()),
             ))
         }
+    }
+
+    /// Parses the integrand body by looking ahead for the d<var> pattern.
+    /// This allows greedy parsing so that \int x + 1 dx correctly parses as \int (x+1) dx.
+    fn parse_integral_body(&mut self) -> ParseResult<Expression> {
+        // Find the position of the d<var> pattern
+        let d_pos = self.find_differential_position()?;
+
+        // Parse additive expression, but stop when we reach the differential
+        let mut expr = self.parse_multiplicative()?;
+
+        // Continue parsing additive operations until we reach the differential position
+        while self.pos < d_pos {
+            if let Some((token, _)) = self.peek() {
+                let op = match token {
+                    LatexToken::Plus => BinaryOp::Add,
+                    LatexToken::Minus => BinaryOp::Sub,
+                    _ => break,
+                };
+
+                // Only continue if we haven't reached the differential
+                if self.pos >= d_pos {
+                    break;
+                }
+
+                self.next(); // consume operator
+                let right = self.parse_multiplicative()?;
+                expr = Expression::Binary {
+                    op,
+                    left: Box::new(expr),
+                    right: Box::new(right),
+                };
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
+    }
+
+    /// Finds the position of the differential marker (d followed by a letter).
+    /// Returns the position of the 'd' token.
+    fn find_differential_position(&self) -> ParseResult<usize> {
+        let mut pos = self.pos;
+
+        while pos < self.tokens.len() {
+            if let Some((LatexToken::Letter('d'), _)) = self.tokens.get(pos) {
+                // Check if next token is a letter (the variable)
+                if let Some((LatexToken::Letter(_), _)) = self.tokens.get(pos + 1) {
+                    return Ok(pos);
+                }
+            }
+            pos += 1;
+        }
+
+        Err(ParseError::custom(
+            "expected 'd' followed by variable in integral".to_string(),
+            Some(self.current_span()),
+        ))
     }
 
     /// Parses a limit: \lim_{x \to a} or \lim_{x \to a^+}
@@ -819,7 +878,7 @@ impl LatexParser {
     /// Parses a sum: \sum_{i=1}^{n} expr
     fn parse_sum(&mut self) -> ParseResult<Expression> {
         let (index, lower, upper) = self.parse_iterator_bounds()?;
-        let body = self.parse_primary()?;
+        let body = self.parse_multiplicative()?;
 
         Ok(Expression::Sum {
             index,
@@ -832,7 +891,7 @@ impl LatexParser {
     /// Parses a product: \prod_{i=1}^{n} expr
     fn parse_product(&mut self) -> ParseResult<Expression> {
         let (index, lower, upper) = self.parse_iterator_bounds()?;
-        let body = self.parse_primary()?;
+        let body = self.parse_multiplicative()?;
 
         Ok(Expression::Product {
             index,
@@ -2013,5 +2072,95 @@ mod tests {
             }
             _ => panic!("Expected Product variant"),
         }
+    }
+
+    // Multiplication command tests
+    #[test]
+    fn test_parse_cdot_multiplication() {
+        let expr = parse_latex(r"a \cdot b").unwrap();
+        match expr {
+            Expression::Binary { op, left, right } => {
+                assert_eq!(op, BinaryOp::Mul);
+                assert_eq!(*left, Expression::Variable("a".to_string()));
+                assert_eq!(*right, Expression::Variable("b".to_string()));
+            }
+            _ => panic!("Expected binary multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_parse_times_multiplication() {
+        let expr = parse_latex(r"2 \times 3").unwrap();
+        match expr {
+            Expression::Binary { op, left, right } => {
+                assert_eq!(op, BinaryOp::Mul);
+                assert_eq!(*left, Expression::Integer(2));
+                assert_eq!(*right, Expression::Integer(3));
+            }
+            _ => panic!("Expected binary multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_parse_cdot_complex_expression() {
+        let expr = parse_latex(r"2 \cdot x + 3").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Add,
+                left,
+                right,
+            } => {
+                match *left {
+                    Expression::Binary {
+                        op: BinaryOp::Mul,
+                        left: ref l,
+                        right: ref r,
+                    } => {
+                        assert_eq!(**l, Expression::Integer(2));
+                        assert_eq!(**r, Expression::Variable("x".to_string()));
+                    }
+                    _ => panic!("Expected multiplication in left operand"),
+                }
+                assert_eq!(*right, Expression::Integer(3));
+            }
+            _ => panic!("Expected addition"),
+        }
+    }
+
+    #[test]
+    fn test_parse_times_with_parentheses() {
+        let expr = parse_latex(r"(a + b) \times (c - d)").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+                assert!(matches!(
+                    *right,
+                    Expression::Binary {
+                        op: BinaryOp::Sub,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected binary multiplication"),
+        }
+    }
+
+    #[test]
+    fn test_parse_mixed_multiplication_operators() {
+        // Test that * and \cdot both work
+        let expr1 = parse_latex(r"a * b").unwrap();
+        let expr2 = parse_latex(r"a \cdot b").unwrap();
+
+        assert_eq!(expr1, expr2);
     }
 }

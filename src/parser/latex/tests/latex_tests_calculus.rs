@@ -336,6 +336,116 @@ fn test_integral_different_variable() {
     }
 }
 
+#[test]
+fn test_integral_with_addition() {
+    // \int x + 1 dx should parse as \int (x + 1) dx
+    let expr = parse_latex(r"\int x + 1 dx").unwrap();
+    match expr {
+        Expression::Integral {
+            integrand,
+            var,
+            bounds,
+        } => {
+            assert_eq!(var, "x");
+            match *integrand {
+                Expression::Binary {
+                    op: BinaryOp::Add,
+                    left,
+                    right,
+                } => {
+                    assert_eq!(*left, Expression::Variable("x".to_string()));
+                    assert_eq!(*right, Expression::Integer(1));
+                }
+                _ => panic!("Expected addition in integrand"),
+            }
+            assert!(bounds.is_none());
+        }
+        _ => panic!("Expected Integral variant"),
+    }
+}
+
+#[test]
+fn test_integral_with_multiplication() {
+    // \int x * y dx should parse correctly
+    let expr = parse_latex(r"\int x * y dx").unwrap();
+    match expr {
+        Expression::Integral {
+            integrand,
+            var,
+            bounds,
+        } => {
+            assert_eq!(var, "x");
+            match *integrand {
+                Expression::Binary {
+                    op: BinaryOp::Mul, ..
+                } => {}
+                _ => panic!("Expected multiplication in integrand"),
+            }
+            assert!(bounds.is_none());
+        }
+        _ => panic!("Expected Integral variant"),
+    }
+}
+
+#[test]
+fn test_integral_with_explicit_parentheses() {
+    // \int (x + 1) dx should still work correctly
+    let expr = parse_latex(r"\int (x + 1) dx").unwrap();
+    match expr {
+        Expression::Integral {
+            integrand,
+            var,
+            bounds,
+        } => {
+            assert_eq!(var, "x");
+            match *integrand {
+                Expression::Binary {
+                    op: BinaryOp::Add,
+                    left,
+                    right,
+                } => {
+                    assert_eq!(*left, Expression::Variable("x".to_string()));
+                    assert_eq!(*right, Expression::Integer(1));
+                }
+                _ => panic!("Expected addition in integrand"),
+            }
+            assert!(bounds.is_none());
+        }
+        _ => panic!("Expected Integral variant"),
+    }
+}
+
+#[test]
+fn test_integral_definite_with_addition() {
+    // \int_0^1 x + 1 dx should parse as \int_0^1 (x + 1) dx
+    let expr = parse_latex(r"\int_0^1 x + 1 dx").unwrap();
+    match expr {
+        Expression::Integral {
+            integrand,
+            var,
+            bounds,
+        } => {
+            assert_eq!(var, "x");
+            match *integrand {
+                Expression::Binary {
+                    op: BinaryOp::Add,
+                    left,
+                    right,
+                } => {
+                    assert_eq!(*left, Expression::Variable("x".to_string()));
+                    assert_eq!(*right, Expression::Integer(1));
+                }
+                _ => panic!("Expected addition in integrand"),
+            }
+            assert!(bounds.is_some());
+            let bounds = bounds.unwrap();
+            assert_eq!(*bounds.lower, Expression::Integer(0));
+            assert_eq!(*bounds.upper, Expression::Integer(1));
+        }
+        _ => panic!("Expected Integral variant"),
+    }
+}
+
 // Limit tests
 
 #[test]
@@ -693,5 +803,173 @@ fn test_product_different_index() {
             assert_eq!(*body, Expression::Variable("j".to_string()));
         }
         _ => panic!("Expected Product variant"),
+    }
+}
+
+// Tests for sum/product body parsing - capturing powers without parentheses
+
+#[test]
+fn test_sum_power_without_parens() {
+    // \sum_{i=1}^{n} i^2 should parse as sum of i^2, not (sum i)^2
+    let expr = parse_latex(r"\sum_{i=1}^{n} i^2").unwrap();
+    match expr {
+        Expression::Sum {
+            index,
+            lower,
+            upper,
+            body,
+        } => {
+            assert_eq!(index, "i");
+            assert_eq!(*lower, Expression::Integer(1));
+            assert_eq!(*upper, Expression::Variable("n".to_string()));
+            // Body should be i^2
+            match *body {
+                Expression::Binary {
+                    op: BinaryOp::Pow,
+                    left,
+                    right,
+                } => {
+                    assert_eq!(*left, Expression::Variable("i".to_string()));
+                    assert_eq!(*right, Expression::Integer(2));
+                }
+                _ => panic!("Expected power expression in body"),
+            }
+        }
+        _ => panic!("Expected Sum variant"),
+    }
+}
+
+#[test]
+fn test_sum_addition_outside() {
+    // \sum_{i=1}^{n} i + 1 should parse as (sum i) + 1, not sum(i+1)
+    let expr = parse_latex(r"\sum_{i=1}^{n} i + 1").unwrap();
+    match expr {
+        Expression::Binary {
+            op: BinaryOp::Add,
+            left,
+            right,
+        } => {
+            // Left should be the sum
+            match *left {
+                Expression::Sum {
+                    index,
+                    lower,
+                    upper,
+                    body,
+                } => {
+                    assert_eq!(index, "i");
+                    assert_eq!(*lower, Expression::Integer(1));
+                    assert_eq!(*upper, Expression::Variable("n".to_string()));
+                    assert_eq!(*body, Expression::Variable("i".to_string()));
+                }
+                _ => panic!("Expected Sum in left operand"),
+            }
+            // Right should be 1
+            assert_eq!(*right, Expression::Integer(1));
+        }
+        _ => panic!("Expected Binary addition"),
+    }
+}
+
+#[test]
+fn test_product_power_without_parens() {
+    // \prod_{i=1}^{n} i^2 should parse as product of i^2
+    let expr = parse_latex(r"\prod_{i=1}^{n} i^2").unwrap();
+    match expr {
+        Expression::Product {
+            index,
+            lower,
+            upper,
+            body,
+        } => {
+            assert_eq!(index, "i");
+            assert_eq!(*lower, Expression::Integer(1));
+            assert_eq!(*upper, Expression::Variable("n".to_string()));
+            // Body should be i^2
+            match *body {
+                Expression::Binary {
+                    op: BinaryOp::Pow,
+                    left,
+                    right,
+                } => {
+                    assert_eq!(*left, Expression::Variable("i".to_string()));
+                    assert_eq!(*right, Expression::Integer(2));
+                }
+                _ => panic!("Expected power expression in body"),
+            }
+        }
+        _ => panic!("Expected Product variant"),
+    }
+}
+
+#[test]
+fn test_product_multiplication_in_body() {
+    // \prod_{i=1}^{n} 2*i should parse as product of (2*i)
+    let expr = parse_latex(r"\prod_{i=1}^{n} 2*i").unwrap();
+    match expr {
+        Expression::Product {
+            index,
+            lower,
+            upper,
+            body,
+        } => {
+            assert_eq!(index, "i");
+            assert_eq!(*lower, Expression::Integer(1));
+            assert_eq!(*upper, Expression::Variable("n".to_string()));
+            // Body should be 2*i
+            match *body {
+                Expression::Binary {
+                    op: BinaryOp::Mul,
+                    left,
+                    right,
+                } => {
+                    assert_eq!(*left, Expression::Integer(2));
+                    assert_eq!(*right, Expression::Variable("i".to_string()));
+                }
+                _ => panic!("Expected multiplication expression in body"),
+            }
+        }
+        _ => panic!("Expected Product variant"),
+    }
+}
+
+#[test]
+fn test_sum_multiplication_power_in_body() {
+    // \sum_{i=1}^{n} 2*i^3 should parse as sum of (2*(i^3))
+    let expr = parse_latex(r"\sum_{i=1}^{n} 2*i^3").unwrap();
+    match expr {
+        Expression::Sum {
+            index,
+            lower,
+            upper,
+            body,
+        } => {
+            assert_eq!(index, "i");
+            assert_eq!(*lower, Expression::Integer(1));
+            assert_eq!(*upper, Expression::Variable("n".to_string()));
+            // Body should be 2*i^3
+            match *body {
+                Expression::Binary {
+                    op: BinaryOp::Mul,
+                    left,
+                    right,
+                } => {
+                    assert_eq!(*left, Expression::Integer(2));
+                    match *right {
+                        Expression::Binary {
+                            op: BinaryOp::Pow,
+                            left: power_left,
+                            right: power_right,
+                        } => {
+                            assert_eq!(*power_left, Expression::Variable("i".to_string()));
+                            assert_eq!(*power_right, Expression::Integer(3));
+                        }
+                        _ => panic!("Expected power in right operand"),
+                    }
+                }
+                _ => panic!("Expected multiplication expression in body"),
+            }
+        }
+        _ => panic!("Expected Sum variant"),
     }
 }
