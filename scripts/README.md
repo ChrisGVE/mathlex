@@ -45,10 +45,15 @@ The XCFramework will be created at `target/xcframework/MathLex.xcframework`.
 
 1. Cleans the build directory
 2. Builds the Rust library for all required targets with the `ffi` feature
-3. Creates fat libraries for:
+   - During the first build, `build.rs` generates Swift bindings via swift-bridge
+   - Generated files are placed in `generated/mathlex/` and `generated/`
+3. Copies generated Swift bindings to `Sources/MathLexRust/`:
+   - `mathlex.swift` (project-specific FFI bindings)
+   - `SwiftBridgeCore.swift` (swift-bridge core support)
+4. Creates fat libraries for:
    - iOS Simulator (combines arm64 and x86_64)
    - macOS (combines arm64 and x86_64)
-4. Creates the XCFramework with:
+5. Creates the XCFramework with:
    - iOS device library (arm64)
    - iOS simulator library (universal)
    - macOS library (universal)
