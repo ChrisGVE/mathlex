@@ -17,7 +17,7 @@
 //! - Square Root: `\sqrt{x}` or `\sqrt[n]{x}`
 //! - Derivatives: `\frac{d}{dx}` or `\frac{d^n}{dx^n}`
 //! - Partial Derivatives: `\frac{\partial}{\partial x}`
-//! - Integrals: `\int_{lower}^{upper} expr \, dx`
+//! - Integrals: `\int_{lower}^{upper} expr dx`
 //! - Limits: `\lim_{x \to value^{direction}}`
 //! - Sum/Product: `\sum_{i=lower}^{upper}`, `\prod_{i=lower}^{upper}`
 //! - Vectors/Matrices: `\begin{pmatrix}...\end{pmatrix}`
@@ -398,14 +398,14 @@ impl ToLatex for Expression {
             } => {
                 if let Some(bounds) = bounds {
                     format!(
-                        r"\int_{{{}}}^{{{}}} {} \, d{}",
+                        r"\int_{{{}}}^{{{}}} {} d{}",
                         bounds.lower.to_latex(),
                         bounds.upper.to_latex(),
                         integrand.to_latex(),
                         var
                     )
                 } else {
-                    format!(r"\int {} \, d{}", integrand.to_latex(), var)
+                    format!(r"\int {} d{}", integrand.to_latex(), var)
                 }
             }
 
@@ -847,7 +847,7 @@ mod tests {
             var: "x".to_string(),
             bounds: None,
         };
-        assert_eq!(expr.to_latex(), r"\int x \, dx");
+        assert_eq!(expr.to_latex(), r"\int x dx");
     }
 
     #[test]
@@ -860,7 +860,7 @@ mod tests {
                 upper: Box::new(Expression::Integer(1)),
             }),
         };
-        assert_eq!(expr.to_latex(), r"\int_{0}^{1} x \, dx");
+        assert_eq!(expr.to_latex(), r"\int_{0}^{1} x dx");
     }
 
     #[test]
@@ -876,7 +876,7 @@ mod tests {
                 upper: Box::new(Expression::Constant(MathConstant::Pi)),
             }),
         };
-        assert_eq!(expr.to_latex(), r"\int_{0}^{\pi} \sin\left(t\right) \, dt");
+        assert_eq!(expr.to_latex(), r"\int_{0}^{\pi} \sin\left(t\right) dt");
     }
 
     // Tests for Limit
@@ -1148,7 +1148,7 @@ mod tests {
                 upper: Box::new(Expression::Constant(MathConstant::Pi)),
             }),
         };
-        assert_eq!(expr.to_latex(), r"\int_{0}^{\pi} \sin\left(x\right) \, dx");
+        assert_eq!(expr.to_latex(), r"\int_{0}^{\pi} \sin\left(x\right) dx");
     }
 
     // Tests for precedence-safe parentheses

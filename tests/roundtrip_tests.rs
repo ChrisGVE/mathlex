@@ -67,32 +67,27 @@ fn assert_roundtrip_text(input: &str) {
 ///
 /// Tests that: parse_latex(input) -> to_latex() -> parse_latex() produces equivalent AST.
 ///
-/// Note: This will skip the test if the serialized output cannot be parsed back,
-/// which indicates an incompatibility between serializer and parser.
+/// Strict round-trip test for LaTeX: parse -> serialize -> parse must succeed
+/// and produce equivalent AST.
 fn assert_roundtrip_latex(input: &str) {
     let expr1 = parse_latex(input).unwrap_or_else(|e| {
         panic!("Failed to parse LaTeX first time: {}\nInput: {}", e, input);
     });
     let output = expr1.to_latex();
 
-    // Try to parse the serialized output
-    match parse_latex(&output) {
-        Ok(expr2) => {
-            assert_eq!(
-                expr1, expr2,
-                "ASTs don't match after LaTeX round-trip\nOriginal input: {}\nSerialized: {}\nFirst AST: {:?}\nSecond AST: {:?}",
-                input, output, expr1, expr2
-            );
-        }
-        Err(e) => {
-            // This is a known limitation - serialized LaTeX may not parse back
-            // Print a warning but don't fail the test
-            eprintln!(
-                "WARNING: Serialized LaTeX cannot be parsed back (known limitation):\n  Original input: {}\n  Serialized: {}\n  Parse error: {}",
-                input, output, e
-            );
-        }
-    }
+    // Parse the serialized output - must succeed
+    let expr2 = parse_latex(&output).unwrap_or_else(|e| {
+        panic!(
+            "Serialized LaTeX cannot be parsed back:\n  Original input: {}\n  Serialized: {}\n  Parse error: {}",
+            input, output, e
+        );
+    });
+
+    assert_eq!(
+        expr1, expr2,
+        "ASTs don't match after LaTeX round-trip\nOriginal input: {}\nSerialized: {}\nFirst AST: {:?}\nSecond AST: {:?}",
+        input, output, expr1, expr2
+    );
 }
 
 // ============================================================================
