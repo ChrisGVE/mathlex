@@ -18,6 +18,41 @@
 //! - [`UnaryOp`]: Unary operators (negation, factorial, transpose)
 //! - [`MathFloat`]: Wrapper for f64 with proper equality and hashing semantics
 //!
+//! ## AST Semantics and Conventions
+//!
+//! ### Expression Types
+//!
+//! - **`Rational`**: Contains `Expression` fields (not `i64`), allowing symbolic rationals
+//!   like `x/y`. This enables representation of unevaluated rational expressions where
+//!   numerator and denominator are arbitrary expressions.
+//! - **`Complex`**: Contains `Expression` fields for real and imaginary parts, enabling
+//!   symbolic complex numbers like `(a+b)+(c+d)i` rather than just numeric values.
+//! - **`MathFloat`**: Wraps `OrderedFloat<f64>` to provide proper `Hash` and `Eq` implementations.
+//!   NaN values are comparable (NaN == NaN), which differs from standard IEEE 754 semantics
+//!   but is necessary for use in hash-based collections.
+//!
+//! ### Known Limitations
+//!
+//! - **`Rational` and `Complex` variants are not produced by parsers** in the current implementation.
+//!   These variants are available for programmatic construction by consumers of the AST,
+//!   allowing symbolic manipulation libraries to build complex expressions.
+//! - **Some ASTs don't round-trip perfectly** due to precedence and formatting choices.
+//!   For example, `(2 + 3) * 4` and `2 + 3 * 4` have different ASTs but the first may display
+//!   without parentheses depending on context.
+//! - **`MathConstant::NegInfinity` requires explicit parsing** as a distinct constant.
+//!   The expression `-∞` is parsed as `Unary { op: Neg, operand: Constant(Infinity) }`,
+//!   not as `Constant(NegInfinity)`.
+//!
+//! ### Serialization Notes
+//!
+//! - **`Display` trait**: Uses minimal parentheses based on operator precedence. The output
+//!   is human-readable but may omit parentheses where they can be inferred from precedence rules.
+//! - **`ToLatex` trait**: Produces standard LaTeX notation that can be re-parsed by the LaTeX
+//!   parser. This is the recommended format for round-trip serialization.
+//! - **Special float values**: When using JSON serialization (via serde), NaN and Infinity
+//!   values serialize to `null` per JSON specification. For lossless serialization of special
+//!   floats, use binary formats like bincode.
+//!
 //! ## Examples
 //!
 //! ```
@@ -45,10 +80,24 @@ use std::fmt;
 /// This type wraps `ordered_float::OrderedFloat<f64>` to enable `f64` values
 /// to be used in `Expression` variants while implementing `PartialEq`, `Eq`, and `Hash`.
 ///
-/// # Examples
+/// ## Semantics
+///
+/// - **NaN equality**: Unlike standard IEEE 754, `NaN == NaN` returns `true` for `MathFloat`.
+///   This is necessary for use in hash-based collections like `HashSet` and `HashMap`.
+/// - **Ordering**: Values are totally ordered, with NaN considered greater than infinity.
+/// - **Hash stability**: Identical float values produce identical hashes, including special
+///   values like NaN, Infinity, and -Infinity.
+///
+/// ## Use Cases
+///
+/// Use this type when you need to store floating-point values in collections that require
+/// `Eq` and `Hash`, or when building AST nodes that will be compared for equality.
+///
+/// ## Examples
 ///
 /// ```
 /// use mathlex::ast::MathFloat;
+/// use std::collections::HashSet;
 ///
 /// let f1 = MathFloat::from(3.14);
 /// let f2 = MathFloat::from(3.14);
@@ -56,6 +105,17 @@ use std::fmt;
 ///
 /// let value: f64 = f1.into();
 /// assert_eq!(value, 3.14);
+///
+/// // NaN values are equal to themselves
+/// let nan1 = MathFloat::from(f64::NAN);
+/// let nan2 = MathFloat::from(f64::NAN);
+/// assert_eq!(nan1, nan2);
+///
+/// // Can be used in HashSet
+/// let mut set = HashSet::new();
+/// set.insert(MathFloat::from(1.0));
+/// set.insert(MathFloat::from(2.0));
+/// assert_eq!(set.len(), 2);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -99,7 +159,17 @@ impl fmt::Display for MathFloat {
 ///
 /// These represent well-known mathematical constants with precise mathematical meaning.
 ///
-/// # Examples
+/// ## Parsing Notes
+///
+/// - **`Pi`**: Parsed from `π` (Unicode) or `\pi` (LaTeX)
+/// - **`E`**: Parsed from `e` (plain text) or `e` (LaTeX)
+/// - **`I`**: Parsed from `i` (plain text) or `i` (LaTeX), represents the imaginary unit
+/// - **`Infinity`**: Parsed from `∞` (Unicode) or `\infty` (LaTeX)
+/// - **`NegInfinity`**: Not directly produced by parsers. The input `-∞` is parsed as
+///   `Unary { op: Neg, operand: Constant(Infinity) }`. This variant exists for programmatic
+///   construction and simplification by consumers.
+///
+/// ## Examples
 ///
 /// ```
 /// use mathlex::ast::MathConstant;
@@ -107,6 +177,10 @@ impl fmt::Display for MathFloat {
 /// let pi = MathConstant::Pi;
 /// let euler = MathConstant::E;
 /// assert_ne!(pi, euler);
+///
+/// // Note: NegInfinity is for programmatic use
+/// let neg_inf = MathConstant::NegInfinity;
+/// assert_ne!(neg_inf, MathConstant::Infinity);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -131,14 +205,40 @@ pub enum MathConstant {
 ///
 /// Represents operators that take two operands (left and right).
 ///
-/// # Examples
+/// ## Operator Precedence
+///
+/// When displaying or parsing expressions, operators follow standard mathematical precedence:
+/// 1. **`Pow`** (highest) - Exponentiation: `^`
+/// 2. **`Mul`, `Div`, `Mod`** - Multiplication, division, modulo: `*`, `/`, `%`
+/// 3. **`Add`, `Sub`** - Addition, subtraction: `+`, `-`
+/// 4. **`PlusMinus`, `MinusPlus`** (lowest) - Combined operators: `±`, `∓`
+///
+/// ## Usage Notes
+///
+/// - **Associativity**: Most operators are left-associative except `Pow`, which is right-associative.
+///   For example, `2^3^4` is parsed as `2^(3^4)`, not `(2^3)^4`.
+/// - **PlusMinus and MinusPlus**: These represent the special combined operators `±` and `∓`,
+///   commonly used in mathematics to indicate dual solutions (e.g., `x = 1 ± 2`).
+///
+/// ## Examples
 ///
 /// ```
-/// use mathlex::ast::BinaryOp;
+/// use mathlex::ast::{BinaryOp, Expression};
 ///
 /// let add = BinaryOp::Add;  // +
 /// let pow = BinaryOp::Pow;  // ^
 /// assert_ne!(add, pow);
+///
+/// // Right-associative power: 2^3^4 is 2^(3^4)
+/// let expr = Expression::Binary {
+///     op: BinaryOp::Pow,
+///     left: Box::new(Expression::Integer(2)),
+///     right: Box::new(Expression::Binary {
+///         op: BinaryOp::Pow,
+///         left: Box::new(Expression::Integer(3)),
+///         right: Box::new(Expression::Integer(4)),
+///     }),
+/// };
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -172,14 +272,43 @@ pub enum BinaryOp {
 ///
 /// Represents operators that take a single operand.
 ///
-/// # Examples
+/// ## Operator Semantics
+///
+/// - **`Neg`**: Arithmetic negation (`-x`). Applied as a prefix operator.
+/// - **`Pos`**: Unary plus (`+x`). Applied as a prefix operator. Usually redundant but
+///   can be explicitly represented in the AST.
+/// - **`Factorial`**: Factorial operator (`n!`). Applied as a postfix operator.
+///   Typically used with non-negative integers.
+/// - **`Transpose`**: Matrix or vector transpose (`Aᵀ` or `A'`). Applied as a postfix
+///   operator. Used in linear algebra contexts.
+///
+/// ## Position
+///
+/// - **Prefix operators**: `Neg`, `Pos` - appear before the operand
+/// - **Postfix operators**: `Factorial`, `Transpose` - appear after the operand
+///
+/// ## Examples
 ///
 /// ```
-/// use mathlex::ast::UnaryOp;
+/// use mathlex::ast::{UnaryOp, Expression};
 ///
-/// let neg = UnaryOp::Neg;        // Negation
-/// let fact = UnaryOp::Factorial; // Factorial (!)
-/// assert_ne!(neg, fact);
+/// // Negation: -5
+/// let neg_expr = Expression::Unary {
+///     op: UnaryOp::Neg,
+///     operand: Box::new(Expression::Integer(5)),
+/// };
+///
+/// // Factorial: n!
+/// let fact_expr = Expression::Unary {
+///     op: UnaryOp::Factorial,
+///     operand: Box::new(Expression::Variable("n".to_string())),
+/// };
+///
+/// // Transpose: A'
+/// let transpose_expr = Expression::Unary {
+///     op: UnaryOp::Transpose,
+///     operand: Box::new(Expression::Variable("A".to_string())),
+/// };
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -366,33 +495,83 @@ pub enum Expression {
 
     /// Rational number (fraction).
     ///
-    /// Represents a ratio of two integers (numerator/denominator).
+    /// Represents a ratio of two expressions as numerator/denominator.
     ///
-    /// # Examples
-    /// - `1/2`
-    /// - `-3/4`
-    /// - `22/7` (approximation of π)
+    /// ## Important Notes
+    ///
+    /// - **Fields are `Expression`, not `i64`**: This allows symbolic rationals like `x/y`
+    ///   or `(a+b)/(c+d)`, not just numeric fractions.
+    /// - **Not produced by parsers**: Current parsers represent divisions as
+    ///   `Binary { op: Div, ... }`. This variant is available for programmatic construction,
+    ///   typically by symbolic manipulation libraries that want to represent simplified
+    ///   rational forms.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // Numeric rational: 1/2
+    /// let half = Expression::Rational {
+    ///     numerator: Box::new(Expression::Integer(1)),
+    ///     denominator: Box::new(Expression::Integer(2)),
+    /// };
+    ///
+    /// // Symbolic rational: x/y
+    /// let symbolic = Expression::Rational {
+    ///     numerator: Box::new(Expression::Variable("x".to_string())),
+    ///     denominator: Box::new(Expression::Variable("y".to_string())),
+    /// };
+    /// ```
     Rational {
-        /// Numerator of the fraction
+        /// Numerator of the fraction (any expression)
         numerator: Box<Expression>,
 
-        /// Denominator of the fraction
+        /// Denominator of the fraction (any expression)
         denominator: Box<Expression>,
     },
 
     /// Complex number.
     ///
-    /// Represents a number with real and imaginary components (a + bi).
+    /// Represents a number with real and imaginary components in the form `a + bi`.
     ///
-    /// # Examples
-    /// - `3 + 4i`
-    /// - `-2 - 5i`
-    /// - `0 + i` (pure imaginary)
+    /// ## Important Notes
+    ///
+    /// - **Fields are `Expression`, not numeric types**: This allows symbolic complex numbers
+    ///   like `(x+y) + (z+w)i`, not just numeric values.
+    /// - **Not produced by parsers**: Current parsers represent complex expressions using
+    ///   `Binary` operations with the imaginary constant `i`. This variant is available
+    ///   for programmatic construction by libraries that want to represent simplified
+    ///   complex number forms.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // Numeric complex: 3 + 4i
+    /// let complex = Expression::Complex {
+    ///     real: Box::new(Expression::Integer(3)),
+    ///     imaginary: Box::new(Expression::Integer(4)),
+    /// };
+    ///
+    /// // Symbolic complex: (a+b) + (c+d)i
+    /// let symbolic = Expression::Complex {
+    ///     real: Box::new(Expression::Variable("a".to_string())),
+    ///     imaginary: Box::new(Expression::Variable("c".to_string())),
+    /// };
+    ///
+    /// // Pure imaginary: 0 + i
+    /// let pure_imaginary = Expression::Complex {
+    ///     real: Box::new(Expression::Integer(0)),
+    ///     imaginary: Box::new(Expression::Integer(1)),
+    /// };
+    /// ```
     Complex {
-        /// Real component
+        /// Real component (any expression)
         real: Box<Expression>,
 
-        /// Imaginary component (coefficient of i)
+        /// Imaginary component - coefficient of i (any expression)
         imaginary: Box<Expression>,
     },
 
@@ -469,11 +648,47 @@ pub enum Expression {
 
     /// Ordinary derivative.
     ///
-    /// Represents the nth derivative of an expression with respect to a variable.
+    /// Represents the nth derivative of an expression with respect to a single variable.
+    /// Used for derivatives of functions of one variable.
     ///
-    /// # Examples
-    /// - `d/dx(f)` (first derivative, order=1)
-    /// - `d²/dx²(f)` (second derivative, order=2)
+    /// ## Notation
+    ///
+    /// - First derivative: `d/dx f(x)` or `f'(x)` or `df/dx`
+    /// - Second derivative: `d²/dx² f(x)` or `f''(x)` or `d²f/dx²`
+    /// - nth derivative: `dⁿ/dxⁿ f(x)`
+    ///
+    /// ## Usage
+    ///
+    /// - **`order`**: Specifies the number of times to differentiate. Must be ≥ 1.
+    /// - **`var`**: The variable with respect to which differentiation occurs.
+    /// - **`expr`**: The expression being differentiated (can be any expression).
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // First derivative: d/dx(x²)
+    /// let first_deriv = Expression::Derivative {
+    ///     expr: Box::new(Expression::Binary {
+    ///         op: mathlex::ast::BinaryOp::Pow,
+    ///         left: Box::new(Expression::Variable("x".to_string())),
+    ///         right: Box::new(Expression::Integer(2)),
+    ///     }),
+    ///     var: "x".to_string(),
+    ///     order: 1,
+    /// };
+    ///
+    /// // Second derivative: d²/dx²(sin(x))
+    /// let second_deriv = Expression::Derivative {
+    ///     expr: Box::new(Expression::Function {
+    ///         name: "sin".to_string(),
+    ///         args: vec![Expression::Variable("x".to_string())],
+    ///     }),
+    ///     var: "x".to_string(),
+    ///     order: 2,
+    /// };
+    /// ```
     Derivative {
         /// The expression being differentiated
         expr: Box<Expression>,
@@ -487,11 +702,46 @@ pub enum Expression {
 
     /// Partial derivative.
     ///
-    /// Represents the nth partial derivative of an expression with respect to a variable.
+    /// Represents the nth partial derivative of a multivariable expression with respect
+    /// to one variable, holding others constant.
     ///
-    /// # Examples
-    /// - `∂f/∂x`
-    /// - `∂²f/∂x²`
+    /// ## Notation
+    ///
+    /// - First partial: `∂f/∂x` or `∂/∂x f(x,y,z)`
+    /// - Second partial: `∂²f/∂x²` or `∂²/∂x² f(x,y,z)`
+    /// - nth partial: `∂ⁿf/∂xⁿ`
+    ///
+    /// ## Distinction from Derivative
+    ///
+    /// Use `PartialDerivative` when:
+    /// - The expression is a function of multiple variables
+    /// - You want to emphasize that other variables are held constant
+    /// - Following standard multivariable calculus notation
+    ///
+    /// Use `Derivative` when:
+    /// - The expression is a function of a single variable
+    /// - Following ordinary differential calculus notation
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // First partial derivative: ∂/∂x(x²y)
+    /// let partial = Expression::PartialDerivative {
+    ///     expr: Box::new(Expression::Binary {
+    ///         op: mathlex::ast::BinaryOp::Mul,
+    ///         left: Box::new(Expression::Binary {
+    ///             op: mathlex::ast::BinaryOp::Pow,
+    ///             left: Box::new(Expression::Variable("x".to_string())),
+    ///             right: Box::new(Expression::Integer(2)),
+    ///         }),
+    ///         right: Box::new(Expression::Variable("y".to_string())),
+    ///     }),
+    ///     var: "x".to_string(),
+    ///     order: 1,
+    /// };
+    /// ```
     PartialDerivative {
         /// The expression being partially differentiated
         expr: Box<Expression>,
@@ -499,7 +749,7 @@ pub enum Expression {
         /// The variable to partially differentiate with respect to
         var: String,
 
-        /// Order of partial differentiation
+        /// Order of partial differentiation (1 for first, 2 for second, etc.)
         order: u32,
     },
 
@@ -507,9 +757,50 @@ pub enum Expression {
     ///
     /// Represents both definite and indefinite integrals.
     ///
-    /// # Examples
-    /// - `∫ f(x) dx` (indefinite, bounds=None)
-    /// - `∫₀¹ f(x) dx` (definite, bounds=Some(...))
+    /// ## Integral Types
+    ///
+    /// - **Indefinite integral**: `bounds = None`, represents `∫ f(x) dx`
+    ///   - Result is a family of functions (antiderivative + C)
+    ///   - No specific bounds of integration
+    ///
+    /// - **Definite integral**: `bounds = Some(...)`, represents `∫ₐᵇ f(x) dx`
+    ///   - Evaluates the integral from lower bound `a` to upper bound `b`
+    ///   - Result is a number or expression (not a function)
+    ///
+    /// ## Bounds
+    ///
+    /// When `bounds` is `Some(IntegralBounds)`, the bounds can be:
+    /// - Numeric: `∫₀¹ f(x) dx`
+    /// - Symbolic: `∫ₐᵇ f(x) dx`
+    /// - Infinite: `∫₀^∞ f(x) dx` (use `Constant(Infinity)`)
+    /// - Complex expressions: `∫_{a+b}^{c+d} f(x) dx`
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::{Expression, IntegralBounds};
+    ///
+    /// // Indefinite integral: ∫ x dx
+    /// let indefinite = Expression::Integral {
+    ///     integrand: Box::new(Expression::Variable("x".to_string())),
+    ///     var: "x".to_string(),
+    ///     bounds: None,
+    /// };
+    ///
+    /// // Definite integral: ∫₀¹ x² dx
+    /// let definite = Expression::Integral {
+    ///     integrand: Box::new(Expression::Binary {
+    ///         op: mathlex::ast::BinaryOp::Pow,
+    ///         left: Box::new(Expression::Variable("x".to_string())),
+    ///         right: Box::new(Expression::Integer(2)),
+    ///     }),
+    ///     var: "x".to_string(),
+    ///     bounds: Some(IntegralBounds {
+    ///         lower: Box::new(Expression::Integer(0)),
+    ///         upper: Box::new(Expression::Integer(1)),
+    ///     }),
+    /// };
+    /// ```
     Integral {
         /// The integrand (expression being integrated)
         integrand: Box<Expression>,
@@ -517,7 +808,7 @@ pub enum Expression {
         /// The variable of integration
         var: String,
 
-        /// Integration bounds (None for indefinite integral)
+        /// Integration bounds (None for indefinite integral, Some for definite)
         bounds: Option<IntegralBounds>,
     },
 
@@ -525,10 +816,67 @@ pub enum Expression {
     ///
     /// Represents the limit of an expression as a variable approaches a value.
     ///
-    /// # Examples
-    /// - `lim x→0 (sin(x)/x)`
-    /// - `lim x→∞ (1/x)`
-    /// - `lim x→a⁺ f(x)` (from right)
+    /// ## Direction of Approach
+    ///
+    /// - **`Direction::Both`**: Two-sided limit, standard notation `lim_{x→a} f(x)`
+    ///   - The limit exists only if left and right limits agree
+    /// - **`Direction::Left`**: Left-hand limit, `lim_{x→a⁻} f(x)`
+    ///   - Approaches from values less than `a`
+    /// - **`Direction::Right`**: Right-hand limit, `lim_{x→a⁺} f(x)`
+    ///   - Approaches from values greater than `a`
+    ///
+    /// ## Limit Points
+    ///
+    /// The `to` field can be any expression:
+    /// - **Finite values**: `lim_{x→0} f(x)`, `lim_{x→a} f(x)`
+    /// - **Infinity**: `lim_{x→∞} f(x)` using `Constant(Infinity)`
+    /// - **Negative infinity**: `lim_{x→-∞} f(x)` using `Constant(NegInfinity)`
+    ///   or `Unary { op: Neg, operand: Constant(Infinity) }`
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::{Expression, Direction, MathConstant};
+    ///
+    /// // Two-sided limit: lim_{x→0} sin(x)/x
+    /// let limit_both = Expression::Limit {
+    ///     expr: Box::new(Expression::Binary {
+    ///         op: mathlex::ast::BinaryOp::Div,
+    ///         left: Box::new(Expression::Function {
+    ///             name: "sin".to_string(),
+    ///             args: vec![Expression::Variable("x".to_string())],
+    ///         }),
+    ///         right: Box::new(Expression::Variable("x".to_string())),
+    ///     }),
+    ///     var: "x".to_string(),
+    ///     to: Box::new(Expression::Integer(0)),
+    ///     direction: Direction::Both,
+    /// };
+    ///
+    /// // Limit to infinity: lim_{x→∞} 1/x
+    /// let limit_infinity = Expression::Limit {
+    ///     expr: Box::new(Expression::Binary {
+    ///         op: mathlex::ast::BinaryOp::Div,
+    ///         left: Box::new(Expression::Integer(1)),
+    ///         right: Box::new(Expression::Variable("x".to_string())),
+    ///     }),
+    ///     var: "x".to_string(),
+    ///     to: Box::new(Expression::Constant(MathConstant::Infinity)),
+    ///     direction: Direction::Both,
+    /// };
+    ///
+    /// // Right-hand limit: lim_{x→0⁺} 1/x
+    /// let limit_right = Expression::Limit {
+    ///     expr: Box::new(Expression::Binary {
+    ///         op: mathlex::ast::BinaryOp::Div,
+    ///         left: Box::new(Expression::Integer(1)),
+    ///         right: Box::new(Expression::Variable("x".to_string())),
+    ///     }),
+    ///     var: "x".to_string(),
+    ///     to: Box::new(Expression::Integer(0)),
+    ///     direction: Direction::Right,
+    /// };
+    /// ```
     Limit {
         /// The expression whose limit is being taken
         expr: Box<Expression>,
@@ -536,73 +884,226 @@ pub enum Expression {
         /// The variable approaching the limit
         var: String,
 
-        /// The value being approached
+        /// The value being approached (can be finite, infinite, or symbolic)
         to: Box<Expression>,
 
-        /// Direction of approach (left, right, or both)
+        /// Direction of approach (left, right, or both sides)
         direction: Direction,
     },
 
     /// Summation.
     ///
-    /// Represents a sum over a range of values.
+    /// Represents a sum over a range of values, using sigma notation: `Σ_{index=lower}^{upper} body`.
     ///
-    /// # Examples
-    /// - `Σᵢ₌₁ⁿ i²`
-    /// - `Σₖ f(k)`
+    /// ## Semantics
+    ///
+    /// Evaluates to: `body[index=lower] + body[index=lower+1] + ... + body[index=upper]`
+    ///
+    /// The `index` variable is bound within the `body` expression and takes on each integer
+    /// value from `lower` to `upper` (inclusive).
+    ///
+    /// ## Bounds
+    ///
+    /// - **Numeric bounds**: `Σ_{i=1}^{10} i²` - explicit numeric start and end
+    /// - **Symbolic bounds**: `Σ_{i=1}^{n} i` - upper bound is a variable
+    /// - **Infinite bounds**: `Σ_{i=0}^{∞} 1/2^i` - upper bound is infinity
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // Sum of first n integers: Σ_{i=1}^{n} i
+    /// let sum = Expression::Sum {
+    ///     index: "i".to_string(),
+    ///     lower: Box::new(Expression::Integer(1)),
+    ///     upper: Box::new(Expression::Variable("n".to_string())),
+    ///     body: Box::new(Expression::Variable("i".to_string())),
+    /// };
+    ///
+    /// // Sum of squares: Σ_{k=1}^{10} k²
+    /// let sum_squares = Expression::Sum {
+    ///     index: "k".to_string(),
+    ///     lower: Box::new(Expression::Integer(1)),
+    ///     upper: Box::new(Expression::Integer(10)),
+    ///     body: Box::new(Expression::Binary {
+    ///         op: mathlex::ast::BinaryOp::Pow,
+    ///         left: Box::new(Expression::Variable("k".to_string())),
+    ///         right: Box::new(Expression::Integer(2)),
+    ///     }),
+    /// };
+    /// ```
     Sum {
-        /// The index variable
+        /// The index variable (bound variable in the summation)
         index: String,
 
-        /// Lower bound of summation
+        /// Lower bound of summation (inclusive)
         lower: Box<Expression>,
 
-        /// Upper bound of summation
+        /// Upper bound of summation (inclusive)
         upper: Box<Expression>,
 
-        /// The expression being summed
+        /// The expression being summed (can reference index variable)
         body: Box<Expression>,
     },
 
     /// Product.
     ///
-    /// Represents a product over a range of values.
+    /// Represents a product over a range of values, using pi notation: `Π_{index=lower}^{upper} body`.
     ///
-    /// # Examples
-    /// - `Πᵢ₌₁ⁿ i`
-    /// - `Πₖ f(k)`
+    /// ## Semantics
+    ///
+    /// Evaluates to: `body[index=lower] * body[index=lower+1] * ... * body[index=upper]`
+    ///
+    /// The `index` variable is bound within the `body` expression and takes on each integer
+    /// value from `lower` to `upper` (inclusive).
+    ///
+    /// ## Bounds
+    ///
+    /// - **Numeric bounds**: `Π_{i=1}^{n} i` - factorial-like product
+    /// - **Symbolic bounds**: `Π_{k=1}^{m} (1 + x/k)` - upper bound is a variable
+    /// - **Infinite bounds**: `Π_{n=1}^{∞} (1 - 1/n²)` - infinite product
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // Factorial: Π_{i=1}^{n} i
+    /// let factorial = Expression::Product {
+    ///     index: "i".to_string(),
+    ///     lower: Box::new(Expression::Integer(1)),
+    ///     upper: Box::new(Expression::Variable("n".to_string())),
+    ///     body: Box::new(Expression::Variable("i".to_string())),
+    /// };
+    ///
+    /// // Product of (1 + k): Π_{k=0}^{5} (1 + k)
+    /// let product = Expression::Product {
+    ///     index: "k".to_string(),
+    ///     lower: Box::new(Expression::Integer(0)),
+    ///     upper: Box::new(Expression::Integer(5)),
+    ///     body: Box::new(Expression::Binary {
+    ///         op: mathlex::ast::BinaryOp::Add,
+    ///         left: Box::new(Expression::Integer(1)),
+    ///         right: Box::new(Expression::Variable("k".to_string())),
+    ///     }),
+    /// };
+    /// ```
     Product {
-        /// The index variable
+        /// The index variable (bound variable in the product)
         index: String,
 
-        /// Lower bound of product
+        /// Lower bound of product (inclusive)
         lower: Box<Expression>,
 
-        /// Upper bound of product
+        /// Upper bound of product (inclusive)
         upper: Box<Expression>,
 
-        /// The expression being multiplied
+        /// The expression being multiplied (can reference index variable)
         body: Box<Expression>,
     },
 
     /// Vector.
     ///
-    /// Represents an ordered collection of expressions as a vector.
+    /// Represents an ordered collection of expressions as a mathematical vector.
     ///
-    /// # Examples
-    /// - `[1, 2, 3]`
-    /// - `[x, y, z]`
-    /// - `[]` (empty vector)
+    /// ## Properties
+    ///
+    /// - **Elements**: Can be any expression type (integers, floats, variables, etc.)
+    /// - **Dimension**: Determined by the number of elements (can be 0 for empty vector)
+    /// - **Notation**: Typically displayed as `[a, b, c]` or as a column vector
+    ///
+    /// ## Use Cases
+    ///
+    /// - Position vectors: `[x, y, z]`
+    /// - Numeric vectors: `[1, 2, 3]`
+    /// - Mixed expressions: `[x, 2y, z+1]`
+    /// - Empty vectors: `[]` (edge case, dimension 0)
+    ///
+    /// ## Operations
+    ///
+    /// Vectors can be operands in:
+    /// - Binary operations (component-wise addition, scalar multiplication)
+    /// - Unary operations (transpose to convert to row vector)
+    /// - Function calls (norm, dot product, cross product)
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // 3D position vector: [1, 2, 3]
+    /// let position = Expression::Vector(vec![
+    ///     Expression::Integer(1),
+    ///     Expression::Integer(2),
+    ///     Expression::Integer(3),
+    /// ]);
+    ///
+    /// // Symbolic vector: [x, y, z]
+    /// let symbolic = Expression::Vector(vec![
+    ///     Expression::Variable("x".to_string()),
+    ///     Expression::Variable("y".to_string()),
+    ///     Expression::Variable("z".to_string()),
+    /// ]);
+    ///
+    /// // Empty vector (edge case)
+    /// let empty = Expression::Vector(vec![]);
+    /// ```
     Vector(Vec<Expression>),
 
     /// Matrix.
     ///
-    /// Represents a 2D array of expressions. All rows must have the same length.
+    /// Represents a 2D array of expressions organized in rows and columns.
     ///
-    /// # Examples
-    /// - `[[1, 2], [3, 4]]` (2×2 matrix)
-    /// - `[[x]]` (1×1 matrix)
-    /// - `[[]]` (0×0 matrix - edge case)
+    /// ## Properties
+    ///
+    /// - **Dimensions**: M×N where M is number of rows, N is number of columns
+    /// - **Uniformity**: All rows should have the same length for a valid matrix
+    /// - **Elements**: Each element can be any expression type
+    /// - **Notation**: Displayed using brackets or parentheses: `[[a, b], [c, d]]`
+    ///
+    /// ## Special Cases
+    ///
+    /// - **Empty matrix**: `[]` - zero rows, dimension 0×0
+    /// - **Row vector**: Single row like `[[1, 2, 3]]` - dimension 1×3
+    /// - **Column vector**: Single column like `[[1], [2], [3]]` - dimension 3×1
+    /// - **Scalar**: `[[x]]` - dimension 1×1
+    ///
+    /// ## Validation Note
+    ///
+    /// The AST itself does not enforce uniform row lengths. Consumers should validate
+    /// that all rows have the same number of elements before performing matrix operations.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // 2×2 identity matrix
+    /// let identity = Expression::Matrix(vec![
+    ///     vec![Expression::Integer(1), Expression::Integer(0)],
+    ///     vec![Expression::Integer(0), Expression::Integer(1)],
+    /// ]);
+    ///
+    /// // 2×3 matrix with variables
+    /// let matrix = Expression::Matrix(vec![
+    ///     vec![
+    ///         Expression::Variable("a".to_string()),
+    ///         Expression::Variable("b".to_string()),
+    ///         Expression::Variable("c".to_string()),
+    ///     ],
+    ///     vec![
+    ///         Expression::Variable("d".to_string()),
+    ///         Expression::Variable("e".to_string()),
+    ///         Expression::Variable("f".to_string()),
+    ///     ],
+    /// ]);
+    ///
+    /// // 1×1 matrix (scalar-like)
+    /// let scalar_matrix = Expression::Matrix(vec![
+    ///     vec![Expression::Integer(42)],
+    /// ]);
+    /// ```
     Matrix(Vec<Vec<Expression>>),
 
     /// Equation.
