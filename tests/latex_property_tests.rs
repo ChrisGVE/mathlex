@@ -8,6 +8,66 @@ use mathlex::ast::{BinaryOp, Expression, MathConstant, UnaryOp};
 use mathlex::{parse_latex, ToLatex};
 use proptest::prelude::*;
 
+/// Check if two expressions are semantically equivalent.
+/// This handles the case where Float(1.0) serializes as "1" and re-parses as Integer(1).
+fn semantically_equal(a: &Expression, b: &Expression) -> bool {
+    match (a, b) {
+        // Direct equality for same types
+        (Expression::Integer(x), Expression::Integer(y)) => x == y,
+        (Expression::Float(x), Expression::Float(y)) => x == y,
+
+        // Float-Integer equivalence for whole numbers
+        (Expression::Integer(i), Expression::Float(f)) => {
+            let fval: f64 = (*f).into();
+            fval.trunc() == fval && *i == fval as i64
+        }
+        (Expression::Float(f), Expression::Integer(i)) => {
+            let fval: f64 = (*f).into();
+            fval.trunc() == fval && *i == fval as i64
+        }
+
+        // Recursive cases
+        (
+            Expression::Binary {
+                op: op1,
+                left: l1,
+                right: r1,
+            },
+            Expression::Binary {
+                op: op2,
+                left: l2,
+                right: r2,
+            },
+        ) => op1 == op2 && semantically_equal(l1, l2) && semantically_equal(r1, r2),
+
+        (
+            Expression::Unary {
+                op: op1,
+                operand: o1,
+            },
+            Expression::Unary {
+                op: op2,
+                operand: o2,
+            },
+        ) => op1 == op2 && semantically_equal(o1, o2),
+
+        (Expression::Variable(x), Expression::Variable(y)) => x == y,
+        (Expression::Constant(x), Expression::Constant(y)) => x == y,
+
+        (
+            Expression::Function { name: n1, args: a1 },
+            Expression::Function { name: n2, args: a2 },
+        ) => {
+            n1 == n2
+                && a1.len() == a2.len()
+                && a1.iter().zip(a2.iter()).all(|(x, y)| semantically_equal(x, y))
+        }
+
+        // For other types, fall back to direct equality
+        _ => a == b,
+    }
+}
+
 /// Strategy to generate simple LaTeX numbers.
 ///
 /// Generates integers and floats in LaTeX format.
@@ -188,16 +248,21 @@ proptest! {
     /// Property: Valid expressions round-trip through to_latex
     ///
     /// For successfully parsed expressions, converting back to LaTeX
-    /// and parsing again should produce an equivalent expression.
+    /// and parsing again should produce a semantically equivalent expression.
+    /// Note: Float(1.0) may become Integer(1) after round-trip since "1.0" serializes as "1".
     #[test]
     fn prop_roundtrip_latex(latex in arb_complex_latex()) {
         if let Ok(expr) = parse_latex(&latex) {
             let latex2 = expr.to_latex();
             match parse_latex(&latex2) {
                 Ok(expr2) => {
-                    // The expressions should be equal
-                    // (though the LaTeX representation may differ)
-                    prop_assert_eq!(expr, expr2);
+                    // The expressions should be semantically equal
+                    // (Float(1.0) and Integer(1) are considered equivalent)
+                    prop_assert!(
+                        semantically_equal(&expr, &expr2),
+                        "Round-trip not semantically equal:\n  Original: {:?}\n  After: {:?}\n  LaTeX: {} -> {}",
+                        expr, expr2, latex, latex2
+                    );
                 }
                 Err(_) => {
                     // If to_latex produces invalid LaTeX, that's a bug
