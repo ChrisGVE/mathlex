@@ -108,17 +108,17 @@ do {
 - Complex: via construction
 
 ### Symbols
-- Variables: `x`, `y`, `theta`
+- Variables: `x`, `y`, `theta`, `e`, `i`
 - Greek letters: `\alpha`, `\beta`, `\Gamma`
-- Constants: `\pi`, `\infty`, `e`, `i`
+- Constants: `\pi`, `\infty`
 
 ### Operations
-- Binary: `+`, `-`, `*`, `/`, `^`, `%`
+- Binary: `+`, `-`, `*`, `/`, `^`, `**`, `%`, `\pm`, `\mp`
 - Unary: `-x`, `x!`
-- Functions: `sin`, `cos`, `tan`, `log`, `ln`, `exp`, `sqrt`, `abs`
+- Functions: `sin`, `cos`, `tan`, `log`, `ln`, `exp`, `sqrt`, `abs`, `floor`, `ceil`, `det`
 
 ### Calculus (Representation Only)
-- Derivatives: `\frac{d}{dx}`, `\frac{\partial}{\partial x}`
+- Derivatives: `\frac{d}{d*x}`, `\frac{\partial}{\partial*x}` (use `d*x` syntax)
 - Integrals: `\int`, `\int_a^b`
 - Limits: `\lim_{x \to a}`
 - Sums: `\sum_{i=1}^{n}`
