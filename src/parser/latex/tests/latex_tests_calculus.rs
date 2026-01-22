@@ -118,6 +118,20 @@ fn test_partial_derivative_second_order() {
 }
 
 #[test]
+fn test_partial_derivative_second_order_standard_notation() {
+    // Standard notation without explicit multiplication: \frac{\partial^2}{\partial x^2}
+    let expr = parse_latex(r"\frac{\partial^2}{\partial x^2}f").unwrap();
+    match expr {
+        Expression::PartialDerivative { expr, var, order } => {
+            assert_eq!(var, "x");
+            assert_eq!(order, 2);
+            assert_eq!(*expr, Expression::Variable("f".to_string()));
+        }
+        _ => panic!("Expected PartialDerivative variant"),
+    }
+}
+
+#[test]
 fn test_partial_derivative_third_order() {
     let expr = parse_latex(r"\frac{\partial^3}{\partial * y^3}g").unwrap();
     match expr {
@@ -125,6 +139,38 @@ fn test_partial_derivative_third_order() {
             assert_eq!(var, "y");
             assert_eq!(order, 3);
             assert_eq!(*expr, Expression::Variable("g".to_string()));
+        }
+        _ => panic!("Expected PartialDerivative variant"),
+    }
+}
+
+#[test]
+fn test_partial_derivative_third_order_standard_notation() {
+    // Standard notation without explicit multiplication: \frac{\partial^3}{\partial y^3}
+    let expr = parse_latex(r"\frac{\partial^3}{\partial y^3}g").unwrap();
+    match expr {
+        Expression::PartialDerivative { expr, var, order } => {
+            assert_eq!(var, "y");
+            assert_eq!(order, 3);
+            assert_eq!(*expr, Expression::Variable("g".to_string()));
+        }
+        _ => panic!("Expected PartialDerivative variant"),
+    }
+}
+
+#[test]
+fn test_partial_derivative_complex_expression() {
+    let expr = parse_latex(r"\frac{\partial}{\partial x}(x*y + y^2)").unwrap();
+    match expr {
+        Expression::PartialDerivative { expr, var, order } => {
+            assert_eq!(var, "x");
+            assert_eq!(order, 1);
+            match *expr {
+                Expression::Binary {
+                    op: BinaryOp::Add, ..
+                } => {}
+                _ => panic!("Expected addition"),
+            }
         }
         _ => panic!("Expected PartialDerivative variant"),
     }
