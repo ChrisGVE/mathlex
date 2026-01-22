@@ -35,6 +35,8 @@ pub enum Token {
     Minus,
     /// Multiplication operator (*)
     Star,
+    /// Exponentiation operator (**) - plain text only
+    DoubleStar,
     /// Division operator (/)
     Slash,
     /// Exponentiation operator (^)
@@ -100,6 +102,7 @@ impl std::fmt::Display for Token {
             Token::Plus => write!(f, "+"),
             Token::Minus => write!(f, "-"),
             Token::Star => write!(f, "*"),
+            Token::DoubleStar => write!(f, "**"),
             Token::Slash => write!(f, "/"),
             Token::Caret => write!(f, "^"),
             Token::Percent => write!(f, "%"),
@@ -443,6 +446,19 @@ impl<'a> Tokenizer<'a> {
                 let end = self.position();
                 return Ok(Some(SpannedToken::new(Token::Sqrt, Span::new(start, end))));
             }
+            '*' => {
+                self.consume();
+                if self.peek() == Some('*') {
+                    self.consume();
+                    let end = self.position();
+                    return Ok(Some(SpannedToken::new(
+                        Token::DoubleStar,
+                        Span::new(start, end),
+                    )));
+                }
+                let end = self.position();
+                return Ok(Some(SpannedToken::new(Token::Star, Span::new(start, end))));
+            }
             _ => {}
         }
 
@@ -454,7 +470,6 @@ impl<'a> Tokenizer<'a> {
         let token = match ch {
             '+' => Token::Plus,
             '-' => Token::Minus,
-            '*' => Token::Star,
             '/' => Token::Slash,
             '^' => Token::Caret,
             '%' => Token::Percent,
@@ -706,6 +721,27 @@ mod tests {
         assert_eq!(tokens[3].value, Token::Plus);
         assert_eq!(tokens[4].value, Token::Integer(1));
         assert_eq!(tokens[5].value, Token::RParen);
+    }
+
+    #[test]
+    fn test_tokenize_double_star() {
+        let tokens = tokenize("2**3").unwrap();
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens[0].value, Token::Integer(2));
+        assert_eq!(tokens[1].value, Token::DoubleStar);
+        assert_eq!(tokens[2].value, Token::Integer(3));
+    }
+
+    #[test]
+    fn test_tokenize_star_vs_double_star() {
+        // Test that * and ** are distinguished correctly
+        let tokens = tokenize("2*3**4").unwrap();
+        assert_eq!(tokens.len(), 5);
+        assert_eq!(tokens[0].value, Token::Integer(2));
+        assert_eq!(tokens[1].value, Token::Star);
+        assert_eq!(tokens[2].value, Token::Integer(3));
+        assert_eq!(tokens[3].value, Token::DoubleStar);
+        assert_eq!(tokens[4].value, Token::Integer(4));
     }
 
 }
