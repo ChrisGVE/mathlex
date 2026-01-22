@@ -217,7 +217,7 @@ impl LatexParser {
         Ok(left)
     }
 
-    /// Parses additive expressions (+ and -).
+    /// Parses additive expressions (+, -, \pm, \mp).
     fn parse_additive(&mut self) -> ParseResult<Expression> {
         let mut left = self.parse_multiplicative()?;
 
@@ -225,6 +225,8 @@ impl LatexParser {
             let op = match token {
                 LatexToken::Plus => BinaryOp::Add,
                 LatexToken::Minus => BinaryOp::Sub,
+                LatexToken::Command(cmd) if cmd == "pm" => BinaryOp::PlusMinus,
+                LatexToken::Command(cmd) if cmd == "mp" => BinaryOp::MinusPlus,
                 _ => break,
             };
 
@@ -304,11 +306,12 @@ impl LatexParser {
                 true
             }
             Some((LatexToken::Command(cmd), _)) => {
-                // Exclude relation commands - they should not trigger implicit mult
+                // Exclude relation commands and right delimiters - they should not trigger implicit mult
                 !matches!(
                     cmd.as_str(),
                     "lt" | "gt" | "leq" | "le" | "geq" | "ge" | "neq" | "ne"
                         | "pm" | "mp" | "cdot" | "times" | "div"
+                        | "rfloor" | "rceil"
                 )
             }
             Some((LatexToken::LParen, _)) => true,

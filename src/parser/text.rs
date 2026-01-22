@@ -8,9 +8,10 @@
 //! 1. Relations (=, <, >, <=, >=, !=)
 //! 2. Addition, Subtraction (+, -)
 //! 3. Multiplication, Division, Modulo (*, /, %)
-//! 4. Power (^) - RIGHT ASSOCIATIVE
-//! 5. Unary operators (-, +, !)
-//! 6. Function calls and atoms
+//! 4. Unary prefix operators (-, +)
+//! 5. Power (^) - RIGHT ASSOCIATIVE
+//! 6. Postfix operators (!)
+//! 7. Function calls and atoms
 //!
 //! # Examples
 //!
@@ -281,7 +282,7 @@ impl TextParser {
 
     /// Parses multiplicative expressions (*, /, %).
     fn parse_multiplicative(&mut self) -> ParseResult<Expression> {
-        let mut left = self.parse_power()?;
+        let mut left = self.parse_unary()?;
 
         loop {
             // Check for explicit multiplication operators
@@ -299,7 +300,7 @@ impl TextParser {
             if let Some(op) = op {
                 // Explicit operator found
                 self.next(); // consume operator
-                let right = self.parse_power()?;
+                let right = self.parse_unary()?;
 
                 left = Expression::Binary {
                     op,
@@ -308,7 +309,7 @@ impl TextParser {
                 };
             } else if self.should_insert_implicit_mult(&left) {
                 // Implicit multiplication detected
-                let right = self.parse_power()?;
+                let right = self.parse_unary()?;
 
                 left = Expression::Binary {
                     op: BinaryOp::Mul,
@@ -324,12 +325,35 @@ impl TextParser {
         Ok(left)
     }
 
-    /// Parses power expressions (^) - right associative.
+    /// Parses unary prefix operators (-, +).
+    fn parse_unary(&mut self) -> ParseResult<Expression> {
+        if let Some(token) = self.peek() {
+            let op = match &token.value {
+                Token::Minus => Some(UnaryOp::Neg),
+                Token::Plus => Some(UnaryOp::Pos),
+                _ => None,
+            };
+
+            if let Some(op) = op {
+                self.next(); // consume operator
+                let operand = self.parse_unary()?; // allow multiple unary operators
+
+                return Ok(Expression::Unary {
+                    op,
+                    operand: Box::new(operand),
+                });
+            }
+        }
+
+        self.parse_power()
+    }
+
+    /// Parses power expressions (^ or **) - right associative.
     fn parse_power(&mut self) -> ParseResult<Expression> {
         let left = self.parse_postfix()?;
 
-        if self.check(&Token::Caret) {
-            self.next(); // consume ^
+        if self.check(&Token::Caret) || self.check(&Token::DoubleStar) {
+            self.next(); // consume ^ or **
             let right = self.parse_power()?; // right associative - recurse
 
             Ok(Expression::Binary {
@@ -344,7 +368,7 @@ impl TextParser {
 
     /// Parses postfix operators (!).
     fn parse_postfix(&mut self) -> ParseResult<Expression> {
-        let mut expr = self.parse_unary_prefix()?;
+        let mut expr = self.parse_primary()?;
 
         while self.check(&Token::Bang) {
             self.next(); // consume !
@@ -355,29 +379,6 @@ impl TextParser {
         }
 
         Ok(expr)
-    }
-
-    /// Parses prefix unary operators (-, +).
-    fn parse_unary_prefix(&mut self) -> ParseResult<Expression> {
-        if let Some(token) = self.peek() {
-            let op = match &token.value {
-                Token::Minus => Some(UnaryOp::Neg),
-                Token::Plus => Some(UnaryOp::Pos),
-                _ => None,
-            };
-
-            if let Some(op) = op {
-                self.next(); // consume operator
-                let operand = self.parse_unary_prefix()?; // allow multiple unary operators
-
-                return Ok(Expression::Unary {
-                    op,
-                    operand: Box::new(operand),
-                });
-            }
-        }
-
-        self.parse_primary()
     }
 
     /// Parses primary expressions (atoms, functions, parenthesized).
@@ -427,7 +428,7 @@ impl TextParser {
                     expr
                 } else {
                     // Parse a single primary expression (number, variable, or function call)
-                    self.parse_unary_prefix()?
+                    self.parse_primary()?
                 };
                 Ok(Expression::Function {
                     name: "sqrt".to_string(),
@@ -673,6 +674,103 @@ mod tests {
     fn test_power_right_associative() {
         // 2 ^ 3 ^ 4 should parse as 2 ^ (3 ^ 4)
         let expr = parse("2 ^ 3 ^ 4").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Pow,
+                left,
+                right,
+            } => {
+                assert!(matches!(*left, Expression::Integer(2)));
+                assert!(matches!(
+                    *right,
+                    Expression::Binary {
+                        op: BinaryOp::Pow,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected power at top level"),
+        }
+    }
+
+    #[test]
+    fn test_parse_double_star_power() {
+        let expr = parse("2**3").unwrap();
+        assert!(matches!(
+            expr,
+            Expression::Binary {
+                op: BinaryOp::Pow,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_double_star_with_variable() {
+        let expr = parse("x**2").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Pow,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Variable("x".to_string()));
+                assert_eq!(*right, Expression::Integer(2));
+            }
+            _ => panic!("Expected power"),
+        }
+    }
+
+    #[test]
+    fn test_double_star_right_associative() {
+        // 2**3**4 should parse as 2**(3**4)
+        let expr = parse("2**3**4").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Pow,
+                left,
+                right,
+            } => {
+                assert!(matches!(*left, Expression::Integer(2)));
+                assert!(matches!(
+                    *right,
+                    Expression::Binary {
+                        op: BinaryOp::Pow,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected power at top level"),
+        }
+    }
+
+    #[test]
+    fn test_star_vs_double_star_in_expression() {
+        // 2*3**4 should parse as 2*(3**4)
+        let expr = parse("2*3**4").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Mul,
+                left,
+                right,
+            } => {
+                assert_eq!(*left, Expression::Integer(2));
+                assert!(matches!(
+                    *right,
+                    Expression::Binary {
+                        op: BinaryOp::Pow,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected multiplication at top level"),
+        }
+    }
+
+    #[test]
+    fn test_mixed_caret_and_double_star() {
+        // 2^3**4 should parse as 2^(3**4)
+        let expr = parse("2^3**4").unwrap();
         match expr {
             Expression::Binary {
                 op: BinaryOp::Pow,
@@ -1962,25 +2060,28 @@ mod extended_operator_precedence {
 
     #[test]
     fn test_unary_minus_with_power() {
-        // -x^2 parses as (-x)^2 because unary operators are parsed before power
-        // This is consistent with how the parser is structured
+        // -x^2 parses as -(x^2) following standard mathematical convention
+        // where exponentiation has higher precedence than unary minus
         let expr = parse("-x^2").unwrap();
         match expr {
-            Expression::Binary {
-                op: BinaryOp::Pow,
-                left,
-                right,
+            Expression::Unary {
+                op: UnaryOp::Neg,
+                operand,
             } => {
-                assert!(matches!(
-                    *left,
-                    Expression::Unary {
-                        op: UnaryOp::Neg,
-                        ..
+                // The operand should be x^2
+                match *operand {
+                    Expression::Binary {
+                        op: BinaryOp::Pow,
+                        left,
+                        right,
+                    } => {
+                        assert_eq!(*left, Expression::Variable("x".to_string()));
+                        assert_eq!(*right, Expression::Integer(2));
                     }
-                ));
-                assert_eq!(*right, Expression::Integer(2));
+                    _ => panic!("Expected power as operand"),
+                }
             }
-            _ => panic!("Expected power of negation"),
+            _ => panic!("Expected negation of power"),
         }
     }
 
@@ -2225,8 +2326,13 @@ mod extended_operator_precedence {
 
     #[test]
     fn test_negative_exponent() {
-        // 2^-3 should parse as 2^(-(3))
-        let expr = parse("2^-3").unwrap();
+        // 2^-3 requires parentheses as 2^(-3)
+        // Without parens, the - is ambiguous and not supported
+        let result = parse("2^-3");
+        assert!(result.is_err(), "2^-3 should require parentheses");
+
+        // 2^(-3) should parse correctly
+        let expr = parse("2^(-3)").unwrap();
         match expr {
             Expression::Binary {
                 op: BinaryOp::Pow,
@@ -2665,8 +2771,13 @@ mod extended_error_cases {
 
     #[test]
     fn test_error_double_operators() {
-        let result = parse("2 ** 3");
-        assert!(result.is_err());
+        // Note: ** is now a valid power operator (2 ** 3 = 2^3)
+        // And ++ parses as 2 + (+3), -- parses as 2 - (-3) since +/- are unary operators
+        // Test actual invalid double operators
+        let result = parse("2 */ 3");
+        assert!(result.is_err(), "Mix of * and / should be an error");
+        let result = parse("2 ^^ 3");
+        assert!(result.is_err(), "Double caret should be an error");
     }
 
     #[test]

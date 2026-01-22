@@ -160,6 +160,12 @@ pub enum BinaryOp {
 
     /// Modulo operator (%)
     Mod,
+
+    /// Plus-minus operator (±)
+    PlusMinus,
+
+    /// Minus-plus operator (∓)
+    MinusPlus,
 }
 
 /// Unary operators for mathematical expressions.

@@ -50,7 +50,7 @@ use std::fmt;
 /// ```
 fn precedence(op: BinaryOp) -> u8 {
     match op {
-        BinaryOp::Add | BinaryOp::Sub => 1,
+        BinaryOp::Add | BinaryOp::Sub | BinaryOp::PlusMinus | BinaryOp::MinusPlus => 1,
         BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => 2,
         BinaryOp::Pow => 3,
     }
@@ -131,6 +131,8 @@ impl fmt::Display for BinaryOp {
             BinaryOp::Div => write!(f, "/"),
             BinaryOp::Pow => write!(f, "^"),
             BinaryOp::Mod => write!(f, "%"),
+            BinaryOp::PlusMinus => write!(f, "±"),
+            BinaryOp::MinusPlus => write!(f, "∓"),
         }
     }
 }

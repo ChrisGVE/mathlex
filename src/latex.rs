@@ -51,7 +51,7 @@ use crate::ast::*;
 /// ```
 fn precedence(op: BinaryOp) -> u8 {
     match op {
-        BinaryOp::Add | BinaryOp::Sub => 1,
+        BinaryOp::Add | BinaryOp::Sub | BinaryOp::PlusMinus | BinaryOp::MinusPlus => 1,
         BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => 2,
         BinaryOp::Pow => 3,
     }
@@ -157,6 +157,8 @@ impl ToLatex for BinaryOp {
             BinaryOp::Div => "/".to_string(), // Division is handled specially in Expression
             BinaryOp::Pow => "^".to_string(),
             BinaryOp::Mod => r"\bmod".to_string(),
+            BinaryOp::PlusMinus => r"\pm".to_string(),
+            BinaryOp::MinusPlus => r"\mp".to_string(),
         }
     }
 }
