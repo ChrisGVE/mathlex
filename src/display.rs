@@ -86,11 +86,17 @@ fn needs_parens(child: &Expression, parent_op: BinaryOp, is_right: bool) -> bool
                 return true;
             }
 
-            // For equal precedence, right side of non-commutative ops needs parens
-            // Examples: a - (b - c), a / (b / c), a ^ (b ^ c)
-            if child_prec == parent_prec && is_right {
-                match parent_op {
-                    BinaryOp::Sub | BinaryOp::Div | BinaryOp::Pow => return true,
+            // For equal precedence, handle associativity
+            if child_prec == parent_prec {
+                match (parent_op, *child_op) {
+                    // Power is right-associative by convention: a^b^c means a^(b^c)
+                    // So we need parens when power appears as operand of power
+                    (BinaryOp::Pow, BinaryOp::Pow) => return true,
+                    // Sub and Div are left-associative, so right side needs parens
+                    (BinaryOp::Sub, BinaryOp::Sub) | (BinaryOp::Div, BinaryOp::Div) => {
+                        return is_right
+                    }
+                    // Add and Mul are commutative, no parens needed
                     _ => {}
                 }
             }
@@ -218,12 +224,20 @@ impl fmt::Display for Expression {
             Expression::Unary { op, operand } => {
                 match op {
                     UnaryOp::Factorial | UnaryOp::Transpose => {
-                        // Postfix operators
-                        write!(f, "{}{}", operand, op)
+                        // Postfix operators - need parens for binary operands
+                        if matches!(**operand, Expression::Binary { .. }) {
+                            write!(f, "({}){}", operand, op)
+                        } else {
+                            write!(f, "{}{}", operand, op)
+                        }
                     }
                     UnaryOp::Neg | UnaryOp::Pos => {
-                        // Prefix operators
-                        write!(f, "{}{}", op, operand)
+                        // Prefix operators - need parens for binary operands
+                        if matches!(**operand, Expression::Binary { .. }) {
+                            write!(f, "{}({})", op, operand)
+                        } else {
+                            write!(f, "{}{}", op, operand)
+                        }
                     }
                 }
             }
@@ -1254,5 +1268,131 @@ mod tests {
         let child = Expression::Integer(5);
         assert!(!needs_parens(&child, BinaryOp::Add, false));
         assert!(!needs_parens(&child, BinaryOp::Mul, true));
+    }
+
+    // Tests for precedence-safe parentheses with unary operators
+
+    #[test]
+    fn test_unary_neg_with_binary_operand() {
+        // -(a + b) should print as "-(a + b)"
+        let expr = Expression::Unary {
+            op: UnaryOp::Neg,
+            operand: Box::new(Expression::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::Variable("a".to_string())),
+                right: Box::new(Expression::Variable("b".to_string())),
+            }),
+        };
+        assert_eq!(format!("{}", expr), "-(a + b)");
+    }
+
+    #[test]
+    fn test_unary_pos_with_binary_operand() {
+        // +(a * b) should print as "+(a * b)"
+        let expr = Expression::Unary {
+            op: UnaryOp::Pos,
+            operand: Box::new(Expression::Binary {
+                op: BinaryOp::Mul,
+                left: Box::new(Expression::Variable("a".to_string())),
+                right: Box::new(Expression::Variable("b".to_string())),
+            }),
+        };
+        assert_eq!(format!("{}", expr), "+(a * b)");
+    }
+
+    #[test]
+    fn test_factorial_with_binary_operand() {
+        // (a + b)! should print as "(a + b)!"
+        let expr = Expression::Unary {
+            op: UnaryOp::Factorial,
+            operand: Box::new(Expression::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::Variable("a".to_string())),
+                right: Box::new(Expression::Variable("b".to_string())),
+            }),
+        };
+        assert_eq!(format!("{}", expr), "(a + b)!");
+    }
+
+    #[test]
+    fn test_transpose_with_binary_operand() {
+        // (A + B)' should print as "(A + B)'"
+        let expr = Expression::Unary {
+            op: UnaryOp::Transpose,
+            operand: Box::new(Expression::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::Variable("A".to_string())),
+                right: Box::new(Expression::Variable("B".to_string())),
+            }),
+        };
+        assert_eq!(format!("{}", expr), "(A + B)'");
+    }
+
+    #[test]
+    fn test_power_left_associative() {
+        // (a^b)^c should print as "(a ^ b) ^ c"
+        let expr = Expression::Binary {
+            op: BinaryOp::Pow,
+            left: Box::new(Expression::Binary {
+                op: BinaryOp::Pow,
+                left: Box::new(Expression::Variable("a".to_string())),
+                right: Box::new(Expression::Variable("b".to_string())),
+            }),
+            right: Box::new(Expression::Variable("c".to_string())),
+        };
+        assert_eq!(format!("{}", expr), "(a ^ b) ^ c");
+    }
+
+    #[test]
+    fn test_power_right_associative() {
+        // a^(b^c) should print as "a ^ (b ^ c)"
+        let expr = Expression::Binary {
+            op: BinaryOp::Pow,
+            left: Box::new(Expression::Variable("a".to_string())),
+            right: Box::new(Expression::Binary {
+                op: BinaryOp::Pow,
+                left: Box::new(Expression::Variable("b".to_string())),
+                right: Box::new(Expression::Variable("c".to_string())),
+            }),
+        };
+        assert_eq!(format!("{}", expr), "a ^ (b ^ c)");
+    }
+
+    #[test]
+    fn test_complex_precedence_example() {
+        // -(a + b) * c should print as "-(a + b) * c"
+        let expr = Expression::Binary {
+            op: BinaryOp::Mul,
+            left: Box::new(Expression::Unary {
+                op: UnaryOp::Neg,
+                operand: Box::new(Expression::Binary {
+                    op: BinaryOp::Add,
+                    left: Box::new(Expression::Variable("a".to_string())),
+                    right: Box::new(Expression::Variable("b".to_string())),
+                }),
+            }),
+            right: Box::new(Expression::Variable("c".to_string())),
+        };
+        assert_eq!(format!("{}", expr), "-(a + b) * c");
+    }
+
+    #[test]
+    fn test_unary_with_non_binary_operand() {
+        // -x should print as "-x" (no parens needed)
+        let expr = Expression::Unary {
+            op: UnaryOp::Neg,
+            operand: Box::new(Expression::Variable("x".to_string())),
+        };
+        assert_eq!(format!("{}", expr), "-x");
+    }
+
+    #[test]
+    fn test_factorial_with_non_binary_operand() {
+        // n! should print as "n!" (no parens needed)
+        let expr = Expression::Unary {
+            op: UnaryOp::Factorial,
+            operand: Box::new(Expression::Variable("n".to_string())),
+        };
+        assert_eq!(format!("{}", expr), "n!");
     }
 }

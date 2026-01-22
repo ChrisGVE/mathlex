@@ -38,6 +38,77 @@
 
 use crate::ast::*;
 
+/// Get the precedence level of a binary operator.
+///
+/// Lower numbers bind less tightly (evaluated later).
+///
+/// # Examples
+///
+/// ```ignore
+/// assert_eq!(precedence(BinaryOp::Add), 1);
+/// assert_eq!(precedence(BinaryOp::Mul), 2);
+/// assert_eq!(precedence(BinaryOp::Pow), 3);
+/// ```
+fn precedence(op: BinaryOp) -> u8 {
+    match op {
+        BinaryOp::Add | BinaryOp::Sub => 1,
+        BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => 2,
+        BinaryOp::Pow => 3,
+    }
+}
+
+/// Determine if an expression needs parentheses when used as a child of a binary operation.
+///
+/// Parentheses are needed when:
+/// - The child is a binary operation with lower precedence than the parent
+/// - The child is on the right side of a non-commutative operation with equal precedence
+///
+/// # Arguments
+///
+/// - `child`: The child expression
+/// - `parent_op`: The parent binary operator
+/// - `is_right`: Whether the child is the right operand
+///
+/// # Examples
+///
+/// ```ignore
+/// // (2 + 3) * 4 needs parens
+/// // 2 * (3 + 4) needs parens
+/// // 2 * 3 * 4 doesn't need parens
+/// ```
+fn needs_parens(child: &Expression, parent_op: BinaryOp, is_right: bool) -> bool {
+    match child {
+        Expression::Binary { op: child_op, .. } => {
+            let parent_prec = precedence(parent_op);
+            let child_prec = precedence(*child_op);
+
+            // Lower precedence always needs parens
+            if child_prec < parent_prec {
+                return true;
+            }
+
+            // For equal precedence, handle associativity
+            if child_prec == parent_prec {
+                match (parent_op, *child_op) {
+                    // Power is right-associative by convention: a^b^c means a^(b^c)
+                    // So we need parens when power appears as operand of power
+                    (BinaryOp::Pow, BinaryOp::Pow) => return true,
+                    // Sub and Div are left-associative, so right side needs parens
+                    (BinaryOp::Sub, BinaryOp::Sub) | (BinaryOp::Div, BinaryOp::Div) => {
+                        return is_right
+                    }
+                    // Add and Mul are commutative, no parens needed
+                    _ => {}
+                }
+            }
+
+            false
+        }
+        // Unary expressions don't need parens (they have highest precedence)
+        _ => false,
+    }
+}
+
 /// Trait for converting AST types to LaTeX notation.
 ///
 /// This trait provides a method to convert mathematical expressions and
@@ -176,29 +247,87 @@ impl ToLatex for Expression {
             Expression::Binary { op, left, right } => {
                 match op {
                     BinaryOp::Div => {
-                        // Use \frac for division
+                        // Use \frac for division - no parens needed inside \frac
                         format!(r"\frac{{{}}}{{{}}}", left.to_latex(), right.to_latex())
                     }
                     BinaryOp::Pow => {
-                        // Use superscript notation
-                        format!("{}^{{{}}}", left.to_latex(), right.to_latex())
+                        // Use superscript notation with precedence-aware parentheses
+                        let left_needs_parens = needs_parens(left, *op, false);
+                        let right_needs_parens = needs_parens(right, *op, true);
+
+                        let left_str = if left_needs_parens {
+                            format!(r"\left({}\right)", left.to_latex())
+                        } else {
+                            left.to_latex()
+                        };
+
+                        let right_str = if right_needs_parens {
+                            format!(r"\left({}\right)", right.to_latex())
+                        } else {
+                            right.to_latex()
+                        };
+
+                        format!("{}^{{{}}}", left_str, right_str)
                     }
                     BinaryOp::Mod => {
                         // Use \bmod with spaces
                         format!("{} \\bmod {}", left.to_latex(), right.to_latex())
                     }
                     _ => {
-                        // Regular binary operations
-                        format!("{} {} {}", left.to_latex(), op.to_latex(), right.to_latex())
+                        // Regular binary operations - check precedence for parentheses
+                        let left_needs_parens = needs_parens(left, *op, false);
+                        let right_needs_parens = needs_parens(right, *op, true);
+
+                        let left_str = if left_needs_parens {
+                            format!(r"\left({}\right)", left.to_latex())
+                        } else {
+                            left.to_latex()
+                        };
+
+                        let right_str = if right_needs_parens {
+                            format!(r"\left({}\right)", right.to_latex())
+                        } else {
+                            right.to_latex()
+                        };
+
+                        format!("{} {} {}", left_str, op.to_latex(), right_str)
                     }
                 }
             }
 
             Expression::Unary { op, operand } => match op {
-                UnaryOp::Neg => format!("-{}", operand.to_latex()),
-                UnaryOp::Pos => format!("+{}", operand.to_latex()),
-                UnaryOp::Factorial => format!("{}!", operand.to_latex()),
-                UnaryOp::Transpose => format!("{}^T", operand.to_latex()),
+                UnaryOp::Neg => {
+                    // Prefix operator - need parens for binary operands
+                    if matches!(**operand, Expression::Binary { .. }) {
+                        format!(r"-\left({}\right)", operand.to_latex())
+                    } else {
+                        format!("-{}", operand.to_latex())
+                    }
+                }
+                UnaryOp::Pos => {
+                    // Prefix operator - need parens for binary operands
+                    if matches!(**operand, Expression::Binary { .. }) {
+                        format!(r"+\left({}\right)", operand.to_latex())
+                    } else {
+                        format!("+{}", operand.to_latex())
+                    }
+                }
+                UnaryOp::Factorial => {
+                    // Postfix operator - need parens for binary operands
+                    if matches!(**operand, Expression::Binary { .. }) {
+                        format!(r"\left({}\right)!", operand.to_latex())
+                    } else {
+                        format!("{}!", operand.to_latex())
+                    }
+                }
+                UnaryOp::Transpose => {
+                    // Postfix operator - need parens for binary operands
+                    if matches!(**operand, Expression::Binary { .. }) {
+                        format!(r"\left({}\right)^T", operand.to_latex())
+                    } else {
+                        format!("{}^T", operand.to_latex())
+                    }
+                }
             },
 
             Expression::Function { name, args } => {
@@ -1018,5 +1147,176 @@ mod tests {
             }),
         };
         assert_eq!(expr.to_latex(), r"\int_{0}^{\pi} \sin\left(x\right) \, dx");
+    }
+
+    // Tests for precedence-safe parentheses
+
+    #[test]
+    fn test_latex_unary_neg_with_binary_operand() {
+        // -(a + b) should output as "-\left(a + b\right)"
+        let expr = Expression::Unary {
+            op: UnaryOp::Neg,
+            operand: Box::new(Expression::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::Variable("a".to_string())),
+                right: Box::new(Expression::Variable("b".to_string())),
+            }),
+        };
+        assert_eq!(expr.to_latex(), r"-\left(a + b\right)");
+    }
+
+    #[test]
+    fn test_latex_unary_pos_with_binary_operand() {
+        // +(a * b) should output as "+\left(a \cdot b\right)"
+        let expr = Expression::Unary {
+            op: UnaryOp::Pos,
+            operand: Box::new(Expression::Binary {
+                op: BinaryOp::Mul,
+                left: Box::new(Expression::Variable("a".to_string())),
+                right: Box::new(Expression::Variable("b".to_string())),
+            }),
+        };
+        assert_eq!(expr.to_latex(), r"+\left(a \cdot b\right)");
+    }
+
+    #[test]
+    fn test_latex_factorial_with_binary_operand() {
+        // (a + b)! should output as "\left(a + b\right)!"
+        let expr = Expression::Unary {
+            op: UnaryOp::Factorial,
+            operand: Box::new(Expression::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::Variable("a".to_string())),
+                right: Box::new(Expression::Variable("b".to_string())),
+            }),
+        };
+        assert_eq!(expr.to_latex(), r"\left(a + b\right)!");
+    }
+
+    #[test]
+    fn test_latex_transpose_with_binary_operand() {
+        // (A + B)' should output as "\left(A + B\right)^T"
+        let expr = Expression::Unary {
+            op: UnaryOp::Transpose,
+            operand: Box::new(Expression::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::Variable("A".to_string())),
+                right: Box::new(Expression::Variable("B".to_string())),
+            }),
+        };
+        assert_eq!(expr.to_latex(), r"\left(A + B\right)^T");
+    }
+
+    #[test]
+    fn test_latex_power_left_associative() {
+        // (a^b)^c should output with parens on left: "\left(a^{b}\right)^{c}"
+        let expr = Expression::Binary {
+            op: BinaryOp::Pow,
+            left: Box::new(Expression::Binary {
+                op: BinaryOp::Pow,
+                left: Box::new(Expression::Variable("a".to_string())),
+                right: Box::new(Expression::Variable("b".to_string())),
+            }),
+            right: Box::new(Expression::Variable("c".to_string())),
+        };
+        assert_eq!(expr.to_latex(), r"\left(a^{b}\right)^{c}");
+    }
+
+    #[test]
+    fn test_latex_power_right_associative() {
+        // a^(b^c) - in LaTeX, parens are added inside the braces for clarity
+        let expr = Expression::Binary {
+            op: BinaryOp::Pow,
+            left: Box::new(Expression::Variable("a".to_string())),
+            right: Box::new(Expression::Binary {
+                op: BinaryOp::Pow,
+                left: Box::new(Expression::Variable("b".to_string())),
+                right: Box::new(Expression::Variable("c".to_string())),
+            }),
+        };
+        assert_eq!(expr.to_latex(), r"a^{\left(b^{c}\right)}");
+    }
+
+    #[test]
+    fn test_latex_precedence_add_mul() {
+        // (a + b) * c should output with parens: "\left(a + b\right) \cdot c"
+        let expr = Expression::Binary {
+            op: BinaryOp::Mul,
+            left: Box::new(Expression::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::Variable("a".to_string())),
+                right: Box::new(Expression::Variable("b".to_string())),
+            }),
+            right: Box::new(Expression::Variable("c".to_string())),
+        };
+        assert_eq!(expr.to_latex(), r"\left(a + b\right) \cdot c");
+    }
+
+    #[test]
+    fn test_latex_precedence_sub_sub_right() {
+        // a - (b - c) should output with parens: "a - \left(b - c\right)"
+        let expr = Expression::Binary {
+            op: BinaryOp::Sub,
+            left: Box::new(Expression::Variable("a".to_string())),
+            right: Box::new(Expression::Binary {
+                op: BinaryOp::Sub,
+                left: Box::new(Expression::Variable("b".to_string())),
+                right: Box::new(Expression::Variable("c".to_string())),
+            }),
+        };
+        assert_eq!(expr.to_latex(), r"a - \left(b - c\right)");
+    }
+
+    #[test]
+    fn test_latex_precedence_sub_sub_left() {
+        // (a - b) - c should output without parens: "a - b - c"
+        let expr = Expression::Binary {
+            op: BinaryOp::Sub,
+            left: Box::new(Expression::Binary {
+                op: BinaryOp::Sub,
+                left: Box::new(Expression::Variable("a".to_string())),
+                right: Box::new(Expression::Variable("b".to_string())),
+            }),
+            right: Box::new(Expression::Variable("c".to_string())),
+        };
+        assert_eq!(expr.to_latex(), r"a - b - c");
+    }
+
+    #[test]
+    fn test_latex_unary_with_non_binary_operand() {
+        // -x should output as "-x" (no parens needed)
+        let expr = Expression::Unary {
+            op: UnaryOp::Neg,
+            operand: Box::new(Expression::Variable("x".to_string())),
+        };
+        assert_eq!(expr.to_latex(), "-x");
+    }
+
+    #[test]
+    fn test_latex_factorial_with_non_binary_operand() {
+        // n! should output as "n!" (no parens needed)
+        let expr = Expression::Unary {
+            op: UnaryOp::Factorial,
+            operand: Box::new(Expression::Variable("n".to_string())),
+        };
+        assert_eq!(expr.to_latex(), "n!");
+    }
+
+    #[test]
+    fn test_latex_complex_precedence_example() {
+        // -(a + b) * c should output as "-\left(a + b\right) \cdot c"
+        let expr = Expression::Binary {
+            op: BinaryOp::Mul,
+            left: Box::new(Expression::Unary {
+                op: UnaryOp::Neg,
+                operand: Box::new(Expression::Binary {
+                    op: BinaryOp::Add,
+                    left: Box::new(Expression::Variable("a".to_string())),
+                    right: Box::new(Expression::Variable("b".to_string())),
+                }),
+            }),
+            right: Box::new(Expression::Variable("c".to_string())),
+        };
+        assert_eq!(expr.to_latex(), r"-\left(a + b\right) \cdot c");
     }
 }
