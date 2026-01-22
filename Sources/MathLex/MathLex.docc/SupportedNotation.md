@@ -30,9 +30,9 @@ LaTeX: `x`, `\theta`, `\alpha`, `\beta`
 
 ### Mathematical Constants
 - Pi: `pi` (plain text), `\pi` (LaTeX)
-- Euler's number: `e`
-- Imaginary unit: `i`
 - Infinity: `inf` (plain text), `\infty` (LaTeX)
+
+> Note: `e` and `i` are parsed as variables, not constants. This is intentional since these are commonly used as loop indices and other variables.
 
 ## Operators
 
@@ -43,8 +43,10 @@ LaTeX: `x`, `\theta`, `\alpha`, `\beta`
 | Subtraction | `a - b` | `a - b` |
 | Multiplication | `a * b` | `a \cdot b` or `a \times b` |
 | Division | `a / b` | `\frac{a}{b}` |
-| Exponentiation | `a ^ b` | `a^b` or `a^{expr}` |
+| Exponentiation | `a ^ b` or `a ** b` | `a^b` or `a^{expr}` |
 | Modulo | `a % b` | — |
+| Plus-Minus | — | `a \pm b` |
+| Minus-Plus | — | `a \mp b` |
 
 ### Unary Operators
 | Operation | Plain Text | LaTeX |
@@ -60,15 +62,19 @@ Both plain text and LaTeX support these functions:
 - Inverse trigonometric: `asin`, `acos`, `atan`
 - Hyperbolic: `sinh`, `cosh`, `tanh`
 - Logarithmic: `log`, `ln`, `log10`
-- Other: `sqrt`, `abs`, `exp`, `max`, `min`
+- Other: `sqrt`, `abs`, `exp`, `max`, `min`, `floor`, `ceil`, `gcd`, `lcm`, `sgn`, `det`
 
 ### LaTeX Function Syntax
 ```latex
 \sin{x}
 \cos{x}
 \sqrt{x}
-\sqrt[n]{x}  % nth root
-\log_{10}{x} % log base 10
+\sqrt[n]{x}       % nth root
+\log_{10}{x}      % log base 10
+\abs{x}           % absolute value
+|x|               % absolute value (alternative)
+\lfloor x \rfloor % floor function
+\lceil x \rceil   % ceiling function
 ```
 
 ## Calculus (Representation Only)
@@ -78,14 +84,16 @@ MathLex parses calculus notation into AST nodes but does not evaluate them.
 ### Derivatives
 LaTeX only:
 ```latex
-\frac{d}{dx} f(x)
-\frac{d^2}{dx^2} f(x)
+\frac{d}{d*x} f(x)         % first order
+\frac{d^2}{d*x^2} f(x)     % second order
 ```
+
+> Note: Use `d*x` (not `dx`) in the denominator for the parser to recognize derivatives.
 
 ### Partial Derivatives
 LaTeX only:
 ```latex
-\frac{\partial}{\partial x} f(x,y)
+\frac{\partial}{\partial*x} f(x,y)
 ```
 
 ### Integrals
