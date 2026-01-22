@@ -28,13 +28,7 @@
 /// ```
 
 import Foundation
-
-// Import the generated swift-bridge bindings
-// Note: This will be available once the XCFramework is built
-// For now, we create placeholder types that match the expected interface
-#if canImport(MathLexRust)
 import MathLexRust
-#endif
 
 /// Errors that can occur during mathematical expression parsing
 public enum MathLexError: Error {
@@ -101,26 +95,13 @@ extension MathLexError: LocalizedError {
 /// let latex = expr.latex  // "\\frac{1}{2}"
 /// ```
 public struct MathExpression {
-    #if canImport(MathLexRust)
     // The underlying Rust expression
-    // This will be populated when swift-bridge bindings are available
-    private let inner: Any  // TODO: Replace with actual Expression type from MathLexRust
-    #else
-    // Placeholder for development
-    private let placeholder: String
-    #endif
+    private let inner: Expression
 
-    #if canImport(MathLexRust)
     /// Internal initializer from Rust expression
-    private init(inner: Any) {
+    private init(inner: Expression) {
         self.inner = inner
     }
-    #else
-    /// Placeholder initializer
-    private init(placeholder: String) {
-        self.placeholder = placeholder
-    }
-    #endif
 
     // MARK: - Parsing
 
@@ -149,15 +130,12 @@ public struct MathExpression {
     /// - Returns: A parsed `MathExpression`
     /// - Throws: `MathLexError.parseError` if the input is invalid
     public static func parse(_ input: String) throws -> MathExpression {
-        #if canImport(MathLexRust)
-        // TODO: Call actual Rust parser when bindings are available
-        // let result = parse_expression(input)
-        // return MathExpression(inner: result)
-        throw MathLexError.internalError("MathLexRust bindings not yet available")
-        #else
-        // Placeholder implementation
-        return MathExpression(placeholder: input)
-        #endif
+        do {
+            let expr = try MathLexRust.parseText(input)
+            return MathExpression(inner: expr)
+        } catch let error as RustString {
+            throw MathLexError.parseError(error.toString())
+        }
     }
 
     /// Parses a LaTeX mathematical expression
@@ -189,15 +167,12 @@ public struct MathExpression {
     /// - Returns: A parsed `MathExpression`
     /// - Throws: `MathLexError.parseError` if the input is invalid
     public static func parseLatex(_ input: String) throws -> MathExpression {
-        #if canImport(MathLexRust)
-        // TODO: Call actual Rust LaTeX parser when bindings are available
-        // let result = parse_latex(input)
-        // return MathExpression(inner: result)
-        throw MathLexError.internalError("MathLexRust bindings not yet available")
-        #else
-        // Placeholder implementation
-        return MathExpression(placeholder: "latex:\(input)")
-        #endif
+        do {
+            let expr = try MathLexRust.parseLatex(input)
+            return MathExpression(inner: expr)
+        } catch let error as RustString {
+            throw MathLexError.parseError(error.toString())
+        }
     }
 
     // MARK: - Conversion
@@ -214,12 +189,7 @@ public struct MathExpression {
     /// print(expr.description)  // "1 / 2"
     /// ```
     public var description: String {
-        #if canImport(MathLexRust)
-        // TODO: Call actual conversion when bindings are available
-        return "Expression"
-        #else
-        return placeholder
-        #endif
+        MathLexRust.toString(inner).toString()
     }
 
     /// A LaTeX representation of the expression
@@ -234,14 +204,7 @@ public struct MathExpression {
     /// print(expr.latex)  // "\\frac{1}{2}"
     /// ```
     public var latex: String {
-        #if canImport(MathLexRust)
-        // TODO: Call actual LaTeX conversion when bindings are available
-        return ""
-        #else
-        return placeholder.hasPrefix("latex:")
-            ? String(placeholder.dropFirst(6))
-            : placeholder
-        #endif
+        MathLexRust.toLatex(inner).toString()
     }
 
     // MARK: - Querying
@@ -258,27 +221,14 @@ public struct MathExpression {
     /// print(expr.variables)  // {"x", "y"}
     /// ```
     public var variables: Set<String> {
-        #if canImport(MathLexRust)
-        // TODO: Call actual variable extraction when bindings are available
-        return []
-        #else
-        // Placeholder: extract simple variable names
-        let pattern = #"[a-zA-Z_][a-zA-Z0-9_]*"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else {
-            return []
+        let rustVec = MathLexRust.findVariables(inner)
+        var result = Set<String>()
+        for i in 0..<rustVec.len() {
+            if let rustStr = rustVec.get(i) {
+                result.insert(rustStr.toString())
+            }
         }
-
-        let text = placeholder.hasPrefix("latex:")
-            ? String(placeholder.dropFirst(6))
-            : placeholder
-        let range = NSRange(text.startIndex..., in: text)
-        let matches = regex.matches(in: text, range: range)
-
-        return Set(matches.compactMap { match -> String? in
-            guard let range = Range(match.range, in: text) else { return nil }
-            return String(text[range])
-        })
-        #endif
+        return result
     }
 
     /// All unique function names used in the expression
@@ -292,28 +242,14 @@ public struct MathExpression {
     /// print(expr.functions)  // {"sin", "cos"}
     /// ```
     public var functions: Set<String> {
-        #if canImport(MathLexRust)
-        // TODO: Call actual function extraction when bindings are available
-        return []
-        #else
-        // Placeholder: extract function names (word followed by parenthesis)
-        let pattern = #"([a-zA-Z_][a-zA-Z0-9_]*)\("#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else {
-            return []
+        let rustVec = MathLexRust.findFunctions(inner)
+        var result = Set<String>()
+        for i in 0..<rustVec.len() {
+            if let rustStr = rustVec.get(i) {
+                result.insert(rustStr.toString())
+            }
         }
-
-        let text = placeholder.hasPrefix("latex:")
-            ? String(placeholder.dropFirst(6))
-            : placeholder
-        let range = NSRange(text.startIndex..., in: text)
-        let matches = regex.matches(in: text, range: range)
-
-        return Set(matches.compactMap { match -> String? in
-            guard match.numberOfRanges > 1,
-                  let range = Range(match.range(at: 1), in: text) else { return nil }
-            return String(text[range])
-        })
-        #endif
+        return result
     }
 
     /// All mathematical constants used in the expression
@@ -327,14 +263,10 @@ public struct MathExpression {
     /// print(expr.constants)  // {"pi", "e"}
     /// ```
     public var constants: Set<String> {
-        #if canImport(MathLexRust)
-        // TODO: Call actual constant extraction when bindings are available
-        return []
-        #else
-        // Placeholder
+        // Constants are a subset of variables in the AST
+        // Filter for known mathematical constants
         let knownConstants = Set(["pi", "e", "i", "inf"])
         return variables.intersection(knownConstants)
-        #endif
     }
 
     /// The maximum depth of the expression tree
@@ -352,12 +284,7 @@ public struct MathExpression {
     /// print(nested.depth)  // 3
     /// ```
     public var depth: Int {
-        #if canImport(MathLexRust)
-        // TODO: Call actual depth calculation when bindings are available
-        return 0
-        #else
-        return 1  // Placeholder
-        #endif
+        Int(MathLexRust.depth(inner))
     }
 
     /// The total number of nodes in the expression tree
@@ -371,12 +298,7 @@ public struct MathExpression {
     /// print(expr.nodeCount)  // 3 (Add + x + y)
     /// ```
     public var nodeCount: Int {
-        #if canImport(MathLexRust)
-        // TODO: Call actual node counting when bindings are available
-        return 0
-        #else
-        return 1  // Placeholder
-        #endif
+        Int(MathLexRust.nodeCount(inner))
     }
 }
 
@@ -390,12 +312,9 @@ extension MathExpression: CustomStringConvertible {
 
 extension MathExpression: Equatable {
     public static func == (lhs: MathExpression, rhs: MathExpression) -> Bool {
-        #if canImport(MathLexRust)
-        // TODO: Implement proper equality when bindings are available
-        return false
-        #else
-        return lhs.placeholder == rhs.placeholder
-        #endif
+        // Compare based on string representation
+        // This ensures structural equality of the AST
+        lhs.description == rhs.description
     }
 }
 
@@ -403,11 +322,7 @@ extension MathExpression: Equatable {
 
 extension MathExpression: Hashable {
     public func hash(into hasher: inout Hasher) {
-        #if canImport(MathLexRust)
-        // TODO: Implement proper hashing when bindings are available
-        hasher.combine(0)
-        #else
-        hasher.combine(placeholder)
-        #endif
+        // Hash based on string representation for consistency with Equatable
+        hasher.combine(description)
     }
 }
