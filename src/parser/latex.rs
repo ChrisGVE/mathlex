@@ -75,7 +75,7 @@ use std::collections::HashSet;
 
 use crate::ast::{
     BinaryOp, Direction, Expression, InequalityOp, IndexType, IntegralBounds, LogicalOp,
-    MathConstant, MathFloat, SetRelation, TensorIndex, VectorNotation,
+    MathConstant, MathFloat, SetOp, SetRelation, TensorIndex, VectorNotation,
 };
 use crate::error::{ParseError, ParseResult, Span};
 use crate::parser::latex_tokenizer::{tokenize_latex, LatexToken};
@@ -312,32 +312,31 @@ impl LatexParser {
         Ok(left)
     }
 
-    /// Parses set membership expressions: x \in S or x \notin S
+    /// Parses set membership and subset relations.
+    /// Handles: x \in S, x \notin S, A \subset B, A \subseteq B, A \supset B, A \supseteq B
     fn parse_set_membership(&mut self) -> ParseResult<Expression> {
         let left = self.parse_relation()?;
 
-        // Check for set membership operators
+        // Check for set membership and subset operators
         if let Some((token, _)) = self.peek() {
-            match token {
-                LatexToken::In => {
-                    self.next(); // consume \in
-                    let right = self.parse_relation()?;
-                    return Ok(Expression::SetRelationExpr {
-                        relation: SetRelation::In,
-                        element: Box::new(left),
-                        set: Box::new(right),
-                    });
-                }
-                LatexToken::NotIn => {
-                    self.next(); // consume \notin
-                    let right = self.parse_relation()?;
-                    return Ok(Expression::SetRelationExpr {
-                        relation: SetRelation::NotIn,
-                        element: Box::new(left),
-                        set: Box::new(right),
-                    });
-                }
-                _ => {}
+            let relation = match token {
+                LatexToken::In => Some(SetRelation::In),
+                LatexToken::NotIn => Some(SetRelation::NotIn),
+                LatexToken::Subset => Some(SetRelation::Subset),
+                LatexToken::SubsetEq => Some(SetRelation::SubsetEq),
+                LatexToken::Superset => Some(SetRelation::Superset),
+                LatexToken::SupersetEq => Some(SetRelation::SupersetEq),
+                _ => None,
+            };
+
+            if let Some(rel) = relation {
+                self.next(); // consume the relation token
+                let right = self.parse_relation()?;
+                return Ok(Expression::SetRelationExpr {
+                    relation: rel,
+                    element: Box::new(left),
+                    set: Box::new(right),
+                });
             }
         }
 
@@ -410,11 +409,37 @@ impl LatexParser {
         Ok(left)
     }
 
-    /// Parses additive expressions (+, -, \pm, \mp).
+    /// Parses additive expressions (+, -, \pm, \mp) and set union/difference.
     fn parse_additive(&mut self) -> ParseResult<Expression> {
         let mut left = self.parse_multiplicative()?;
 
         while let Some((token, _)) = self.peek() {
+            // Check for set operations first (union, difference)
+            match token {
+                LatexToken::Cup => {
+                    self.next(); // consume \cup
+                    let right = self.parse_multiplicative()?;
+                    left = Expression::SetOperation {
+                        op: SetOp::Union,
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    };
+                    continue;
+                }
+                LatexToken::Setminus => {
+                    self.next(); // consume \setminus
+                    let right = self.parse_multiplicative()?;
+                    left = Expression::SetOperation {
+                        op: SetOp::Difference,
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    };
+                    continue;
+                }
+                _ => {}
+            }
+
+            // Standard arithmetic operators
             let op = match token {
                 LatexToken::Plus => BinaryOp::Add,
                 LatexToken::Minus => BinaryOp::Sub,
@@ -435,13 +460,25 @@ impl LatexParser {
         Ok(left)
     }
 
-    /// Parses multiplicative expressions (*, /).
+    /// Parses multiplicative expressions (*, /) and set intersection.
     fn parse_multiplicative(&mut self) -> ParseResult<Expression> {
         let mut left = self.parse_power()?;
 
         loop {
             if let Some((token, _)) = self.peek() {
-                // Check for vector product operators first
+                // Check for set intersection
+                if matches!(token, LatexToken::Cap) {
+                    self.next(); // consume \cap
+                    let right = self.parse_power()?;
+                    left = Expression::SetOperation {
+                        op: SetOp::Intersection,
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    };
+                    continue;
+                }
+
+                // Check for vector product operators
                 match token {
                     LatexToken::Bullet => {
                         // Dot product: a \bullet b
@@ -771,6 +808,30 @@ impl LatexParser {
                         Ok(Expression::Logical {
                             op: crate::ast::LogicalOp::Not,
                             operands: vec![operand],
+                        })
+                    }
+                    // Empty set: \emptyset, \varnothing
+                    LatexToken::EmptySet => {
+                        self.next();
+                        Ok(Expression::EmptySet)
+                    }
+                    // Power set: \mathcal{P}
+                    LatexToken::PowerSet => {
+                        self.next();
+                        // Power set is typically followed by a set argument in braces or parens
+                        let set = if self.check(&LatexToken::LParen) {
+                            self.next();
+                            let expr = self.parse_expression()?;
+                            self.consume(LatexToken::RParen)?;
+                            expr
+                        } else if self.check(&LatexToken::LBrace) {
+                            self.braced(|p| p.parse_expression())?
+                        } else {
+                            // Just parse the next atom
+                            self.parse_power()?
+                        };
+                        Ok(Expression::PowerSet {
+                            set: Box::new(set),
                         })
                     }
                     _ => Err(ParseError::unexpected_token(
@@ -2079,6 +2140,10 @@ mod multiple_integrals_tests;
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_logic.rs"]
 mod logic_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_sets.rs"]
+mod sets_tests;
 
 #[cfg(test)]
 #[allow(clippy::approx_constant)]
