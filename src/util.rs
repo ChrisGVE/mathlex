@@ -740,6 +740,23 @@ impl Expression {
                     .map(|e| e.node_count())
                     .sum::<usize>()
             }
+
+            // ForAll - 1 + domain count (if any) + body count
+            Expression::ForAll { domain, body, .. } => {
+                let domain_count = domain.as_ref().map_or(0, |d| d.node_count());
+                1 + domain_count + body.node_count()
+            }
+
+            // Exists - 1 + domain count (if any) + body count
+            Expression::Exists { domain, body, .. } => {
+                let domain_count = domain.as_ref().map_or(0, |d| d.node_count());
+                1 + domain_count + body.node_count()
+            }
+
+            // Logical - 1 + sum of operand counts
+            Expression::Logical { operands, .. } => {
+                1 + operands.iter().map(|e| e.node_count()).sum::<usize>()
+            }
         }
     }
 
@@ -979,6 +996,62 @@ impl Expression {
                     .map(|row| row.iter().map(|e| e.substitute(var, replacement)).collect())
                     .collect(),
             ),
+
+            // ForAll - variable is bound in body
+            Expression::ForAll {
+                variable: bound_var,
+                domain,
+                body,
+            } => {
+                if bound_var == var {
+                    // var is bound in body, don't substitute there
+                    Expression::ForAll {
+                        variable: bound_var.clone(),
+                        domain: domain.as_ref().map(|d| Box::new(d.substitute(var, replacement))),
+                        body: body.clone(),
+                    }
+                } else {
+                    Expression::ForAll {
+                        variable: bound_var.clone(),
+                        domain: domain.as_ref().map(|d| Box::new(d.substitute(var, replacement))),
+                        body: Box::new(body.substitute(var, replacement)),
+                    }
+                }
+            }
+
+            // Exists - variable is bound in body
+            Expression::Exists {
+                variable: bound_var,
+                domain,
+                body,
+                unique,
+            } => {
+                if bound_var == var {
+                    // var is bound in body, don't substitute there
+                    Expression::Exists {
+                        variable: bound_var.clone(),
+                        domain: domain.as_ref().map(|d| Box::new(d.substitute(var, replacement))),
+                        body: body.clone(),
+                        unique: *unique,
+                    }
+                } else {
+                    Expression::Exists {
+                        variable: bound_var.clone(),
+                        domain: domain.as_ref().map(|d| Box::new(d.substitute(var, replacement))),
+                        body: Box::new(body.substitute(var, replacement)),
+                        unique: *unique,
+                    }
+                }
+            }
+
+            // Logical - recurse on all operands
+            Expression::Logical { op, operands } => Expression::Logical {
+                op: *op,
+                operands: operands
+                    .iter()
+                    .map(|e| e.substitute(var, replacement))
+                    .collect(),
+            },
         }
     }
 
@@ -1205,6 +1278,59 @@ impl Expression {
                     .map(|row| row.iter().map(|e| e.substitute_all(subs)).collect())
                     .collect(),
             ),
+
+            // ForAll - variable is bound in body
+            Expression::ForAll {
+                variable: bound_var,
+                domain,
+                body,
+            } => {
+                if subs.contains_key(bound_var) {
+                    // var is bound in body, don't substitute there
+                    Expression::ForAll {
+                        variable: bound_var.clone(),
+                        domain: domain.as_ref().map(|d| Box::new(d.substitute_all(subs))),
+                        body: body.clone(),
+                    }
+                } else {
+                    Expression::ForAll {
+                        variable: bound_var.clone(),
+                        domain: domain.as_ref().map(|d| Box::new(d.substitute_all(subs))),
+                        body: Box::new(body.substitute_all(subs)),
+                    }
+                }
+            }
+
+            // Exists - variable is bound in body
+            Expression::Exists {
+                variable: bound_var,
+                domain,
+                body,
+                unique,
+            } => {
+                if subs.contains_key(bound_var) {
+                    // var is bound in body, don't substitute there
+                    Expression::Exists {
+                        variable: bound_var.clone(),
+                        domain: domain.as_ref().map(|d| Box::new(d.substitute_all(subs))),
+                        body: body.clone(),
+                        unique: *unique,
+                    }
+                } else {
+                    Expression::Exists {
+                        variable: bound_var.clone(),
+                        domain: domain.as_ref().map(|d| Box::new(d.substitute_all(subs))),
+                        body: Box::new(body.substitute_all(subs)),
+                        unique: *unique,
+                    }
+                }
+            }
+
+            // Logical - recurse on all operands
+            Expression::Logical { op, operands } => Expression::Logical {
+                op: *op,
+                operands: operands.iter().map(|e| e.substitute_all(subs)).collect(),
+            },
         }
     }
 }
