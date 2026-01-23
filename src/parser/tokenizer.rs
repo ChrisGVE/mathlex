@@ -91,6 +91,42 @@ pub enum Token {
     Infinity,
     /// Square root symbol (√)
     Sqrt,
+
+    // Keywords for new operations
+    /// Dot product keyword
+    Dot,
+    /// Cross product keyword
+    Cross,
+    /// Gradient keyword
+    Grad,
+    /// Divergence keyword
+    Div,
+    /// Curl keyword
+    Curl,
+    /// Laplacian keyword
+    Laplacian,
+    /// Universal quantifier keyword
+    ForAll,
+    /// Existential quantifier keyword
+    Exists,
+    /// Set union keyword
+    Union,
+    /// Set intersection keyword
+    Intersect,
+    /// Set membership keyword (element in set)
+    In,
+    /// Set non-membership keyword
+    NotIn,
+    /// Logical AND keyword
+    And,
+    /// Logical OR keyword
+    Or,
+    /// Logical NOT keyword
+    Not,
+    /// Logical implication keyword
+    Implies,
+    /// Logical biconditional keyword
+    Iff,
 }
 
 impl std::fmt::Display for Token {
@@ -126,6 +162,23 @@ impl std::fmt::Display for Token {
             Token::Pi => write!(f, "π"),
             Token::Infinity => write!(f, "∞"),
             Token::Sqrt => write!(f, "√"),
+            Token::Dot => write!(f, "dot"),
+            Token::Cross => write!(f, "cross"),
+            Token::Grad => write!(f, "grad"),
+            Token::Div => write!(f, "div"),
+            Token::Curl => write!(f, "curl"),
+            Token::Laplacian => write!(f, "laplacian"),
+            Token::ForAll => write!(f, "forall"),
+            Token::Exists => write!(f, "exists"),
+            Token::Union => write!(f, "union"),
+            Token::Intersect => write!(f, "intersect"),
+            Token::In => write!(f, "in"),
+            Token::NotIn => write!(f, "notin"),
+            Token::And => write!(f, "and"),
+            Token::Or => write!(f, "or"),
+            Token::Not => write!(f, "not"),
+            Token::Implies => write!(f, "implies"),
+            Token::Iff => write!(f, "iff"),
         }
     }
 }
@@ -333,7 +386,29 @@ impl<'a> Tokenizer<'a> {
         let end = self.position();
         let span = Span::new(start, end);
 
-        (Token::Identifier(ident), span)
+        // Check if the identifier is a keyword
+        let token = match ident.as_str() {
+            "dot" => Token::Dot,
+            "cross" => Token::Cross,
+            "grad" => Token::Grad,
+            "div" => Token::Div,
+            "curl" => Token::Curl,
+            "laplacian" => Token::Laplacian,
+            "forall" => Token::ForAll,
+            "exists" => Token::Exists,
+            "union" => Token::Union,
+            "intersect" => Token::Intersect,
+            "in" => Token::In,
+            "notin" => Token::NotIn,
+            "and" => Token::And,
+            "or" => Token::Or,
+            "not" => Token::Not,
+            "implies" => Token::Implies,
+            "iff" => Token::Iff,
+            _ => Token::Identifier(ident),
+        };
+
+        (token, span)
     }
 
     /// Scans the next token.
@@ -742,5 +817,52 @@ mod tests {
         assert_eq!(tokens[2].value, Token::Integer(3));
         assert_eq!(tokens[3].value, Token::DoubleStar);
         assert_eq!(tokens[4].value, Token::Integer(4));
+    }
+
+    #[test]
+    fn test_tokenize_vector_keywords() {
+        let tokens = tokenize("dot cross").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].value, Token::Dot);
+        assert_eq!(tokens[1].value, Token::Cross);
+    }
+
+    #[test]
+    fn test_tokenize_vector_calculus_keywords() {
+        let tokens = tokenize("grad div curl laplacian").unwrap();
+        assert_eq!(tokens.len(), 4);
+        assert_eq!(tokens[0].value, Token::Grad);
+        assert_eq!(tokens[1].value, Token::Div);
+        assert_eq!(tokens[2].value, Token::Curl);
+        assert_eq!(tokens[3].value, Token::Laplacian);
+    }
+
+    #[test]
+    fn test_tokenize_quantifier_keywords() {
+        let tokens = tokenize("forall exists").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].value, Token::ForAll);
+        assert_eq!(tokens[1].value, Token::Exists);
+    }
+
+    #[test]
+    fn test_tokenize_set_keywords() {
+        let tokens = tokenize("union intersect in notin").unwrap();
+        assert_eq!(tokens.len(), 4);
+        assert_eq!(tokens[0].value, Token::Union);
+        assert_eq!(tokens[1].value, Token::Intersect);
+        assert_eq!(tokens[2].value, Token::In);
+        assert_eq!(tokens[3].value, Token::NotIn);
+    }
+
+    #[test]
+    fn test_tokenize_logical_keywords() {
+        let tokens = tokenize("and or not implies iff").unwrap();
+        assert_eq!(tokens.len(), 5);
+        assert_eq!(tokens[0].value, Token::And);
+        assert_eq!(tokens[1].value, Token::Or);
+        assert_eq!(tokens[2].value, Token::Not);
+        assert_eq!(tokens[3].value, Token::Implies);
+        assert_eq!(tokens[4].value, Token::Iff);
     }
 }
