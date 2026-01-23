@@ -104,8 +104,29 @@ fn needs_parens(child: &Expression, parent_op: BinaryOp, is_right: bool) -> bool
 
             false
         }
-        // Unary expressions don't need parens (they have highest precedence)
+        // Unary prefix operators (Neg, Pos) need parens when used as base of power
+        // because -1^2 parses as -(1^2), not (-1)^2
+        Expression::Unary { op, .. } => {
+            matches!(
+                (parent_op, op, is_right),
+                (BinaryOp::Pow, UnaryOp::Neg | UnaryOp::Pos, false)
+            )
+        }
         _ => false,
+    }
+}
+
+/// Wrap an expression in parentheses if it has additive-level precedence (Add, Sub).
+///
+/// This is used by product-like operators (dot product, cross product, outer product)
+/// which have higher precedence than addition/subtraction.
+fn wrap_if_additive(expr: &Expression) -> String {
+    match expr {
+        Expression::Binary {
+            op: BinaryOp::Add | BinaryOp::Sub | BinaryOp::PlusMinus | BinaryOp::MinusPlus,
+            ..
+        } => format!(r"\left({}\right)", expr.to_latex()),
+        _ => expr.to_latex(),
     }
 }
 
@@ -639,15 +660,23 @@ impl ToLatex for Expression {
             }
 
             Expression::DotProduct { left, right } => {
-                format!(r"{} \cdot {}", left.to_latex(), right.to_latex())
+                // Product operators have precedence similar to multiplication,
+                // so operands with Add/Sub need parentheses
+                let left_str = wrap_if_additive(left);
+                let right_str = wrap_if_additive(right);
+                format!(r"{} \cdot {}", left_str, right_str)
             }
 
             Expression::CrossProduct { left, right } => {
-                format!(r"{} \times {}", left.to_latex(), right.to_latex())
+                let left_str = wrap_if_additive(left);
+                let right_str = wrap_if_additive(right);
+                format!(r"{} \times {}", left_str, right_str)
             }
 
             Expression::OuterProduct { left, right } => {
-                format!(r"{} \otimes {}", left.to_latex(), right.to_latex())
+                let left_str = wrap_if_additive(left);
+                let right_str = wrap_if_additive(right);
+                format!(r"{} \otimes {}", left_str, right_str)
             }
 
             // Vector calculus expressions
