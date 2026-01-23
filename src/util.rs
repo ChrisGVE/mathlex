@@ -106,12 +106,7 @@ impl Expression {
             }
 
             // Quaternion - recurse on all four components
-            Expression::Quaternion {
-                real,
-                i,
-                j,
-                k,
-            } => {
+            Expression::Quaternion { real, i, j, k } => {
                 real.collect_variables(variables);
                 i.collect_variables(variables);
                 j.collect_variables(variables);
@@ -172,11 +167,7 @@ impl Expression {
             }
 
             // Closed integral - recurse on integrand
-            Expression::ClosedIntegral {
-                integrand,
-                var,
-                ..
-            } => {
+            Expression::ClosedIntegral { integrand, var, .. } => {
                 integrand.collect_variables(variables);
                 variables.insert(var.clone());
             }
@@ -261,13 +252,11 @@ impl Expression {
             }
 
             // Vector calculus - recurse on operand
-            Expression::Gradient { expr }
-            | Expression::Laplacian { expr } => {
+            Expression::Gradient { expr } | Expression::Laplacian { expr } => {
                 expr.collect_variables(variables);
             }
 
-            Expression::Divergence { field }
-            | Expression::Curl { field } => {
+            Expression::Divergence { field } | Expression::Curl { field } => {
                 field.collect_variables(variables);
             }
 
@@ -480,14 +469,18 @@ impl Expression {
                     }
                 }
             }
-       
+
             // Quantifiers
             Expression::ForAll { domain, body, .. } | Expression::Exists { domain, body, .. } => {
-                if let Some(d) = domain { d.collect_functions(functions); }
+                if let Some(d) = domain {
+                    d.collect_functions(functions);
+                }
                 body.collect_functions(functions);
             }
             Expression::Logical { operands, .. } => {
-                for op in operands { op.collect_functions(functions); }
+                for op in operands {
+                    op.collect_functions(functions);
+                }
             }
 
             // MarkedVector - no functions to collect
@@ -502,13 +495,11 @@ impl Expression {
             }
 
             // Vector calculus - recurse on operand
-            Expression::Gradient { expr }
-            | Expression::Laplacian { expr } => {
+            Expression::Gradient { expr } | Expression::Laplacian { expr } => {
                 expr.collect_functions(functions);
             }
 
-            Expression::Divergence { field }
-            | Expression::Curl { field } => {
+            Expression::Divergence { field } | Expression::Curl { field } => {
                 field.collect_functions(functions);
             }
 
@@ -712,14 +703,18 @@ impl Expression {
                     }
                 }
             }
-       
+
             // Quantifiers
             Expression::ForAll { domain, body, .. } | Expression::Exists { domain, body, .. } => {
-                if let Some(d) = domain { d.collect_constants(constants); }
+                if let Some(d) = domain {
+                    d.collect_constants(constants);
+                }
                 body.collect_constants(constants);
             }
             Expression::Logical { operands, .. } => {
-                for op in operands { op.collect_constants(constants); }
+                for op in operands {
+                    op.collect_constants(constants);
+                }
             }
 
             // MarkedVector - no constants to collect
@@ -734,13 +729,11 @@ impl Expression {
             }
 
             // Vector calculus - recurse on operand
-            Expression::Gradient { expr }
-            | Expression::Laplacian { expr } => {
+            Expression::Gradient { expr } | Expression::Laplacian { expr } => {
                 expr.collect_constants(constants);
             }
 
-            Expression::Divergence { field }
-            | Expression::Curl { field } => {
+            Expression::Divergence { field } | Expression::Curl { field } => {
                 field.collect_constants(constants);
             }
 
@@ -852,11 +845,7 @@ impl Expression {
 
             // Quaternion - 1 + max depth of four components
             Expression::Quaternion { real, i, j, k } => {
-                1 + real
-                    .depth()
-                    .max(i.depth())
-                    .max(j.depth())
-                    .max(k.depth())
+                1 + real.depth().max(i.depth()).max(j.depth()).max(k.depth())
             }
 
             // Unary operations - 1 + depth of operand
@@ -958,11 +947,9 @@ impl Expression {
             | Expression::OuterProduct { left, right } => 1 + left.depth().max(right.depth()),
 
             // Vector calculus - 1 + depth of operand
-            Expression::Gradient { expr }
-            | Expression::Laplacian { expr } => 1 + expr.depth(),
+            Expression::Gradient { expr } | Expression::Laplacian { expr } => 1 + expr.depth(),
 
-            Expression::Divergence { field }
-            | Expression::Curl { field } => 1 + field.depth(),
+            Expression::Divergence { field } | Expression::Curl { field } => 1 + field.depth(),
 
             Expression::Nabla => 1,
 
@@ -1157,11 +1144,9 @@ impl Expression {
             }
 
             // Vector calculus - 1 + count of operand
-            Expression::Gradient { expr }
-            | Expression::Laplacian { expr } => 1 + expr.node_count(),
+            Expression::Gradient { expr } | Expression::Laplacian { expr } => 1 + expr.node_count(),
 
-            Expression::Divergence { field }
-            | Expression::Curl { field } => 1 + field.node_count(),
+            Expression::Divergence { field } | Expression::Curl { field } => 1 + field.node_count(),
 
             Expression::Nabla => 1,
 
@@ -1372,10 +1357,14 @@ impl Expression {
                         Box::new(integrand.substitute(var, replacement))
                     },
                     bounds: bounds.as_ref().map(|b| crate::ast::MultipleBounds {
-                        bounds: b.bounds.iter().map(|ib| crate::ast::IntegralBounds {
-                            lower: Box::new(ib.lower.substitute(var, replacement)),
-                            upper: Box::new(ib.upper.substitute(var, replacement)),
-                        }).collect(),
+                        bounds: b
+                            .bounds
+                            .iter()
+                            .map(|ib| crate::ast::IntegralBounds {
+                                lower: Box::new(ib.lower.substitute(var, replacement)),
+                                upper: Box::new(ib.upper.substitute(var, replacement)),
+                            })
+                            .collect(),
                     }),
                     vars: vars.clone(),
                 }
@@ -1508,13 +1497,17 @@ impl Expression {
                     // var is bound in body, don't substitute there
                     Expression::ForAll {
                         variable: bound_var.clone(),
-                        domain: domain.as_ref().map(|d| Box::new(d.substitute(var, replacement))),
+                        domain: domain
+                            .as_ref()
+                            .map(|d| Box::new(d.substitute(var, replacement))),
                         body: body.clone(),
                     }
                 } else {
                     Expression::ForAll {
                         variable: bound_var.clone(),
-                        domain: domain.as_ref().map(|d| Box::new(d.substitute(var, replacement))),
+                        domain: domain
+                            .as_ref()
+                            .map(|d| Box::new(d.substitute(var, replacement))),
                         body: Box::new(body.substitute(var, replacement)),
                     }
                 }
@@ -1531,14 +1524,18 @@ impl Expression {
                     // var is bound in body, don't substitute there
                     Expression::Exists {
                         variable: bound_var.clone(),
-                        domain: domain.as_ref().map(|d| Box::new(d.substitute(var, replacement))),
+                        domain: domain
+                            .as_ref()
+                            .map(|d| Box::new(d.substitute(var, replacement))),
                         body: body.clone(),
                         unique: *unique,
                     }
                 } else {
                     Expression::Exists {
                         variable: bound_var.clone(),
-                        domain: domain.as_ref().map(|d| Box::new(d.substitute(var, replacement))),
+                        domain: domain
+                            .as_ref()
+                            .map(|d| Box::new(d.substitute(var, replacement))),
                         body: Box::new(body.substitute(var, replacement)),
                         unique: *unique,
                     }
@@ -1706,7 +1703,9 @@ impl Expression {
                         }
                     })
                     .collect();
-                Expression::KroneckerDelta { indices: new_indices }
+                Expression::KroneckerDelta {
+                    indices: new_indices,
+                }
             }
 
             Expression::LeviCivita { indices } => {
@@ -1727,7 +1726,9 @@ impl Expression {
                         }
                     })
                     .collect();
-                Expression::LeviCivita { indices: new_indices }
+                Expression::LeviCivita {
+                    indices: new_indices,
+                }
             }
         }
     }
@@ -1895,10 +1896,14 @@ impl Expression {
                         Box::new(integrand.substitute_all(subs))
                     },
                     bounds: bounds.as_ref().map(|b| crate::ast::MultipleBounds {
-                        bounds: b.bounds.iter().map(|ib| crate::ast::IntegralBounds {
-                            lower: Box::new(ib.lower.substitute_all(subs)),
-                            upper: Box::new(ib.upper.substitute_all(subs)),
-                        }).collect(),
+                        bounds: b
+                            .bounds
+                            .iter()
+                            .map(|ib| crate::ast::IntegralBounds {
+                                lower: Box::new(ib.lower.substitute_all(subs)),
+                                upper: Box::new(ib.upper.substitute_all(subs)),
+                            })
+                            .collect(),
                     }),
                     vars: vars.clone(),
                 }
@@ -2210,7 +2215,9 @@ impl Expression {
                         }
                     })
                     .collect();
-                Expression::KroneckerDelta { indices: new_indices }
+                Expression::KroneckerDelta {
+                    indices: new_indices,
+                }
             }
 
             Expression::LeviCivita { indices } => {
@@ -2227,7 +2234,9 @@ impl Expression {
                         }
                     })
                     .collect();
-                Expression::LeviCivita { indices: new_indices }
+                Expression::LeviCivita {
+                    indices: new_indices,
+                }
             }
         }
     }

@@ -743,5 +743,4 @@ mod tests {
         assert_eq!(tokens[3].value, Token::DoubleStar);
         assert_eq!(tokens[4].value, Token::Integer(4));
     }
-
 }

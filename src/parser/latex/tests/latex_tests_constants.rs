@@ -326,10 +326,14 @@ fn test_nested_sum_scope() {
     // Both i and j should be Variables in the body
     let expr = parse_latex(r"\sum_{i=1}^{n} \sum_{j=1}^{m} i * j").unwrap();
     match expr {
-        Expression::Sum { body: outer_body, .. } => {
+        Expression::Sum {
+            body: outer_body, ..
+        } => {
             // outer_body is the inner sum
             match *outer_body {
-                Expression::Sum { body: inner_body, .. } => {
+                Expression::Sum {
+                    body: inner_body, ..
+                } => {
                     // inner_body should be i * j with both as Variables
                     match *inner_body {
                         Expression::Binary { op, left, right } => {

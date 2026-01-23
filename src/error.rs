@@ -33,9 +33,9 @@ use std::fmt;
 ///
 /// Used for generating suggestions when an unknown function is encountered.
 const KNOWN_FUNCTIONS: &[&str] = &[
-    "sin", "cos", "tan", "csc", "sec", "cot", "arcsin", "arccos", "arctan", "sinh", "cosh",
-    "tanh", "log", "ln", "exp", "sqrt", "abs", "floor", "ceil", "round", "sign", "min", "max",
-    "gcd", "lcm",
+    "sin", "cos", "tan", "csc", "sec", "cot", "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh",
+    "log", "ln", "exp", "sqrt", "abs", "floor", "ceil", "round", "sign", "min", "max", "gcd",
+    "lcm",
 ];
 
 /// Computes the Levenshtein distance between two strings.
@@ -1311,8 +1311,14 @@ mod tests {
 
     #[test]
     fn test_suggest_function_close_match() {
-        assert_eq!(suggest_function("sen"), Some("Did you mean 'sin'?".to_string()));
-        assert_eq!(suggest_function("coz"), Some("Did you mean 'cos'?".to_string()));
+        assert_eq!(
+            suggest_function("sen"),
+            Some("Did you mean 'sin'?".to_string())
+        );
+        assert_eq!(
+            suggest_function("coz"),
+            Some("Did you mean 'cos'?".to_string())
+        );
         assert_eq!(
             suggest_function("sqr"),
             Some("Did you mean 'sqrt'?".to_string())
@@ -1322,7 +1328,10 @@ mod tests {
     #[test]
     fn test_suggest_function_exact_match() {
         // Even exact matches get suggestions if distance is 0
-        assert_eq!(suggest_function("sin"), Some("Did you mean 'sin'?".to_string()));
+        assert_eq!(
+            suggest_function("sin"),
+            Some("Did you mean 'sin'?".to_string())
+        );
     }
 
     #[test]
@@ -1357,10 +1366,7 @@ mod tests {
                 name: "sen".to_string(),
             }
         );
-        assert_eq!(
-            error.suggestion,
-            Some("Did you mean 'sin'?".to_string())
-        );
+        assert_eq!(error.suggestion, Some("Did you mean 'sin'?".to_string()));
     }
 
     #[test]
@@ -1379,10 +1385,7 @@ mod tests {
     fn test_error_display_with_suggestion() {
         let error = ParseError::new(ParseErrorKind::EmptyExpression, None)
             .with_suggestion("Did you mean 'sin'?");
-        assert_eq!(
-            error.to_string(),
-            "empty expression Did you mean 'sin'?"
-        );
+        assert_eq!(error.to_string(), "empty expression Did you mean 'sin'?");
     }
 
     #[test]
@@ -1414,10 +1417,7 @@ mod tests {
             .with_suggestion("Did you mean 'sin'?")
             .build();
 
-        assert_eq!(
-            error.suggestion,
-            Some("Did you mean 'sin'?".to_string())
-        );
+        assert_eq!(error.suggestion, Some("Did you mean 'sin'?".to_string()));
     }
 
     #[test]

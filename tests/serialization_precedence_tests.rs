@@ -3,7 +3,7 @@
 //! Verifies that Display and ToLatex produce output that parses back
 //! with the correct precedence and associativity.
 
-use mathlex::{parse, parse_latex, Expression, BinaryOp, UnaryOp, ToLatex};
+use mathlex::{parse, parse_latex, BinaryOp, Expression, ToLatex, UnaryOp};
 
 // Helper to create a variable expression
 fn var(name: &str) -> Expression {
@@ -227,7 +227,11 @@ fn test_latex_unary_neg_of_sum() {
         }),
     };
     let s = ast.to_latex();
-    assert!(s.contains("(") || s.contains("\\left"), "Should have parens: {}", s);
+    assert!(
+        s.contains("(") || s.contains("\\left"),
+        "Should have parens: {}",
+        s
+    );
     let parsed = parse_latex(&s).unwrap();
     assert_eq!(ast, parsed, "LaTeX -(a+b) should round-trip");
 }

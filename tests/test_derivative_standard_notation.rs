@@ -1,6 +1,6 @@
 // Test for standard derivative notation (without explicit multiplication operator)
-use mathlex::parser::parse_latex;
 use mathlex::ast::Expression;
+use mathlex::parser::parse_latex;
 
 #[test]
 fn test_standard_first_order_derivative() {

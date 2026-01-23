@@ -412,7 +412,6 @@ pub enum InequalityOp {
     Ne,
 }
 
-
 /// Logical operators for propositional logic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -1552,7 +1551,6 @@ pub enum Expression {
         right: Box<Expression>,
     },
 
-
     /// Universal quantifier.
     ForAll {
         /// The bound variable
@@ -1638,7 +1636,6 @@ pub enum Expression {
     // ============================================================
     // Vector Calculus Expressions
     // ============================================================
-
     /// Gradient of a scalar field: ∇f.
     ///
     /// The gradient is a vector field pointing in the direction of
@@ -1727,7 +1724,6 @@ pub enum Expression {
     // ============================================================
     // Linear Algebra Operations
     // ============================================================
-
     /// Determinant of a matrix: det(A) or |A|.
     ///
     /// Returns a scalar value representing the signed volume scaling factor
@@ -1829,7 +1825,6 @@ pub enum Expression {
     // ============================================================
     // Set Theory Expressions
     // ============================================================
-
     /// A standard number set (ℕ, ℤ, ℚ, ℝ, ℂ, ℍ).
     ///
     /// Represents one of the standard mathematical number sets.
@@ -1932,7 +1927,6 @@ pub enum Expression {
     // ============================================================
     // Tensor Notation Expressions
     // ============================================================
-
     /// Tensor with indexed notation.
     ///
     /// Represents a tensor with upper and/or lower indices, supporting

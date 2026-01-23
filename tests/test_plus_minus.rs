@@ -87,7 +87,13 @@ fn test_parse_pm_precedence_with_multiplication() {
             right,
         } => {
             // Left should be multiplication
-            assert!(matches!(*left, Expression::Binary { op: BinaryOp::Mul, .. }));
+            assert!(matches!(
+                *left,
+                Expression::Binary {
+                    op: BinaryOp::Mul,
+                    ..
+                }
+            ));
             assert_eq!(*right, Expression::Variable("c".to_string()));
         }
         _ => panic!("Expected PlusMinus with proper precedence"),
@@ -105,7 +111,13 @@ fn test_parse_pm_precedence_with_addition() {
             right,
         } => {
             // Left should be addition
-            assert!(matches!(*left, Expression::Binary { op: BinaryOp::Add, .. }));
+            assert!(matches!(
+                *left,
+                Expression::Binary {
+                    op: BinaryOp::Add,
+                    ..
+                }
+            ));
             assert_eq!(*right, Expression::Variable("c".to_string()));
         }
         _ => panic!("Expected PlusMinus with proper precedence"),
@@ -123,7 +135,13 @@ fn test_parse_mp_in_expression() {
             right,
         } => {
             // Left should be implicit multiplication: 2*x
-            assert!(matches!(*left, Expression::Binary { op: BinaryOp::Mul, .. }));
+            assert!(matches!(
+                *left,
+                Expression::Binary {
+                    op: BinaryOp::Mul,
+                    ..
+                }
+            ));
             assert_eq!(*right, Expression::Variable("y".to_string()));
         }
         _ => panic!("Expected MinusPlus with implicit multiplication"),
@@ -221,8 +239,20 @@ fn test_pm_with_parentheses() {
             left,
             right,
         } => {
-            assert!(matches!(*left, Expression::Binary { op: BinaryOp::Add, .. }));
-            assert!(matches!(*right, Expression::Binary { op: BinaryOp::Sub, .. }));
+            assert!(matches!(
+                *left,
+                Expression::Binary {
+                    op: BinaryOp::Add,
+                    ..
+                }
+            ));
+            assert!(matches!(
+                *right,
+                Expression::Binary {
+                    op: BinaryOp::Sub,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected PlusMinus with parenthesized operands"),
     }
