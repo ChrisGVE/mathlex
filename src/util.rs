@@ -260,6 +260,19 @@ impl Expression {
                 right.collect_variables(variables);
             }
 
+            // Vector calculus - recurse on operand
+            Expression::Gradient { expr }
+            | Expression::Laplacian { expr } => {
+                expr.collect_variables(variables);
+            }
+
+            Expression::Divergence { field }
+            | Expression::Curl { field } => {
+                field.collect_variables(variables);
+            }
+
+            Expression::Nabla => {}
+
             // Set theory expressions
             Expression::NumberSetExpr(_) | Expression::EmptySet => {}
 
@@ -479,6 +492,19 @@ impl Expression {
                 right.collect_functions(functions);
             }
 
+            // Vector calculus - recurse on operand
+            Expression::Gradient { expr }
+            | Expression::Laplacian { expr } => {
+                expr.collect_functions(functions);
+            }
+
+            Expression::Divergence { field }
+            | Expression::Curl { field } => {
+                field.collect_functions(functions);
+            }
+
+            Expression::Nabla => {}
+
             // Set theory expressions - no functions to collect from NumberSetExpr/EmptySet
             Expression::NumberSetExpr(_) | Expression::EmptySet => {}
 
@@ -689,6 +715,19 @@ impl Expression {
                 right.collect_constants(constants);
             }
 
+            // Vector calculus - recurse on operand
+            Expression::Gradient { expr }
+            | Expression::Laplacian { expr } => {
+                expr.collect_constants(constants);
+            }
+
+            Expression::Divergence { field }
+            | Expression::Curl { field } => {
+                field.collect_constants(constants);
+            }
+
+            Expression::Nabla => {}
+
             // Set theory expressions - no constants to collect from NumberSetExpr/EmptySet
             Expression::NumberSetExpr(_) | Expression::EmptySet => {}
 
@@ -891,6 +930,15 @@ impl Expression {
             | Expression::CrossProduct { left, right }
             | Expression::OuterProduct { left, right } => 1 + left.depth().max(right.depth()),
 
+            // Vector calculus - 1 + depth of operand
+            Expression::Gradient { expr }
+            | Expression::Laplacian { expr } => 1 + expr.depth(),
+
+            Expression::Divergence { field }
+            | Expression::Curl { field } => 1 + field.depth(),
+
+            Expression::Nabla => 1,
+
             // Set theory expressions
             Expression::NumberSetExpr(_) | Expression::EmptySet => 1,
 
@@ -1073,6 +1121,15 @@ impl Expression {
             | Expression::OuterProduct { left, right } => {
                 1 + left.node_count() + right.node_count()
             }
+
+            // Vector calculus - 1 + count of operand
+            Expression::Gradient { expr }
+            | Expression::Laplacian { expr } => 1 + expr.node_count(),
+
+            Expression::Divergence { field }
+            | Expression::Curl { field } => 1 + field.node_count(),
+
+            Expression::Nabla => 1,
 
             // Set theory expressions
             Expression::NumberSetExpr(_) | Expression::EmptySet => 1,
@@ -1474,6 +1531,25 @@ impl Expression {
                 left: Box::new(left.substitute(var, replacement)),
                 right: Box::new(right.substitute(var, replacement)),
             },
+
+            // Vector calculus expressions
+            Expression::Gradient { expr } => Expression::Gradient {
+                expr: Box::new(expr.substitute(var, replacement)),
+            },
+
+            Expression::Divergence { field } => Expression::Divergence {
+                field: Box::new(field.substitute(var, replacement)),
+            },
+
+            Expression::Curl { field } => Expression::Curl {
+                field: Box::new(field.substitute(var, replacement)),
+            },
+
+            Expression::Laplacian { expr } => Expression::Laplacian {
+                expr: Box::new(expr.substitute(var, replacement)),
+            },
+
+            Expression::Nabla => Expression::Nabla,
 
             // Set theory expressions
             Expression::NumberSetExpr(_) | Expression::EmptySet => self.clone(),
@@ -1951,6 +2027,25 @@ impl Expression {
                 left: Box::new(left.substitute_all(subs)),
                 right: Box::new(right.substitute_all(subs)),
             },
+
+            // Vector calculus expressions
+            Expression::Gradient { expr } => Expression::Gradient {
+                expr: Box::new(expr.substitute_all(subs)),
+            },
+
+            Expression::Divergence { field } => Expression::Divergence {
+                field: Box::new(field.substitute_all(subs)),
+            },
+
+            Expression::Curl { field } => Expression::Curl {
+                field: Box::new(field.substitute_all(subs)),
+            },
+
+            Expression::Laplacian { expr } => Expression::Laplacian {
+                expr: Box::new(expr.substitute_all(subs)),
+            },
+
+            Expression::Nabla => Expression::Nabla,
 
             // Set theory expressions
             Expression::NumberSetExpr(_) | Expression::EmptySet => self.clone(),

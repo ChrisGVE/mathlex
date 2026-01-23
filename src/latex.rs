@@ -630,6 +630,25 @@ impl ToLatex for Expression {
                 format!(r"{} \otimes {}", left.to_latex(), right.to_latex())
             }
 
+            // Vector calculus expressions
+            Expression::Gradient { expr } => {
+                format!(r"\nabla {}", expr.to_latex())
+            }
+
+            Expression::Divergence { field } => {
+                format!(r"\nabla \cdot {}", field.to_latex())
+            }
+
+            Expression::Curl { field } => {
+                format!(r"\nabla \times {}", field.to_latex())
+            }
+
+            Expression::Laplacian { expr } => {
+                format!(r"\nabla^2 {}", expr.to_latex())
+            }
+
+            Expression::Nabla => r"\nabla".to_string(),
+
             // Set theory expressions
             Expression::NumberSetExpr(set) => {
                 let latex = match set {

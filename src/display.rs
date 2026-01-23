@@ -484,6 +484,17 @@ impl fmt::Display for Expression {
                 write!(f, "{} ⊗ {}", left, right)
             }
 
+            // Vector calculus expressions
+            Expression::Gradient { expr } => write!(f, "∇{}", expr),
+
+            Expression::Divergence { field } => write!(f, "∇·{}", field),
+
+            Expression::Curl { field } => write!(f, "∇×{}", field),
+
+            Expression::Laplacian { expr } => write!(f, "∇²{}", expr),
+
+            Expression::Nabla => write!(f, "∇"),
+
             // Set theory expressions
             Expression::NumberSetExpr(set) => {
                 let symbol = match set {

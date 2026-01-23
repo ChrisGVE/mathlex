@@ -1636,6 +1636,95 @@ pub enum Expression {
     },
 
     // ============================================================
+    // Vector Calculus Expressions
+    // ============================================================
+
+    /// Gradient of a scalar field: ∇f.
+    ///
+    /// The gradient is a vector field pointing in the direction of
+    /// greatest increase of the scalar field.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // ∇f (gradient of f)
+    /// let grad = Expression::Gradient {
+    ///     expr: Box::new(Expression::Variable("f".to_string())),
+    /// };
+    /// ```
+    Gradient {
+        /// The scalar field expression
+        expr: Box<Expression>,
+    },
+
+    /// Divergence of a vector field: ∇·F.
+    ///
+    /// The divergence is a scalar field measuring the "outflow" of
+    /// a vector field at each point.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // ∇·F (divergence of F)
+    /// let div = Expression::Divergence {
+    ///     field: Box::new(Expression::Variable("F".to_string())),
+    /// };
+    /// ```
+    Divergence {
+        /// The vector field expression
+        field: Box<Expression>,
+    },
+
+    /// Curl of a vector field: ∇×F.
+    ///
+    /// The curl is a vector field measuring the rotation of a vector
+    /// field at each point.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // ∇×F (curl of F)
+    /// let curl = Expression::Curl {
+    ///     field: Box::new(Expression::Variable("F".to_string())),
+    /// };
+    /// ```
+    Curl {
+        /// The vector field expression
+        field: Box<Expression>,
+    },
+
+    /// Laplacian of a scalar field: ∇²f or Δf.
+    ///
+    /// The Laplacian is a scalar field equal to the divergence of the gradient.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // ∇²f (Laplacian of f)
+    /// let laplacian = Expression::Laplacian {
+    ///     expr: Box::new(Expression::Variable("f".to_string())),
+    /// };
+    /// ```
+    Laplacian {
+        /// The scalar field expression
+        expr: Box<Expression>,
+    },
+
+    /// Raw nabla/del operator: ∇.
+    ///
+    /// Used when the nabla appears without an operand or in
+    /// non-standard combinations.
+    Nabla,
+
+    // ============================================================
     // Set Theory Expressions
     // ============================================================
 
