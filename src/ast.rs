@@ -851,6 +851,69 @@ pub enum Expression {
         imaginary: Box<Expression>,
     },
 
+    /// Quaternion number in canonical form a + bi + cj + dk.
+    ///
+    /// Represents a quaternion with four components using the standard basis {1, i, j, k}.
+    ///
+    /// ## Important Notes
+    ///
+    /// - **Fields are `Expression`, not numeric types**: This allows symbolic quaternions
+    ///   like `(a+b) + (c+d)i + ej + fk`, not just numeric values.
+    /// - **Not produced by parsers**: Current parsers represent quaternion expressions using
+    ///   `Binary` operations with the quaternion basis constants. This variant is available
+    ///   for programmatic construction by libraries that want to represent simplified
+    ///   quaternion forms.
+    ///
+    /// ## Quaternion Algebra
+    ///
+    /// The basis elements satisfy:
+    /// - i² = j² = k² = ijk = -1
+    /// - ij = k, jk = i, ki = j
+    /// - ji = -k, kj = -i, ik = -j
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // Numeric quaternion: 1 + 2i + 3j + 4k
+    /// let quat = Expression::Quaternion {
+    ///     real: Box::new(Expression::Integer(1)),
+    ///     i: Box::new(Expression::Integer(2)),
+    ///     j: Box::new(Expression::Integer(3)),
+    ///     k: Box::new(Expression::Integer(4)),
+    /// };
+    ///
+    /// // Pure quaternion: i + j + k (no real part)
+    /// let pure = Expression::Quaternion {
+    ///     real: Box::new(Expression::Integer(0)),
+    ///     i: Box::new(Expression::Integer(1)),
+    ///     j: Box::new(Expression::Integer(1)),
+    ///     k: Box::new(Expression::Integer(1)),
+    /// };
+    ///
+    /// // Symbolic quaternion
+    /// let symbolic = Expression::Quaternion {
+    ///     real: Box::new(Expression::Variable("a".to_string())),
+    ///     i: Box::new(Expression::Variable("b".to_string())),
+    ///     j: Box::new(Expression::Variable("c".to_string())),
+    ///     k: Box::new(Expression::Variable("d".to_string())),
+    /// };
+    /// ```
+    Quaternion {
+        /// Real (scalar) component
+        real: Box<Expression>,
+
+        /// Coefficient of i basis vector
+        i: Box<Expression>,
+
+        /// Coefficient of j basis vector
+        j: Box<Expression>,
+
+        /// Coefficient of k basis vector
+        k: Box<Expression>,
+    },
+
     /// Variable identifier.
     ///
     /// Represents a symbolic variable name.

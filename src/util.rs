@@ -105,6 +105,19 @@ impl Expression {
                 denominator.collect_variables(variables);
             }
 
+            // Quaternion - recurse on all four components
+            Expression::Quaternion {
+                real,
+                i,
+                j,
+                k,
+            } => {
+                real.collect_variables(variables);
+                i.collect_variables(variables);
+                j.collect_variables(variables);
+                k.collect_variables(variables);
+            }
+
             // Unary operations - recurse on operand
             Expression::Unary { operand, .. } => {
                 operand.collect_variables(variables);
@@ -357,6 +370,14 @@ impl Expression {
                 denominator.collect_functions(functions);
             }
 
+            // Quaternion - recurse on all four components
+            Expression::Quaternion { real, i, j, k } => {
+                real.collect_functions(functions);
+                i.collect_functions(functions);
+                j.collect_functions(functions);
+                k.collect_functions(functions);
+            }
+
             // Unary operations - recurse on operand
             Expression::Unary { operand, .. } => {
                 operand.collect_functions(functions);
@@ -560,6 +581,14 @@ impl Expression {
                 denominator.collect_constants(constants);
             }
 
+            // Quaternion - recurse on all four components
+            Expression::Quaternion { real, i, j, k } => {
+                real.collect_constants(constants);
+                i.collect_constants(constants);
+                j.collect_constants(constants);
+                k.collect_constants(constants);
+            }
+
             // Unary operations - recurse on operand
             Expression::Unary { operand, .. } => {
                 operand.collect_constants(constants);
@@ -755,6 +784,15 @@ impl Expression {
                 ..
             } => 1 + numerator.depth().max(denominator.depth()),
 
+            // Quaternion - 1 + max depth of four components
+            Expression::Quaternion { real, i, j, k } => {
+                1 + real
+                    .depth()
+                    .max(i.depth())
+                    .max(j.depth())
+                    .max(k.depth())
+            }
+
             // Unary operations - 1 + depth of operand
             Expression::Unary { operand, .. } => 1 + operand.depth(),
 
@@ -940,6 +978,11 @@ impl Expression {
                 ..
             } => 1 + numerator.node_count() + denominator.node_count(),
 
+            // Quaternion - 1 + sum of all four component counts
+            Expression::Quaternion { real, i, j, k } => {
+                1 + real.node_count() + i.node_count() + j.node_count() + k.node_count()
+            }
+
             // Unary operations - 1 + count of operand
             Expression::Unary { operand, .. } => 1 + operand.node_count(),
 
@@ -1103,6 +1146,18 @@ impl Expression {
             Expression::Complex { real, imaginary } => Expression::Complex {
                 real: Box::new(real.substitute(var, replacement)),
                 imaginary: Box::new(imaginary.substitute(var, replacement)),
+            },
+
+            Expression::Quaternion {
+                real,
+                i: qi,
+                j: qj,
+                k: qk,
+            } => Expression::Quaternion {
+                real: Box::new(real.substitute(var, replacement)),
+                i: Box::new(qi.substitute(var, replacement)),
+                j: Box::new(qj.substitute(var, replacement)),
+                k: Box::new(qk.substitute(var, replacement)),
             },
 
             Expression::Binary { op, left, right } => Expression::Binary {
@@ -1577,6 +1632,18 @@ impl Expression {
             Expression::Complex { real, imaginary } => Expression::Complex {
                 real: Box::new(real.substitute_all(subs)),
                 imaginary: Box::new(imaginary.substitute_all(subs)),
+            },
+
+            Expression::Quaternion {
+                real,
+                i: qi,
+                j: qj,
+                k: qk,
+            } => Expression::Quaternion {
+                real: Box::new(real.substitute_all(subs)),
+                i: Box::new(qi.substitute_all(subs)),
+                j: Box::new(qj.substitute_all(subs)),
+                k: Box::new(qk.substitute_all(subs)),
             },
 
             Expression::Binary { op, left, right } => Expression::Binary {

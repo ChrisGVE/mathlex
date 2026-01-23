@@ -208,6 +208,10 @@ impl fmt::Display for Expression {
                 write!(f, "{} + {}i", real, imaginary)
             }
 
+            Expression::Quaternion { real, i, j, k } => {
+                write!(f, "{} + {}i + {}j + {}k", real, i, j, k)
+            }
+
             Expression::Variable(name) => write!(f, "{}", name),
 
             Expression::Constant(c) => write!(f, "{}", c),

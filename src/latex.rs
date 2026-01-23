@@ -221,6 +221,16 @@ impl ToLatex for Expression {
                 format!("{} + {}i", real.to_latex(), imaginary.to_latex())
             }
 
+            Expression::Quaternion { real, i, j, k } => {
+                format!(
+                    "{} + {}\\mathbf{{i}} + {}\\mathbf{{j}} + {}\\mathbf{{k}}",
+                    real.to_latex(),
+                    i.to_latex(),
+                    j.to_latex(),
+                    k.to_latex()
+                )
+            }
+
             Expression::Variable(name) => {
                 // Greek letters that should be prefixed with backslash in LaTeX
                 const GREEK_LETTERS: &[&str] = &[
