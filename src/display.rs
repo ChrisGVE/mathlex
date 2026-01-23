@@ -170,6 +170,18 @@ impl fmt::Display for InequalityOp {
     }
 }
 
+impl fmt::Display for LogicalOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LogicalOp::And => write!(f, "∧"),
+            LogicalOp::Or => write!(f, "∨"),
+            LogicalOp::Not => write!(f, "¬"),
+            LogicalOp::Implies => write!(f, "→"),
+            LogicalOp::Iff => write!(f, "↔"),
+        }
+    }
+}
+
 impl fmt::Display for IntegralBounds {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}, {}", self.lower, self.upper)
@@ -351,6 +363,51 @@ impl fmt::Display for Expression {
             Expression::Inequality { op, left, right } => {
                 write!(f, "{} {} {}", left, op, right)
             }
+
+            Expression::ForAll {
+                variable,
+                domain,
+                body,
+            } => {
+                if let Some(d) = domain {
+                    write!(f, "∀{} ∈ {}: {}", variable, d, body)
+                } else {
+                    write!(f, "∀{}: {}", variable, body)
+                }
+            }
+
+            Expression::Exists {
+                variable,
+                domain,
+                body,
+                unique,
+            } => {
+                let quantifier = if *unique { "∃!" } else { "∃" };
+                if let Some(d) = domain {
+                    write!(f, "{}{} ∈ {}: {}", quantifier, variable, d, body)
+                } else {
+                    write!(f, "{}{}: {}", quantifier, variable, body)
+                }
+            }
+
+            Expression::Logical { op, operands } => match op {
+                LogicalOp::Not => {
+                    if operands.len() == 1 {
+                        write!(f, "{}{}", op, operands[0])
+                    } else {
+                        write!(f, "{}({})", op, operands[0])
+                    }
+                }
+                _ => {
+                    for (i, operand) in operands.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, " {} ", op)?;
+                        }
+                        write!(f, "{}", operand)?;
+                    }
+                    Ok(())
+                }
+            },
         }
     }
 }

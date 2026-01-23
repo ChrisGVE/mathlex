@@ -180,6 +180,32 @@ impl Expression {
                     }
                 }
             }
+
+            // Quantifiers - recurse on domain and body, include bound variable
+            Expression::ForAll {
+                variable,
+                domain,
+                body,
+            }
+            | Expression::Exists {
+                variable,
+                domain,
+                body,
+                ..
+            } => {
+                variables.insert(variable.clone());
+                if let Some(d) = domain {
+                    d.collect_variables(variables);
+                }
+                body.collect_variables(variables);
+            }
+
+            // Logical operations - recurse on all operands
+            Expression::Logical { operands, .. } => {
+                for operand in operands {
+                    operand.collect_variables(variables);
+                }
+            }
         }
     }
 
@@ -315,7 +341,16 @@ impl Expression {
                     }
                 }
             }
-        }
+       
+            // Quantifiers
+            Expression::ForAll { domain, body, .. } | Expression::Exists { domain, body, .. } => {
+                if let Some(d) = domain { d.collect_functions(functions); }
+                body.collect_functions(functions);
+            }
+            Expression::Logical { operands, .. } => {
+                for op in operands { op.collect_functions(functions); }
+            }
+ }
     }
 
     /// Finds all unique mathematical constants in the expression.
@@ -448,7 +483,16 @@ impl Expression {
                     }
                 }
             }
-        }
+       
+            // Quantifiers
+            Expression::ForAll { domain, body, .. } | Expression::Exists { domain, body, .. } => {
+                if let Some(d) = domain { d.collect_constants(constants); }
+                body.collect_constants(constants);
+            }
+            Expression::Logical { operands, .. } => {
+                for op in operands { op.collect_constants(constants); }
+            }
+ }
     }
 
     /// Calculates the maximum depth of the expression tree.
@@ -574,6 +618,15 @@ impl Expression {
                         .unwrap_or(0);
                     1 + max_element_depth
                 }
+            }
+
+            Expression::ForAll { domain, body, .. } | Expression::Exists { domain, body, .. } => {
+                let domain_depth = domain.as_ref().map_or(0, |d| d.depth());
+                1 + domain_depth.max(body.depth())
+            }
+
+            Expression::Logical { operands, .. } => {
+                1 + operands.iter().map(|e| e.depth()).max().unwrap_or(0)
             }
         }
     }

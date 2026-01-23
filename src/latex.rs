@@ -185,6 +185,18 @@ impl ToLatex for Direction {
     }
 }
 
+impl ToLatex for LogicalOp {
+    fn to_latex(&self) -> String {
+        match self {
+            LogicalOp::And => r"\land".to_string(),
+            LogicalOp::Or => r"\lor".to_string(),
+            LogicalOp::Not => r"\lnot".to_string(),
+            LogicalOp::Implies => r"\implies".to_string(),
+            LogicalOp::Iff => r"\iff".to_string(),
+        }
+    }
+}
+
 impl ToLatex for Expression {
     fn to_latex(&self) -> String {
         match self {
@@ -485,6 +497,58 @@ impl ToLatex for Expression {
             Expression::Inequality { op, left, right } => {
                 format!("{} {} {}", left.to_latex(), op.to_latex(), right.to_latex())
             }
+
+            Expression::ForAll {
+                variable,
+                domain,
+                body,
+            } => {
+                if let Some(d) = domain {
+                    format!(
+                        r"\forall {} \in {}: {}",
+                        variable,
+                        d.to_latex(),
+                        body.to_latex()
+                    )
+                } else {
+                    format!(r"\forall {}: {}", variable, body.to_latex())
+                }
+            }
+
+            Expression::Exists {
+                variable,
+                domain,
+                body,
+                unique,
+            } => {
+                let quantifier = if *unique { r"\exists!" } else { r"\exists" };
+                if let Some(d) = domain {
+                    format!(
+                        r"{} {} \in {}: {}",
+                        quantifier,
+                        variable,
+                        d.to_latex(),
+                        body.to_latex()
+                    )
+                } else {
+                    format!(r"{} {}: {}", quantifier, variable, body.to_latex())
+                }
+            }
+
+            Expression::Logical { op, operands } => match op {
+                LogicalOp::Not => {
+                    if operands.len() == 1 {
+                        format!(r"{} {}", op.to_latex(), operands[0].to_latex())
+                    } else {
+                        format!(r"{} ({})", op.to_latex(), operands[0].to_latex())
+                    }
+                }
+                _ => operands
+                    .iter()
+                    .map(|e| e.to_latex())
+                    .collect::<Vec<_>>()
+                    .join(&format!(" {} ", op.to_latex())),
+            },
         }
     }
 }

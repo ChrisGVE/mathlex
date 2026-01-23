@@ -386,6 +386,23 @@ pub enum InequalityOp {
     Ne,
 }
 
+
+/// Logical operators for propositional logic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum LogicalOp {
+    /// Logical conjunction (∧)
+    And,
+    /// Logical disjunction (∨)
+    Or,
+    /// Logical negation (¬)
+    Not,
+    /// Logical implication (→)
+    Implies,
+    /// Logical biconditional/equivalence (↔)
+    Iff,
+}
+
 /// Bounds for definite integrals.
 ///
 /// Represents the lower and upper bounds of integration.
@@ -416,6 +433,51 @@ pub struct IntegralBounds {
     pub upper: Box<Expression>,
 }
 
+/// Notation style for marking vectors.
+///
+/// Specifies how a vector is visually distinguished in mathematical notation.
+/// Different fields use different conventions for marking vectors.
+///
+/// ## Usage in LaTeX
+///
+/// - **Bold**: `\mathbf{v}` - Common in physics and engineering
+/// - **Arrow**: `\vec{v}` - Traditional notation, common in introductory texts
+/// - **Hat**: `\hat{n}` - Typically used for unit vectors
+/// - **Underline**: `\underline{v}` - Less common, sometimes used in handwriting
+/// - **Plain**: No special notation - relies on context
+///
+/// ## Examples
+///
+/// ```
+/// use mathlex::ast::VectorNotation;
+///
+/// let bold = VectorNotation::Bold;      // \mathbf{v}
+/// let arrow = VectorNotation::Arrow;    // \vec{v}
+/// let hat = VectorNotation::Hat;        // \hat{n}
+/// let underline = VectorNotation::Underline;  // \underline{v}
+/// let plain = VectorNotation::Plain;    // v
+///
+/// assert_ne!(bold, arrow);
+/// assert_ne!(arrow, hat);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum VectorNotation {
+    /// Bold notation: **v** or `\mathbf{v}`
+    Bold,
+
+    /// Arrow notation: v⃗ or `\vec{v}`
+    Arrow,
+
+    /// Hat notation: v̂ or `\hat{v}` (typically for unit vectors)
+    Hat,
+
+    /// Underline notation: v̲ or `\underline{v}`
+    Underline,
+
+    /// Plain notation: v (no special marking)
+    Plain,
+}
 /// The main AST node type representing mathematical expressions.
 ///
 /// This enum covers the full range of mathematical expressions that mathlex can parse,
@@ -1139,6 +1201,37 @@ pub enum Expression {
 
         /// Right-hand side of the inequality
         right: Box<Expression>,
+    },
+
+
+    /// Universal quantifier.
+    ForAll {
+        /// The bound variable
+        variable: String,
+        /// Optional domain restriction
+        domain: Option<Box<Expression>>,
+        /// The body expression
+        body: Box<Expression>,
+    },
+
+    /// Existential quantifier.
+    Exists {
+        /// The bound variable
+        variable: String,
+        /// Optional domain restriction
+        domain: Option<Box<Expression>>,
+        /// The body expression
+        body: Box<Expression>,
+        /// Whether this is unique existence (∃!)
+        unique: bool,
+    },
+
+    /// Logical expression.
+    Logical {
+        /// The logical operator
+        op: LogicalOp,
+        /// The operands
+        operands: Vec<Expression>,
     },
 }
 

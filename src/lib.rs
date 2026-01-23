@@ -92,7 +92,7 @@ pub mod ffi;
 
 // Re-export key types at crate root for convenience
 pub use ast::{
-    BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, MathConstant, UnaryOp,
+    BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, LogicalOp, MathConstant, UnaryOp,
 };
 pub use error::{ParseError, ParseErrorKind, ParseResult, Position, Span};
 pub use latex::ToLatex;
