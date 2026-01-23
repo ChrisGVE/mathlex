@@ -74,7 +74,8 @@
 use std::collections::HashSet;
 
 use crate::ast::{
-    BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, MathConstant, MathFloat,
+    BinaryOp, Direction, Expression, InequalityOp, IndexType, IntegralBounds, MathConstant,
+    MathFloat, TensorIndex,
 };
 use crate::error::{ParseError, ParseResult, Span};
 use crate::parser::latex_tokenizer::{tokenize_latex, LatexToken};
@@ -407,9 +408,20 @@ impl LatexParser {
                 // Exclude relation commands and right delimiters - they should not trigger implicit mult
                 !matches!(
                     cmd.as_str(),
-                    "lt" | "gt" | "leq" | "le" | "geq" | "ge" | "neq" | "ne"
-                        | "pm" | "mp" | "cdot" | "times" | "div"
-                        | "rfloor" | "rceil"
+                    "lt" | "gt"
+                        | "leq"
+                        | "le"
+                        | "geq"
+                        | "ge"
+                        | "neq"
+                        | "ne"
+                        | "pm"
+                        | "mp"
+                        | "cdot"
+                        | "times"
+                        | "div"
+                        | "rfloor"
+                        | "rceil"
                 )
             }
             Some((LatexToken::LParen, _)) => true,
@@ -417,7 +429,6 @@ impl LatexParser {
             _ => false,
         }
     }
-
 
     /// Parses power expressions (^) and subscripts (_).
     ///
@@ -489,7 +500,7 @@ impl LatexParser {
                     LatexToken::Letter(ch) => {
                         let ch = *ch;
                         self.next(); // consume
-                        // Use context-aware resolution for e and i
+                                     // Use context-aware resolution for e and i
                         if ch == 'e' || ch == 'i' {
                             Ok(self.resolve_letter(ch, false))
                         } else {
@@ -499,7 +510,7 @@ impl LatexParser {
                     LatexToken::ExplicitConstant(ch) => {
                         let ch = *ch;
                         self.next(); // consume
-                        // Explicit constants from \mathrm{e}, \mathrm{i}, \imath, \jmath
+                                     // Explicit constants from \mathrm{e}, \mathrm{i}, \imath, \jmath
                         Ok(self.resolve_letter(ch, true))
                     }
                     LatexToken::Command(cmd) => {
@@ -627,8 +638,42 @@ impl LatexParser {
                 }
             }
 
+            // Kronecker delta: \delta^i_j or \delta_{ij}
+            "delta" => {
+                // Check if followed by tensor indices (letters, not numbers)
+                if self.looks_like_tensor_index() {
+                    let indices = self.parse_tensor_indices()?;
+                    if !indices.is_empty() {
+                        Ok(Expression::KroneckerDelta { indices })
+                    } else {
+                        // No indices parsed, treat as variable
+                        Ok(Expression::Variable("delta".to_string()))
+                    }
+                } else {
+                    // No tensor indices, treat as Greek letter variable
+                    Ok(Expression::Variable("delta".to_string()))
+                }
+            }
+
+            // Levi-Civita symbol: \varepsilon_{ijk} or \epsilon_{ijk}
+            "varepsilon" | "epsilon" => {
+                // Check if followed by tensor indices (letters, not numbers)
+                if self.looks_like_tensor_index() {
+                    let indices = self.parse_tensor_indices()?;
+                    if !indices.is_empty() {
+                        Ok(Expression::LeviCivita { indices })
+                    } else {
+                        // No indices parsed, treat as variable
+                        Ok(Expression::Variable(cmd.to_string()))
+                    }
+                } else {
+                    // No tensor indices, treat as Greek letter variable
+                    Ok(Expression::Variable(cmd.to_string()))
+                }
+            }
+
             // Greek letters -> Variables
-            "alpha" | "beta" | "gamma" | "delta" | "epsilon" | "zeta" | "eta" | "theta"
+            "alpha" | "beta" | "gamma" | "zeta" | "eta" | "theta"
             | "iota" | "kappa" | "lambda" | "mu" | "nu" | "xi" | "omicron" | "pi" | "rho"
             | "sigma" | "tau" | "upsilon" | "phi" | "chi" | "psi" | "omega" | "Gamma" | "Delta"
             | "Theta" | "Lambda" | "Xi" | "Pi" | "Sigma" | "Upsilon" | "Phi" | "Psi" | "Omega" => {
@@ -688,7 +733,6 @@ impl LatexParser {
                     args: vec![arg],
                 })
             }
-
 
             // Determinant
             "det" => {
@@ -798,6 +842,156 @@ impl LatexParser {
         let result = parser_fn(self)?;
         self.consume(LatexToken::RBracket)?;
         Ok(result)
+    }
+
+    /// Checks if the next subscript/superscript looks like a tensor index (letters)
+    /// rather than a power or regular subscript (numbers/expressions).
+    /// This helps distinguish between \delta^i_j (tensor) and \delta^2 (power).
+    fn looks_like_tensor_index(&self) -> bool {
+        // Must have ^ or _ next
+        if !self.check(&LatexToken::Caret) && !self.check(&LatexToken::Underscore) {
+            return false;
+        }
+
+        // Look at what follows ^ or _
+        // We need to peek 2 tokens ahead
+        let next_pos = self.pos + 1;
+        if let Some((token, _)) = self.tokens.get(next_pos) {
+            match token {
+                // Single letter index: ^i or _j
+                LatexToken::Letter(_) => true,
+                // Greek letter index: ^\mu or _\nu
+                LatexToken::Command(_) => true,
+                // Braced group: ^{ij} or _{kl} - check first char inside braces
+                LatexToken::LBrace => {
+                    // Look inside the braces
+                    if let Some((inner, _)) = self.tokens.get(next_pos + 1) {
+                        matches!(inner, LatexToken::Letter(_) | LatexToken::Command(_))
+                    } else {
+                        false
+                    }
+                }
+                // Number means this is a power, not tensor index
+                LatexToken::Number(_) => false,
+                _ => false,
+            }
+        } else {
+            false
+        }
+    }
+
+    /// Parses tensor indices from the current position.
+    /// Handles patterns like ^{ij}_{kl}, ^i_j, _{ij}, etc.
+    /// Returns a vector of TensorIndex with the appropriate index types.
+    fn parse_tensor_indices(&mut self) -> ParseResult<Vec<TensorIndex>> {
+        let mut indices = Vec::new();
+
+        // Parse upper indices (^{...} or ^x)
+        if self.check(&LatexToken::Caret) {
+            self.next(); // consume ^
+            let upper_indices = self.parse_index_group(IndexType::Upper)?;
+            indices.extend(upper_indices);
+        }
+
+        // Parse lower indices (_{...} or _x)
+        if self.check(&LatexToken::Underscore) {
+            self.next(); // consume _
+            let lower_indices = self.parse_index_group(IndexType::Lower)?;
+            indices.extend(lower_indices);
+        }
+
+        // Handle mixed notation: T^i_j^k (rare but valid)
+        // Check for additional upper indices after lower
+        if self.check(&LatexToken::Caret) {
+            self.next();
+            let more_upper = self.parse_index_group(IndexType::Upper)?;
+            indices.extend(more_upper);
+        }
+
+        Ok(indices)
+    }
+
+    /// Parses a group of indices (either braced or single character).
+    /// Returns a vector of TensorIndex all with the specified index type.
+    fn parse_index_group(&mut self, index_type: IndexType) -> ParseResult<Vec<TensorIndex>> {
+        let mut indices = Vec::new();
+
+        if self.check(&LatexToken::LBrace) {
+            // Braced group: ^{ij} or _{kl}
+            self.next(); // consume {
+
+            // Parse letters inside braces until we hit }
+            while !self.check(&LatexToken::RBrace) && !self.check(&LatexToken::Eof) {
+                match self.peek() {
+                    Some((LatexToken::Letter(ch), _)) => {
+                        let ch = *ch;
+                        self.next();
+                        indices.push(TensorIndex {
+                            name: ch.to_string(),
+                            index_type,
+                        });
+                    }
+                    Some((LatexToken::Command(cmd), _)) => {
+                        // Handle Greek letter indices like μ, ν
+                        let cmd = cmd.clone();
+                        self.next();
+                        indices.push(TensorIndex {
+                            name: cmd,
+                            index_type,
+                        });
+                    }
+                    Some((_, span)) => {
+                        return Err(ParseError::custom(
+                            "expected letter in tensor index".to_string(),
+                            Some(*span),
+                        ));
+                    }
+                    None => {
+                        return Err(ParseError::unexpected_eof(
+                            vec!["tensor index"],
+                            Some(self.current_span()),
+                        ));
+                    }
+                }
+            }
+
+            self.consume(LatexToken::RBrace)?;
+        } else {
+            // Single character: ^i or _j
+            match self.peek() {
+                Some((LatexToken::Letter(ch), _)) => {
+                    let ch = *ch;
+                    self.next();
+                    indices.push(TensorIndex {
+                        name: ch.to_string(),
+                        index_type,
+                    });
+                }
+                Some((LatexToken::Command(cmd), _)) => {
+                    // Greek letter index
+                    let cmd = cmd.clone();
+                    self.next();
+                    indices.push(TensorIndex {
+                        name: cmd,
+                        index_type,
+                    });
+                }
+                Some((_, span)) => {
+                    return Err(ParseError::custom(
+                        "expected letter in tensor index".to_string(),
+                        Some(*span),
+                    ));
+                }
+                None => {
+                    return Err(ParseError::unexpected_eof(
+                        vec!["tensor index"],
+                        Some(self.current_span()),
+                    ));
+                }
+            }
+        }
+
+        Ok(indices)
     }
 
     /// Converts an expression to a subscript string representation.
@@ -1319,6 +1513,10 @@ mod constants_tests;
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_errors.rs"]
 mod errors_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_tensors.rs"]
+mod tensors_tests;
 
 #[cfg(test)]
 #[allow(clippy::approx_constant)]
