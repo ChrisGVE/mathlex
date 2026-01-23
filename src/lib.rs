@@ -21,10 +21,17 @@
 //!
 //! - **LaTeX Parsing**: Parse mathematical LaTeX notation
 //! - **Plain Text Parsing**: Parse standard mathematical expressions
-//! - **Rich AST**: Comprehensive AST for algebra, calculus, linear algebra
+//! - **Rich AST**: Comprehensive AST for algebra, calculus, linear algebra, set theory, logic
+//! - **Vector Calculus**: Gradient, divergence, curl, Laplacian operators
+//! - **Multiple Integrals**: Double, triple, and closed path integrals
+//! - **Set Theory**: Union, intersection, quantifiers, logical connectives
+//! - **Quaternions**: Support for quaternion algebra with basis vectors i, j, k
+//! - **Vector Notation**: Multiple styles (bold, arrow, hat) with context awareness
 //! - **Utilities**: Variable extraction, substitution, string conversion
 //!
 //! ## Quick Start
+//!
+//! ### Basic Parsing
 //!
 //! ```
 //! use mathlex::{parse, parse_latex, Expression, BinaryOp};
@@ -41,20 +48,206 @@
 //! }
 //! ```
 //!
+//! ### Vector Calculus
+//!
+//! ```
+//! use mathlex::{parse_latex, Expression};
+//!
+//! // Gradient operator
+//! let grad = parse_latex(r"\nabla f").unwrap();
+//! assert!(matches!(grad, Expression::Gradient { .. }));
+//!
+//! // Divergence of a vector field
+//! let div = parse_latex(r"\nabla \cdot \mathbf{F}").unwrap();
+//! assert!(matches!(div, Expression::Divergence { .. }));
+//!
+//! // Curl (cross product with nabla)
+//! let curl = parse_latex(r"\nabla \times \mathbf{F}").unwrap();
+//! assert!(matches!(curl, Expression::Curl { .. }));
+//!
+//! // Laplacian
+//! let laplacian = parse_latex(r"\nabla^2 f").unwrap();
+//! assert!(matches!(laplacian, Expression::Laplacian { .. }));
+//! ```
+//!
+//! ### Vector Notation Styles
+//!
+//! ```
+//! use mathlex::{parse_latex, Expression, VectorNotation};
+//!
+//! // Bold vectors
+//! let bold = parse_latex(r"\mathbf{v}").unwrap();
+//! if let Expression::MarkedVector { notation, .. } = bold {
+//!     assert_eq!(notation, VectorNotation::Bold);
+//! }
+//!
+//! // Arrow vectors
+//! let arrow = parse_latex(r"\vec{a}").unwrap();
+//! if let Expression::MarkedVector { notation, .. } = arrow {
+//!     assert_eq!(notation, VectorNotation::Arrow);
+//! }
+//!
+//! // Hat notation (unit vectors)
+//! let hat = parse_latex(r"\hat{n}").unwrap();
+//! if let Expression::MarkedVector { notation, .. } = hat {
+//!     assert_eq!(notation, VectorNotation::Hat);
+//! }
+//! ```
+//!
+//! ### Set Theory
+//!
+//! ```
+//! use mathlex::{parse_latex, Expression};
+//!
+//! // Set union
+//! let union = parse_latex(r"A \cup B").unwrap();
+//! assert!(matches!(union, Expression::SetOperation { .. }));
+//!
+//! // Set membership
+//! let membership = parse_latex(r"x \in A").unwrap();
+//! assert!(matches!(membership, Expression::SetRelationExpr { .. }));
+//!
+//! // Universal quantifier
+//! let forall = parse_latex(r"\forall x P").unwrap();
+//! assert!(matches!(forall, Expression::ForAll { .. }));
+//!
+//! // Logical connectives
+//! let and = parse_latex(r"P \land Q").unwrap();
+//! assert!(matches!(and, Expression::Logical { .. }));
+//! ```
+//!
+//! ### Multiple Integrals
+//!
+//! ```
+//! use mathlex::{parse_latex, Expression};
+//!
+//! // Double integral
+//! let double = parse_latex(r"\iint_R f dA").unwrap();
+//! if let Expression::MultipleIntegral { dimension, .. } = double {
+//!     assert_eq!(dimension, 2);
+//! }
+//!
+//! // Triple integral
+//! let triple = parse_latex(r"\iiint_V f dV").unwrap();
+//! if let Expression::MultipleIntegral { dimension, .. } = triple {
+//!     assert_eq!(dimension, 3);
+//! }
+//!
+//! // Closed path integral
+//! let closed = parse_latex(r"\oint_C F dr").unwrap();
+//! assert!(matches!(closed, Expression::ClosedIntegral { .. }));
+//! ```
+//!
+//! ### Quaternions
+//!
+//! ```
+//! use mathlex::{Expression, MathConstant};
+//!
+//! // Quaternion basis vectors are available as constants
+//! let i = Expression::Constant(MathConstant::I);
+//! let j = Expression::Constant(MathConstant::J);
+//! let k = Expression::Constant(MathConstant::K);
+//!
+//! // Create quaternion expression programmatically
+//! // 1 + 2i + 3j + 4k
+//! let quat = Expression::Quaternion {
+//!     real: Box::new(Expression::Integer(1)),
+//!     i: Box::new(Expression::Integer(2)),
+//!     j: Box::new(Expression::Integer(3)),
+//!     k: Box::new(Expression::Integer(4)),
+//! };
+//! ```
+//!
 //! ## Configuration
 //!
 //! For advanced parsing options, use [`ParserConfig`]:
 //!
 //! ```
-//! use mathlex::{parse_with_config, ParserConfig};
+//! use mathlex::{parse_with_config, ParserConfig, NumberSystem};
+//! use std::collections::HashSet;
 //!
 //! let config = ParserConfig {
 //!     implicit_multiplication: true,
+//!     number_system: NumberSystem::Complex,
 //!     ..Default::default()
 //! };
 //!
-//! // Parse with custom configuration (config reserved for future use)
+//! // Parse with custom configuration
 //! let expr = parse_with_config("2*x + 3", &config).unwrap();
+//! ```
+//!
+//! ### Context-Aware Parsing
+//!
+//! The parser uses context awareness for certain symbols:
+//!
+//! - **`e`**: Parsed as Euler's constant unless it appears in an exponent
+//!   (where it's treated as a variable for scientific notation)
+//! - **`i`, `j`, `k`**: Interpreted based on [`NumberSystem`] setting:
+//!   - In `Real`: treated as variables
+//!   - In `Complex`: `i` is the imaginary unit, `j` and `k` are variables
+//!   - In `Quaternion`: `i`, `j`, `k` are quaternion basis vectors
+//!
+//! ```
+//! use mathlex::{parse_latex, Expression, MathConstant};
+//!
+//! // 'e' as Euler's constant
+//! let euler = parse_latex(r"e").unwrap();
+//! assert_eq!(euler, Expression::Constant(MathConstant::E));
+//!
+//! // 'i' as imaginary unit (when explicitly marked)
+//! let imag = parse_latex(r"\mathrm{i}").unwrap();
+//! assert_eq!(imag, Expression::Constant(MathConstant::I));
+//! ```
+//!
+//! ## Parser Features
+//!
+//! ### Expression Subscripts
+//!
+//! The LaTeX parser supports complex expression subscripts that are flattened into
+//! variable names:
+//!
+//! ```
+//! use mathlex::{parse_latex, Expression};
+//!
+//! // Simple subscript: x_i
+//! let simple = parse_latex(r"x_i").unwrap();
+//! assert_eq!(simple, Expression::Variable("x_i".to_string()));
+//!
+//! // Expression subscript: x_{i+1}
+//! let expr_sub = parse_latex(r"x_{i+1}").unwrap();
+//! assert_eq!(expr_sub, Expression::Variable("x_iplus1".to_string()));
+//!
+//! // Complex subscript: a_{n-1}
+//! let complex = parse_latex(r"a_{n-1}").unwrap();
+//! assert_eq!(complex, Expression::Variable("a_nminus1".to_string()));
+//! ```
+//!
+//! Supported subscript operators: `+` (plus), `-` (minus), `*` (times), `/` (div), `^` (pow)
+//!
+//! ### Derivative Notation
+//!
+//! Both explicit and standard derivative notations are supported:
+//!
+//! ```
+//! use mathlex::{parse_latex, Expression};
+//!
+//! // Standard notation: d/dx followed by expression
+//! let standard = parse_latex(r"\frac{d}{dx}f").unwrap();
+//! assert!(matches!(standard, Expression::Derivative { .. }));
+//!
+//! // Explicit multiplication marker: d/d*x (when variable needs explicit marker)
+//! let explicit = parse_latex(r"\frac{d}{d*x}f").unwrap();
+//! assert!(matches!(explicit, Expression::Derivative { .. }));
+//!
+//! // Partial derivatives: ∂/∂x followed by expression
+//! let partial = parse_latex(r"\frac{\partial}{\partial x}f").unwrap();
+//! assert!(matches!(partial, Expression::PartialDerivative { .. }));
+//!
+//! // Higher order: d²/dx² followed by expression
+//! let second = parse_latex(r"\frac{d^2}{dx^2}f").unwrap();
+//! if let Expression::Derivative { order, .. } = second {
+//!     assert_eq!(order, 2);
+//! }
 //! ```
 //!
 //! ## Design Philosophy
