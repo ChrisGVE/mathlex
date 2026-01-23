@@ -75,7 +75,7 @@ use std::collections::HashSet;
 
 use crate::ast::{
     BinaryOp, Direction, Expression, InequalityOp, IndexType, IntegralBounds, LogicalOp,
-    MathConstant, MathFloat, SetOp, SetRelation, TensorIndex, VectorNotation,
+    MathConstant, MathFloat, RelationOp, SetOp, SetRelation, TensorIndex, VectorNotation,
 };
 use crate::error::{ParseError, ParseResult, Span};
 use crate::parser::latex_tokenizer::{tokenize_latex, LatexToken};
@@ -190,6 +190,11 @@ impl LatexParser {
         self.tokens.get(self.pos)
     }
 
+    /// Returns the token at offset positions ahead without consuming it.
+    fn peek_ahead(&self, offset: usize) -> Option<&Spanned<LatexToken>> {
+        self.tokens.get(self.pos + offset)
+    }
+
     /// Returns the current token and advances position.
     fn next(&mut self) -> Option<Spanned<LatexToken>> {
         let token = self.tokens.get(self.pos).cloned();
@@ -256,7 +261,49 @@ impl LatexParser {
 
     /// Parses an expression (entry point for recursive descent).
     fn parse_expression(&mut self) -> ParseResult<Expression> {
-        self.parse_logical_iff()
+        self.parse_function_signature()
+    }
+
+    /// Parses function signature: f: A → B
+    /// Lowest precedence (type annotations).
+    fn parse_function_signature(&mut self) -> ParseResult<Expression> {
+        let left = self.parse_logical_iff()?;
+
+        // Check for function signature (colon followed by \to)
+        if let Some((LatexToken::Colon, _)) = self.peek() {
+            // We have a potential function signature
+            // Extract function name (must be a simple variable)
+            let name = match &left {
+                Expression::Variable(n) => n.clone(),
+                _ => {
+                    // Not a valid function signature, just return the expression
+                    return Ok(left);
+                }
+            };
+
+            self.next(); // consume colon
+            let domain = self.parse_logical_iff()?;
+
+            // Expect \to token
+            if let Some((LatexToken::To, _)) = self.peek() {
+                self.next(); // consume \to
+                let codomain = self.parse_logical_iff()?;
+
+                return Ok(Expression::FunctionSignature {
+                    name,
+                    domain: Box::new(domain),
+                    codomain: Box::new(codomain),
+                });
+            } else {
+                // Missing \to, return error
+                return Err(ParseError::custom(
+                    "expected \\to after domain in function signature".to_string(),
+                    Some(self.current_span()),
+                ));
+            }
+        }
+
+        Ok(left)
     }
 
     /// Parses biconditional (iff) expressions: P \iff Q
@@ -362,6 +409,28 @@ impl LatexParser {
         // Check for relation operator
         if let Some((token, span)) = self.peek() {
             let span = *span;
+
+            // First check for similarity/equivalence/congruence/approximation relations
+            let math_relation = match token {
+                LatexToken::Sim => Some(RelationOp::Similar),
+                LatexToken::Equiv => Some(RelationOp::Equivalent),
+                LatexToken::Cong => Some(RelationOp::Congruent),
+                LatexToken::Approx => Some(RelationOp::Approx),
+                _ => None,
+            };
+
+            if let Some(rel_op) = math_relation {
+                self.next(); // consume relation operator
+                let right = self.parse_additive()?;
+
+                return Ok(Expression::Relation {
+                    op: rel_op,
+                    left: Box::new(left),
+                    right: Box::new(right),
+                });
+            }
+
+            // Then check for equation/inequality relations
             let relation = match token {
                 LatexToken::Equals => Some((None, span)), // None indicates equation
                 LatexToken::Less => Some((Some(InequalityOp::Lt), span)),
@@ -385,7 +454,13 @@ impl LatexParser {
                 if let Some((next_token, next_span)) = self.peek() {
                     let is_relation = matches!(
                         next_token,
-                        LatexToken::Equals | LatexToken::Less | LatexToken::Greater
+                        LatexToken::Equals
+                        | LatexToken::Less
+                        | LatexToken::Greater
+                        | LatexToken::Sim
+                        | LatexToken::Equiv
+                        | LatexToken::Cong
+                        | LatexToken::Approx
                     ) || matches!(
                         next_token,
                         LatexToken::Command(cmd) if matches!(
@@ -490,8 +565,18 @@ impl LatexParser {
                     continue;
                 }
 
-                // Check for vector product operators
+                // Check for vector product operators and composition
                 match token {
+                    LatexToken::Circ => {
+                        // Function composition: f \circ g
+                        self.next(); // consume \circ
+                        let right = self.parse_power()?;
+                        left = Expression::Composition {
+                            outer: Box::new(left),
+                            inner: Box::new(right),
+                        };
+                        continue;
+                    }
                     LatexToken::Bullet => {
                         // Dot product: a \bullet b
                         self.next(); // consume \bullet
@@ -513,10 +598,10 @@ impl LatexParser {
                         continue;
                     }
                     LatexToken::Wedge => {
-                        // Wedge product: a \wedge b (exterior algebra)
+                        // Wedge product: a \wedge b (exterior algebra / differential forms)
                         self.next(); // consume \wedge
                         let right = self.parse_power()?;
-                        left = Expression::CrossProduct {
+                        left = Expression::WedgeProduct {
                             left: Box::new(left),
                             right: Box::new(right),
                         };
@@ -587,17 +672,7 @@ impl LatexParser {
 
         // Check if next token is something that could start a multiplicand
         match self.peek() {
-            Some((LatexToken::Letter(ch), _)) => {
-                // Don't trigger implicit mult for 'd' followed by a letter (differential marker)
-                // This allows `x dx` in integrals to work correctly
-                if *ch == 'd' {
-                    // Check if it's followed by another letter (the differential variable)
-                    if let Some((LatexToken::Letter(_), _)) = self.tokens.get(self.pos + 1) {
-                        return false;
-                    }
-                }
-                true
-            }
+            Some((LatexToken::Letter(_), _)) => true,
             Some((LatexToken::Command(cmd), _)) => {
                 // Exclude relation commands and right delimiters - they should not trigger implicit mult
                 !matches!(
@@ -693,8 +768,22 @@ impl LatexParser {
                     }
                     LatexToken::Letter(ch) => {
                         let ch = *ch;
+
+                        // Check for differential: d followed by variable
+                        if ch == 'd' {
+                            // Peek ahead to see if next token is a letter
+                            if let Some((LatexToken::Letter(var_ch), _)) = self.peek_ahead(1) {
+                                let var_ch = *var_ch;
+                                self.next(); // consume 'd'
+                                self.next(); // consume variable
+                                return Ok(Expression::Differential {
+                                    var: var_ch.to_string(),
+                                });
+                            }
+                        }
+
                         self.next(); // consume
-                                     // Use context-aware resolution for e and i
+                        // Use context-aware resolution for e and i
                         if ch == 'e' || ch == 'i' {
                             Ok(self.resolve_letter(ch, false))
                         } else {
@@ -845,6 +934,31 @@ impl LatexParser {
                         Ok(Expression::PowerSet {
                             set: Box::new(set),
                         })
+                    }
+                    // Number sets: \mathbb{N}, \mathbb{Z}, \mathbb{Q}, \mathbb{R}, \mathbb{C}, \mathbb{H}
+                    LatexToken::Naturals => {
+                        self.next();
+                        Ok(Expression::NumberSetExpr(crate::ast::NumberSet::Natural))
+                    }
+                    LatexToken::Integers => {
+                        self.next();
+                        Ok(Expression::NumberSetExpr(crate::ast::NumberSet::Integer))
+                    }
+                    LatexToken::Rationals => {
+                        self.next();
+                        Ok(Expression::NumberSetExpr(crate::ast::NumberSet::Rational))
+                    }
+                    LatexToken::Reals => {
+                        self.next();
+                        Ok(Expression::NumberSetExpr(crate::ast::NumberSet::Real))
+                    }
+                    LatexToken::Complexes => {
+                        self.next();
+                        Ok(Expression::NumberSetExpr(crate::ast::NumberSet::Complex))
+                    }
+                    LatexToken::Quaternions => {
+                        self.next();
+                        Ok(Expression::NumberSetExpr(crate::ast::NumberSet::Quaternion))
                     }
                     _ => Err(ParseError::unexpected_token(
                         vec!["expression"],
@@ -2172,6 +2286,10 @@ mod sets_tests;
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_quaternions.rs"]
 mod quaternions_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_differential_forms.rs"]
+mod differential_forms_tests;
 
 #[cfg(test)]
 #[allow(clippy::approx_constant)]

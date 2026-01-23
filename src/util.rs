@@ -308,6 +308,34 @@ impl Expression {
                     variables.insert(idx.name.clone());
                 }
             }
+
+            // Differential forms
+            Expression::Differential { var } => {
+                variables.insert(var.clone());
+            }
+
+            Expression::WedgeProduct { left, right } => {
+                left.collect_variables(variables);
+                right.collect_variables(variables);
+            }
+
+            // Function theory
+            Expression::FunctionSignature {
+                domain, codomain, ..
+            } => {
+                domain.collect_variables(variables);
+                codomain.collect_variables(variables);
+            }
+
+            Expression::Composition { outer, inner } => {
+                outer.collect_variables(variables);
+                inner.collect_variables(variables);
+            }
+
+            Expression::Relation { left, right, .. } => {
+                left.collect_variables(variables);
+                right.collect_variables(variables);
+            }
         }
     }
 
@@ -544,6 +572,32 @@ impl Expression {
             Expression::Tensor { .. }
             | Expression::KroneckerDelta { .. }
             | Expression::LeviCivita { .. } => {}
+
+            // Differential forms - no functions to collect from Differential
+            Expression::Differential { .. } => {}
+
+            Expression::WedgeProduct { left, right } => {
+                left.collect_functions(functions);
+                right.collect_functions(functions);
+            }
+
+            // Function theory
+            Expression::FunctionSignature {
+                domain, codomain, ..
+            } => {
+                domain.collect_functions(functions);
+                codomain.collect_functions(functions);
+            }
+
+            Expression::Composition { outer, inner } => {
+                outer.collect_functions(functions);
+                inner.collect_functions(functions);
+            }
+
+            Expression::Relation { left, right, .. } => {
+                left.collect_functions(functions);
+                right.collect_functions(functions);
+            }
         }
     }
 
@@ -778,6 +832,32 @@ impl Expression {
             Expression::Tensor { .. }
             | Expression::KroneckerDelta { .. }
             | Expression::LeviCivita { .. } => {}
+
+            // Differential forms - no constants to collect
+            Expression::Differential { .. } => {}
+
+            Expression::WedgeProduct { left, right } => {
+                left.collect_constants(constants);
+                right.collect_constants(constants);
+            }
+
+            // Function theory
+            Expression::FunctionSignature {
+                domain, codomain, ..
+            } => {
+                domain.collect_constants(constants);
+                codomain.collect_constants(constants);
+            }
+
+            Expression::Composition { outer, inner } => {
+                outer.collect_constants(constants);
+                inner.collect_constants(constants);
+            }
+
+            Expression::Relation { left, right, .. } => {
+                left.collect_constants(constants);
+                right.collect_constants(constants);
+            }
         }
     }
 
@@ -982,6 +1062,20 @@ impl Expression {
             Expression::Tensor { .. }
             | Expression::KroneckerDelta { .. }
             | Expression::LeviCivita { .. } => 1,
+
+            // Differential forms
+            Expression::Differential { .. } => 1,
+
+            Expression::WedgeProduct { left, right } => 1 + left.depth().max(right.depth()),
+
+            // Function theory
+            Expression::FunctionSignature {
+                domain, codomain, ..
+            } => 1 + domain.depth().max(codomain.depth()),
+
+            Expression::Composition { outer, inner } => 1 + outer.depth().max(inner.depth()),
+
+            Expression::Relation { left, right, .. } => 1 + left.depth().max(right.depth()),
         }
     }
 
@@ -1181,6 +1275,26 @@ impl Expression {
             Expression::Tensor { .. }
             | Expression::KroneckerDelta { .. }
             | Expression::LeviCivita { .. } => 1,
+
+            // Differential forms
+            Expression::Differential { .. } => 1,
+
+            Expression::WedgeProduct { left, right } => {
+                1 + left.node_count() + right.node_count()
+            }
+
+            // Function theory
+            Expression::FunctionSignature {
+                domain, codomain, ..
+            } => 1 + domain.node_count() + codomain.node_count(),
+
+            Expression::Composition { outer, inner } => {
+                1 + outer.node_count() + inner.node_count()
+            }
+
+            Expression::Relation { left, right, .. } => {
+                1 + left.node_count() + right.node_count()
+            }
         }
     }
 
@@ -1730,6 +1844,48 @@ impl Expression {
                     indices: new_indices,
                 }
             }
+
+            // Differential forms
+            Expression::Differential { var: diff_var } => {
+                if diff_var == var {
+                    if let Expression::Variable(new_name) = replacement {
+                        Expression::Differential {
+                            var: new_name.clone(),
+                        }
+                    } else {
+                        self.clone()
+                    }
+                } else {
+                    self.clone()
+                }
+            }
+
+            Expression::WedgeProduct { left, right } => Expression::WedgeProduct {
+                left: Box::new(left.substitute(var, replacement)),
+                right: Box::new(right.substitute(var, replacement)),
+            },
+
+            // Function theory
+            Expression::FunctionSignature {
+                name,
+                domain,
+                codomain,
+            } => Expression::FunctionSignature {
+                name: name.clone(),
+                domain: Box::new(domain.substitute(var, replacement)),
+                codomain: Box::new(codomain.substitute(var, replacement)),
+            },
+
+            Expression::Composition { outer, inner } => Expression::Composition {
+                outer: Box::new(outer.substitute(var, replacement)),
+                inner: Box::new(inner.substitute(var, replacement)),
+            },
+
+            Expression::Relation { op, left, right } => Expression::Relation {
+                op: *op,
+                left: Box::new(left.substitute(var, replacement)),
+                right: Box::new(right.substitute(var, replacement)),
+            },
         }
     }
 
@@ -2238,6 +2394,44 @@ impl Expression {
                     indices: new_indices,
                 }
             }
+
+            // Differential forms
+            Expression::Differential { var } => {
+                if let Some(Expression::Variable(new_name)) = subs.get(var) {
+                    Expression::Differential {
+                        var: new_name.clone(),
+                    }
+                } else {
+                    self.clone()
+                }
+            }
+
+            Expression::WedgeProduct { left, right } => Expression::WedgeProduct {
+                left: Box::new(left.substitute_all(subs)),
+                right: Box::new(right.substitute_all(subs)),
+            },
+
+            // Function theory
+            Expression::FunctionSignature {
+                name,
+                domain,
+                codomain,
+            } => Expression::FunctionSignature {
+                name: name.clone(),
+                domain: Box::new(domain.substitute_all(subs)),
+                codomain: Box::new(codomain.substitute_all(subs)),
+            },
+
+            Expression::Composition { outer, inner } => Expression::Composition {
+                outer: Box::new(outer.substitute_all(subs)),
+                inner: Box::new(inner.substitute_all(subs)),
+            },
+
+            Expression::Relation { op, left, right } => Expression::Relation {
+                op: *op,
+                left: Box::new(left.substitute_all(subs)),
+                right: Box::new(right.substitute_all(subs)),
+            },
         }
     }
 }

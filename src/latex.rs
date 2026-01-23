@@ -220,6 +220,17 @@ impl ToLatex for LogicalOp {
     }
 }
 
+impl ToLatex for RelationOp {
+    fn to_latex(&self) -> String {
+        match self {
+            RelationOp::Similar => r"\sim".to_string(),
+            RelationOp::Equivalent => r"\equiv".to_string(),
+            RelationOp::Congruent => r"\cong".to_string(),
+            RelationOp::Approx => r"\approx".to_string(),
+        }
+    }
+}
+
 impl ToLatex for Expression {
     fn to_latex(&self) -> String {
         match self {
@@ -880,6 +891,35 @@ impl ToLatex for Expression {
                     ));
                 }
                 result
+            }
+
+            Expression::FunctionSignature {
+                name,
+                domain,
+                codomain,
+            } => {
+                format!(
+                    "{}: {} \\to {}",
+                    name,
+                    domain.to_latex(),
+                    codomain.to_latex()
+                )
+            }
+
+            Expression::Composition { outer, inner } => {
+                format!("{} \\circ {}", outer.to_latex(), inner.to_latex())
+            }
+
+            Expression::Differential { var } => {
+                format!("d{}", var)
+            }
+
+            Expression::WedgeProduct { left, right } => {
+                format!(r"{} \wedge {}", left.to_latex(), right.to_latex())
+            }
+
+            Expression::Relation { op, left, right } => {
+                format!("{} {} {}", left.to_latex(), op.to_latex(), right.to_latex())
             }
         }
     }

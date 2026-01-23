@@ -428,6 +428,37 @@ pub enum LogicalOp {
     Iff,
 }
 
+/// Relation operators for mathematical relations.
+///
+/// Represents relations between mathematical objects such as similarity,
+/// equivalence, congruence, and approximation.
+///
+/// # Examples
+///
+/// ```
+/// use mathlex::ast::RelationOp;
+///
+/// let similar = RelationOp::Similar;     // ~
+/// let equiv = RelationOp::Equivalent;    // ≡
+/// let approx = RelationOp::Approx;       // ≈
+/// assert_ne!(similar, equiv);
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum RelationOp {
+    /// Similarity relation (~)
+    Similar,
+
+    /// Equivalence relation (≡)
+    Equivalent,
+
+    /// Congruence relation (≅)
+    Congruent,
+
+    /// Approximation relation (≈)
+    Approx,
+}
+
 /// Bounds for definite integrals.
 ///
 /// Represents the lower and upper bounds of integration.
@@ -2038,6 +2069,194 @@ pub enum Expression {
     LeviCivita {
         /// The indices (typically 3 for 3D, n for nD)
         indices: Vec<TensorIndex>,
+    },
+
+    // ============================================================
+    // Function Theory and Relations
+    // ============================================================
+
+    /// Function signature/mapping declaration: f: A → B
+    ///
+    /// Represents a function with its domain and codomain, commonly used in
+    /// mathematical notation to declare the type of a function.
+    ///
+    /// ## Notation
+    ///
+    /// - LaTeX: `f: A \to B`
+    /// - Plain text: `f: A → B`
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::{Expression, NumberSet};
+    ///
+    /// // f: ℝ → ℝ
+    /// let real_func = Expression::FunctionSignature {
+    ///     name: "f".to_string(),
+    ///     domain: Box::new(Expression::NumberSetExpr(NumberSet::Reals)),
+    ///     codomain: Box::new(Expression::NumberSetExpr(NumberSet::Reals)),
+    /// };
+    /// ```
+    FunctionSignature {
+        /// The function name
+        name: String,
+
+        /// The domain (input type/set)
+        domain: Box<Expression>,
+
+        /// The codomain (output type/set)
+        codomain: Box<Expression>,
+    },
+
+    /// Function composition: f ∘ g
+    ///
+    /// Represents the composition of two functions where (f ∘ g)(x) = f(g(x)).
+    /// The inner function g is applied first, followed by the outer function f.
+    ///
+    /// ## Notation
+    ///
+    /// - LaTeX: `f \circ g`
+    /// - Unicode: `f ∘ g`
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // f ∘ g
+    /// let composition = Expression::Composition {
+    ///     outer: Box::new(Expression::Variable("f".to_string())),
+    ///     inner: Box::new(Expression::Variable("g".to_string())),
+    /// };
+    /// ```
+    Composition {
+        /// The outer function (applied second)
+        outer: Box<Expression>,
+
+        /// The inner function (applied first)
+        inner: Box<Expression>,
+    },
+
+    // ============================================================
+    // Differential Forms
+    // ============================================================
+
+    /// Differential of a variable: dx, dy, dt
+    ///
+    /// Represents the differential form of a single variable.
+    /// Used in integration and differential geometry contexts.
+    ///
+    /// ## Important Notes
+    ///
+    /// - Represents a differential form, distinct from a derivative
+    /// - Commonly appears in integrals: `∫ f(x) dx`
+    /// - In differential geometry, differentials are 1-forms
+    /// - Not to be confused with derivative notation `d/dx`
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // dx
+    /// let dx = Expression::Differential {
+    ///     var: "x".to_string(),
+    /// };
+    ///
+    /// // dt
+    /// let dt = Expression::Differential {
+    ///     var: "t".to_string(),
+    /// };
+    /// ```
+    Differential {
+        /// The variable name (without the 'd' prefix)
+        var: String,
+    },
+
+    /// Wedge product for differential forms: dx ∧ dy
+    ///
+    /// The wedge product (exterior product) of two differential forms.
+    /// Used in differential geometry and multivariable calculus.
+    ///
+    /// ## Properties
+    ///
+    /// - Anticommutative: `dx ∧ dy = -(dy ∧ dx)`
+    /// - Associative: `(dx ∧ dy) ∧ dz = dx ∧ (dy ∧ dz)`
+    /// - Wedge with itself is zero: `dx ∧ dx = 0`
+    ///
+    /// ## Common Uses
+    ///
+    /// - Area/volume elements in integration: `dx ∧ dy`, `dx ∧ dy ∧ dz`
+    /// - Exterior calculus and differential forms
+    /// - Differential geometry
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // dx ∧ dy
+    /// let dx = Expression::Differential { var: "x".to_string() };
+    /// let dy = Expression::Differential { var: "y".to_string() };
+    /// let wedge = Expression::WedgeProduct {
+    ///     left: Box::new(dx),
+    ///     right: Box::new(dy),
+    /// };
+    ///
+    /// // dx ∧ dy ∧ dz (nested)
+    /// let dz = Expression::Differential { var: "z".to_string() };
+    /// let wedge_3d = Expression::WedgeProduct {
+    ///     left: Box::new(wedge),
+    ///     right: Box::new(dz),
+    /// };
+    /// ```
+    WedgeProduct {
+        /// Left operand (typically a differential or wedge product)
+        left: Box<Expression>,
+        /// Right operand (typically a differential)
+        right: Box<Expression>,
+    },
+
+    /// Relation expression: a ~ b, a ≡ b, a ≅ b, a ≈ b
+    ///
+    /// Represents a mathematical relation between two expressions, such as
+    /// similarity, equivalence, congruence, or approximation.
+    ///
+    /// ## Notation
+    ///
+    /// - Similar (~): `a \sim b`
+    /// - Equivalent (≡): `a \equiv b`
+    /// - Congruent (≅): `a \cong b`
+    /// - Approximate (≈): `a \approx b`
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::{Expression, RelationOp};
+    ///
+    /// // x ~ y (similarity)
+    /// let similar = Expression::Relation {
+    ///     op: RelationOp::Similar,
+    ///     left: Box::new(Expression::Variable("x".to_string())),
+    ///     right: Box::new(Expression::Variable("y".to_string())),
+    /// };
+    ///
+    /// // a ≈ b (approximation)
+    /// let approx = Expression::Relation {
+    ///     op: RelationOp::Approx,
+    ///     left: Box::new(Expression::Variable("a".to_string())),
+    ///     right: Box::new(Expression::Variable("b".to_string())),
+    /// };
+    /// ```
+    Relation {
+        /// The relation operator
+        op: RelationOp,
+
+        /// Left operand
+        left: Box<Expression>,
+
+        /// Right operand
+        right: Box<Expression>,
     },
 }
 

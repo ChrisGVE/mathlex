@@ -184,6 +184,17 @@ impl fmt::Display for LogicalOp {
     }
 }
 
+impl fmt::Display for RelationOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RelationOp::Similar => write!(f, "~"),
+            RelationOp::Equivalent => write!(f, "≡"),
+            RelationOp::Congruent => write!(f, "≅"),
+            RelationOp::Approx => write!(f, "≈"),
+        }
+    }
+}
+
 impl fmt::Display for IntegralBounds {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}, {}", self.lower, self.upper)
@@ -676,6 +687,30 @@ impl fmt::Display for Expression {
                     )?;
                 }
                 Ok(())
+            }
+
+            Expression::FunctionSignature {
+                name,
+                domain,
+                codomain,
+            } => {
+                write!(f, "{}: {} → {}", name, domain, codomain)
+            }
+
+            Expression::Composition { outer, inner } => {
+                write!(f, "{} ∘ {}", outer, inner)
+            }
+
+            Expression::Differential { var } => {
+                write!(f, "d{}", var)
+            }
+
+            Expression::WedgeProduct { left, right } => {
+                write!(f, "{} ∧ {}", left, right)
+            }
+
+            Expression::Relation { op, left, right } => {
+                write!(f, "{} {} {}", left, op, right)
             }
         }
     }

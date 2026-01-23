@@ -69,6 +69,8 @@ pub enum LatexToken {
     // Special
     /// Comma (,)
     Comma,
+    /// Colon (:)
+    Colon,
     /// Arrow (\to)
     To,
     /// Infinity (\infty)
@@ -186,6 +188,20 @@ pub enum LatexToken {
     // Nabla
     /// \nabla - del/nabla operator
     Nabla,
+
+    // Relations
+    /// \sim - similarity relation
+    Sim,
+    /// \equiv - equivalence relation
+    Equiv,
+    /// \cong - congruence relation
+    Cong,
+    /// \approx - approximation relation
+    Approx,
+
+    // Composition
+    /// \circ - function composition
+    Circ,
 
     /// End of file marker
     Eof,
@@ -484,7 +500,7 @@ impl<'a> Tokenizer<'a> {
                 "exists" => Ok((LatexToken::Exists, span)),
 
                 // Logical connectives (handle aliases)
-                "land" | "wedge" => Ok((LatexToken::Land, span)),
+                "land" => Ok((LatexToken::Land, span)),
                 "lor" | "vee" => Ok((LatexToken::Lor, span)),
                 "lnot" | "neg" => Ok((LatexToken::Lnot, span)),
                 "implies" | "Rightarrow" => Ok((LatexToken::Implies, span)),
@@ -594,9 +610,19 @@ impl<'a> Tokenizer<'a> {
                 // Vector/tensor operations
                 "bullet" => Ok((LatexToken::Bullet, span)),
                 "otimes" => Ok((LatexToken::Otimes, span)),
+                "wedge" => Ok((LatexToken::Wedge, span)),
 
                 // Nabla (gradient, divergence, curl)
                 "nabla" => Ok((LatexToken::Nabla, span)),
+
+                // Relations
+                "sim" => Ok((LatexToken::Sim, span)),
+                "equiv" => Ok((LatexToken::Equiv, span)),
+                "cong" => Ok((LatexToken::Cong, span)),
+                "approx" => Ok((LatexToken::Approx, span)),
+
+                // Composition
+                "circ" => Ok((LatexToken::Circ, span)),
 
                 _ => Ok((LatexToken::Command(cmd), span)),
             };
@@ -631,6 +657,7 @@ impl<'a> Tokenizer<'a> {
             // Special
             '&' => Ok((LatexToken::Ampersand, span)),
             ',' => Ok((LatexToken::Comma, span)),
+            ':' => Ok((LatexToken::Colon, span)),
 
             // Numbers and letters
             _ if ch.is_ascii_digit() => {
