@@ -280,6 +280,7 @@ pub mod ast;
 pub mod display;
 pub mod error;
 pub mod latex;
+pub mod metadata;
 pub mod parser;
 pub mod util;
 
@@ -293,6 +294,7 @@ pub use ast::{
 };
 pub use error::{ParseError, ParseErrorKind, ParseResult, Position, Span};
 pub use latex::ToLatex;
+pub use metadata::{ContextSource, ExpressionMetadata, MathType};
 
 // Re-export parser functions
 pub use parser::{parse, parse_latex};
@@ -597,5 +599,8 @@ mod tests {
         let _pos: Position = Position::start();
         let _span: Span = Span::start();
         let _err: ParseError = ParseError::empty_expression(None);
+        let _math_type: MathType = MathType::Scalar;
+        let _ctx_src: ContextSource = ContextSource::Explicit;
+        let _meta: ExpressionMetadata = ExpressionMetadata::default();
     }
 }
