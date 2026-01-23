@@ -682,6 +682,46 @@ impl ToLatex for Expression {
             Expression::PowerSet { set } => {
                 format!(r"\mathcal{{P}}({})", set.to_latex())
             }
+
+            // Tensor notation expressions
+            Expression::Tensor { name, indices } => {
+                let upper: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Upper).collect();
+                let lower: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Lower).collect();
+                let mut result = name.clone();
+                if !upper.is_empty() {
+                    result.push_str(&format!("^{{{}}}", upper.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join("")));
+                }
+                if !lower.is_empty() {
+                    result.push_str(&format!("_{{{}}}", lower.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join("")));
+                }
+                result
+            }
+
+            Expression::KroneckerDelta { indices } => {
+                let upper: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Upper).collect();
+                let lower: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Lower).collect();
+                let mut result = r"\delta".to_string();
+                if !upper.is_empty() {
+                    result.push_str(&format!("^{{{}}}", upper.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join("")));
+                }
+                if !lower.is_empty() {
+                    result.push_str(&format!("_{{{}}}", lower.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join("")));
+                }
+                result
+            }
+
+            Expression::LeviCivita { indices } => {
+                let upper: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Upper).collect();
+                let lower: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Lower).collect();
+                let mut result = r"\varepsilon".to_string();
+                if !upper.is_empty() {
+                    result.push_str(&format!("^{{{}}}", upper.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join("")));
+                }
+                if !lower.is_empty() {
+                    result.push_str(&format!("_{{{}}}", lower.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join("")));
+                }
+                result
+            }
         }
     }
 }

@@ -275,6 +275,15 @@ impl Expression {
             Expression::PowerSet { set } => {
                 set.collect_variables(variables);
             }
+
+            // Tensor notation - tensor index names are variables
+            Expression::Tensor { indices, .. }
+            | Expression::KroneckerDelta { indices }
+            | Expression::LeviCivita { indices } => {
+                for idx in indices {
+                    variables.insert(idx.name.clone());
+                }
+            }
         }
     }
 
@@ -474,6 +483,11 @@ impl Expression {
             Expression::PowerSet { set } => {
                 set.collect_functions(functions);
             }
+
+            // Tensor notation - no functions to collect
+            Expression::Tensor { .. }
+            | Expression::KroneckerDelta { .. }
+            | Expression::LeviCivita { .. } => {}
         }
     }
 
@@ -671,6 +685,11 @@ impl Expression {
             Expression::PowerSet { set } => {
                 set.collect_constants(constants);
             }
+
+            // Tensor notation - no constants to collect
+            Expression::Tensor { .. }
+            | Expression::KroneckerDelta { .. }
+            | Expression::LeviCivita { .. } => {}
         }
     }
 
@@ -851,6 +870,11 @@ impl Expression {
             }
 
             Expression::PowerSet { set } => 1 + set.depth(),
+
+            // Tensor notation - leaf nodes with depth 1
+            Expression::Tensor { .. }
+            | Expression::KroneckerDelta { .. }
+            | Expression::LeviCivita { .. } => 1,
         }
     }
 
@@ -1026,6 +1050,11 @@ impl Expression {
             }
 
             Expression::PowerSet { set } => 1 + set.node_count(),
+
+            // Tensor notation - 1 node each
+            Expression::Tensor { .. }
+            | Expression::KroneckerDelta { .. }
+            | Expression::LeviCivita { .. } => 1,
         }
     }
 
@@ -1439,6 +1468,74 @@ impl Expression {
             Expression::PowerSet { set } => Expression::PowerSet {
                 set: Box::new(set.substitute(var, replacement)),
             },
+
+            // Tensor notation - substitute in index names (if index name matches var)
+            Expression::Tensor { name, indices } => {
+                let new_indices = indices
+                    .iter()
+                    .map(|idx| {
+                        if idx.name == var {
+                            // If replacement is a variable, use its name; otherwise keep original
+                            if let Expression::Variable(new_name) = replacement {
+                                crate::ast::TensorIndex {
+                                    name: new_name.clone(),
+                                    index_type: idx.index_type,
+                                }
+                            } else {
+                                idx.clone()
+                            }
+                        } else {
+                            idx.clone()
+                        }
+                    })
+                    .collect();
+                Expression::Tensor {
+                    name: name.clone(),
+                    indices: new_indices,
+                }
+            }
+
+            Expression::KroneckerDelta { indices } => {
+                let new_indices = indices
+                    .iter()
+                    .map(|idx| {
+                        if idx.name == var {
+                            if let Expression::Variable(new_name) = replacement {
+                                crate::ast::TensorIndex {
+                                    name: new_name.clone(),
+                                    index_type: idx.index_type,
+                                }
+                            } else {
+                                idx.clone()
+                            }
+                        } else {
+                            idx.clone()
+                        }
+                    })
+                    .collect();
+                Expression::KroneckerDelta { indices: new_indices }
+            }
+
+            Expression::LeviCivita { indices } => {
+                let new_indices = indices
+                    .iter()
+                    .map(|idx| {
+                        if idx.name == var {
+                            if let Expression::Variable(new_name) = replacement {
+                                crate::ast::TensorIndex {
+                                    name: new_name.clone(),
+                                    index_type: idx.index_type,
+                                }
+                            } else {
+                                idx.clone()
+                            }
+                        } else {
+                            idx.clone()
+                        }
+                    })
+                    .collect();
+                Expression::LeviCivita { indices: new_indices }
+            }
         }
     }
 
@@ -1832,6 +1929,61 @@ impl Expression {
             Expression::PowerSet { set } => Expression::PowerSet {
                 set: Box::new(set.substitute_all(subs)),
             },
+
+            // Tensor notation - substitute in index names
+            Expression::Tensor { name, indices } => {
+                let new_indices = indices
+                    .iter()
+                    .map(|idx| {
+                        if let Some(Expression::Variable(new_name)) = subs.get(&idx.name) {
+                            crate::ast::TensorIndex {
+                                name: new_name.clone(),
+                                index_type: idx.index_type,
+                            }
+                        } else {
+                            idx.clone()
+                        }
+                    })
+                    .collect();
+                Expression::Tensor {
+                    name: name.clone(),
+                    indices: new_indices,
+                }
+            }
+
+            Expression::KroneckerDelta { indices } => {
+                let new_indices = indices
+                    .iter()
+                    .map(|idx| {
+                        if let Some(Expression::Variable(new_name)) = subs.get(&idx.name) {
+                            crate::ast::TensorIndex {
+                                name: new_name.clone(),
+                                index_type: idx.index_type,
+                            }
+                        } else {
+                            idx.clone()
+                        }
+                    })
+                    .collect();
+                Expression::KroneckerDelta { indices: new_indices }
+            }
+
+            Expression::LeviCivita { indices } => {
+                let new_indices = indices
+                    .iter()
+                    .map(|idx| {
+                        if let Some(Expression::Variable(new_name)) = subs.get(&idx.name) {
+                            crate::ast::TensorIndex {
+                                name: new_name.clone(),
+                                index_type: idx.index_type,
+                            }
+                        } else {
+                            idx.clone()
+                        }
+                    })
+                    .collect();
+                Expression::LeviCivita { indices: new_indices }
+            }
         }
     }
 }

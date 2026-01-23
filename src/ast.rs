@@ -629,6 +629,69 @@ pub enum NumberSet {
     Quaternion,
 }
 
+/// Index position type for tensor notation.
+///
+/// In Einstein summation convention, indices can be either upper (contravariant)
+/// or lower (covariant). The position determines how the index transforms under
+/// coordinate changes.
+///
+/// ## Examples
+///
+/// ```
+/// use mathlex::ast::IndexType;
+///
+/// let upper = IndexType::Upper;  // T^i (superscript)
+/// let lower = IndexType::Lower;  // T_j (subscript)
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum IndexType {
+    /// Upper index (contravariant) - superscript position
+    Upper,
+
+    /// Lower index (covariant) - subscript position
+    Lower,
+}
+
+/// A single tensor index with name and position.
+///
+/// Represents an index in tensor notation, specifying both the index name
+/// (typically a single letter like i, j, k) and whether it appears as an
+/// upper (contravariant) or lower (covariant) index.
+///
+/// ## Einstein Summation Convention
+///
+/// When the same index name appears once as upper and once as lower in a term,
+/// summation over that index is implied. For example, `T^i_j v^j` implies
+/// `Σ_j T^i_j v^j`.
+///
+/// ## Examples
+///
+/// ```
+/// use mathlex::ast::{TensorIndex, IndexType};
+///
+/// // Upper index i (T^i)
+/// let upper_i = TensorIndex {
+///     name: "i".to_string(),
+///     index_type: IndexType::Upper,
+/// };
+///
+/// // Lower index j (T_j)
+/// let lower_j = TensorIndex {
+///     name: "j".to_string(),
+///     index_type: IndexType::Lower,
+/// };
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TensorIndex {
+    /// The index name (e.g., "i", "j", "k", "μ", "ν")
+    pub name: String,
+
+    /// Whether this is an upper or lower index
+    pub index_type: IndexType,
+}
+
 /// The main AST node type representing mathematical expressions.
 ///
 /// This enum covers the full range of mathematical expressions that mathlex can parse,
@@ -1610,6 +1673,123 @@ pub enum Expression {
     PowerSet {
         /// The set to take the power set of
         set: Box<Expression>,
+    },
+
+    // ============================================================
+    // Tensor Notation Expressions
+    // ============================================================
+
+    /// Tensor with indexed notation.
+    ///
+    /// Represents a tensor with upper and/or lower indices, supporting
+    /// Einstein summation convention notation.
+    ///
+    /// ## Notation
+    ///
+    /// - `T^{ij}` - Tensor T with two upper indices
+    /// - `T_{ab}` - Tensor T with two lower indices
+    /// - `T^i_j` - Mixed tensor with one upper and one lower index
+    /// - `R^a_{bcd}` - Riemann-like tensor with mixed indices
+    ///
+    /// ## Einstein Summation Convention
+    ///
+    /// When the same index appears once upper and once lower in a product,
+    /// summation is implied. For example: `A^i B_i = Σ_i A^i B_i`.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::{Expression, TensorIndex, IndexType};
+    ///
+    /// // Metric tensor g^{μν}
+    /// let metric = Expression::Tensor {
+    ///     name: "g".to_string(),
+    ///     indices: vec![
+    ///         TensorIndex { name: "μ".to_string(), index_type: IndexType::Upper },
+    ///         TensorIndex { name: "ν".to_string(), index_type: IndexType::Upper },
+    ///     ],
+    /// };
+    ///
+    /// // Mixed tensor T^i_j
+    /// let mixed = Expression::Tensor {
+    ///     name: "T".to_string(),
+    ///     indices: vec![
+    ///         TensorIndex { name: "i".to_string(), index_type: IndexType::Upper },
+    ///         TensorIndex { name: "j".to_string(), index_type: IndexType::Lower },
+    ///     ],
+    /// };
+    /// ```
+    Tensor {
+        /// The tensor name (e.g., "T", "g", "R", "Γ")
+        name: String,
+
+        /// The tensor indices in order of appearance
+        indices: Vec<TensorIndex>,
+    },
+
+    /// Kronecker delta: δ^i_j or δ_{ij}.
+    ///
+    /// The Kronecker delta is 1 when indices are equal, 0 otherwise.
+    /// It acts as the identity in index manipulation.
+    ///
+    /// ## Properties
+    ///
+    /// - δ^i_j = 1 if i = j, 0 otherwise
+    /// - δ^i_j A^j = A^i (index substitution)
+    /// - δ^i_i = n (trace in n dimensions)
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::{Expression, TensorIndex, IndexType};
+    ///
+    /// // δ^i_j (mixed Kronecker delta)
+    /// let delta = Expression::KroneckerDelta {
+    ///     indices: vec![
+    ///         TensorIndex { name: "i".to_string(), index_type: IndexType::Upper },
+    ///         TensorIndex { name: "j".to_string(), index_type: IndexType::Lower },
+    ///     ],
+    /// };
+    /// ```
+    KroneckerDelta {
+        /// The indices (typically two, one upper and one lower)
+        indices: Vec<TensorIndex>,
+    },
+
+    /// Levi-Civita symbol: ε^{ijk} or ε_{ijk}.
+    ///
+    /// The totally antisymmetric symbol used in cross products,
+    /// determinants, and differential forms.
+    ///
+    /// ## Properties
+    ///
+    /// - ε^{123} = 1 in 3D (even permutation)
+    /// - Changes sign under index swap (antisymmetric)
+    /// - ε^{ijk} = 0 if any two indices are equal
+    ///
+    /// ## Usage
+    ///
+    /// - Cross product: (a × b)^i = ε^{ijk} a_j b_k
+    /// - Determinant: det(A) = ε^{i_1...i_n} A_{1i_1}...A_{ni_n}
+    /// - Exterior algebra and differential forms
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::{Expression, TensorIndex, IndexType};
+    ///
+    /// // ε^{ijk} (3D Levi-Civita with upper indices)
+    /// let epsilon = Expression::LeviCivita {
+    ///     indices: vec![
+    ///         TensorIndex { name: "i".to_string(), index_type: IndexType::Upper },
+    ///         TensorIndex { name: "j".to_string(), index_type: IndexType::Upper },
+    ///         TensorIndex { name: "k".to_string(), index_type: IndexType::Upper },
+    ///     ],
+    /// };
+    /// ```
+    LeviCivita {
+        /// The indices (typically 3 for 3D, n for nD)
+        indices: Vec<TensorIndex>,
     },
 }
 
