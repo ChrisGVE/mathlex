@@ -74,8 +74,8 @@
 use std::collections::HashSet;
 
 use crate::ast::{
-    BinaryOp, Direction, Expression, InequalityOp, IndexType, IntegralBounds, MathConstant,
-    MathFloat, TensorIndex, VectorNotation,
+    BinaryOp, Direction, Expression, InequalityOp, IndexType, IntegralBounds, LogicalOp,
+    MathConstant, MathFloat, SetRelation, TensorIndex, VectorNotation,
 };
 use crate::error::{ParseError, ParseResult, Span};
 use crate::parser::latex_tokenizer::{tokenize_latex, LatexToken};
@@ -244,7 +244,104 @@ impl LatexParser {
 
     /// Parses an expression (entry point for recursive descent).
     fn parse_expression(&mut self) -> ParseResult<Expression> {
-        self.parse_relation()
+        self.parse_logical_iff()
+    }
+
+    /// Parses biconditional (iff) expressions: P \iff Q
+    /// Lowest logical precedence.
+    fn parse_logical_iff(&mut self) -> ParseResult<Expression> {
+        let mut left = self.parse_logical_implies()?;
+
+        while let Some((LatexToken::Iff, _)) = self.peek() {
+            self.next(); // consume \iff
+            let right = self.parse_logical_implies()?;
+            left = Expression::Logical {
+                op: LogicalOp::Iff,
+                operands: vec![left, right],
+            };
+        }
+
+        Ok(left)
+    }
+
+    /// Parses implication expressions: P \implies Q
+    fn parse_logical_implies(&mut self) -> ParseResult<Expression> {
+        let mut left = self.parse_logical_or()?;
+
+        while let Some((LatexToken::Implies, _)) = self.peek() {
+            self.next(); // consume \implies
+            let right = self.parse_logical_or()?;
+            left = Expression::Logical {
+                op: LogicalOp::Implies,
+                operands: vec![left, right],
+            };
+        }
+
+        Ok(left)
+    }
+
+    /// Parses logical OR expressions: P \lor Q
+    fn parse_logical_or(&mut self) -> ParseResult<Expression> {
+        let mut left = self.parse_logical_and()?;
+
+        while let Some((LatexToken::Lor, _)) = self.peek() {
+            self.next(); // consume \lor
+            let right = self.parse_logical_and()?;
+            left = Expression::Logical {
+                op: LogicalOp::Or,
+                operands: vec![left, right],
+            };
+        }
+
+        Ok(left)
+    }
+
+    /// Parses logical AND expressions: P \land Q
+    fn parse_logical_and(&mut self) -> ParseResult<Expression> {
+        let mut left = self.parse_set_membership()?;
+
+        while let Some((LatexToken::Land, _)) = self.peek() {
+            self.next(); // consume \land
+            let right = self.parse_set_membership()?;
+            left = Expression::Logical {
+                op: LogicalOp::And,
+                operands: vec![left, right],
+            };
+        }
+
+        Ok(left)
+    }
+
+    /// Parses set membership expressions: x \in S or x \notin S
+    fn parse_set_membership(&mut self) -> ParseResult<Expression> {
+        let left = self.parse_relation()?;
+
+        // Check for set membership operators
+        if let Some((token, _)) = self.peek() {
+            match token {
+                LatexToken::In => {
+                    self.next(); // consume \in
+                    let right = self.parse_relation()?;
+                    return Ok(Expression::SetRelationExpr {
+                        relation: SetRelation::In,
+                        element: Box::new(left),
+                        set: Box::new(right),
+                    });
+                }
+                LatexToken::NotIn => {
+                    self.next(); // consume \notin
+                    let right = self.parse_relation()?;
+                    return Ok(Expression::SetRelationExpr {
+                        relation: SetRelation::NotIn,
+                        element: Box::new(left),
+                        set: Box::new(right),
+                    });
+                }
+                _ => {}
+            }
+        }
+
+        Ok(left)
     }
 
     /// Parses relational expressions (=, <, >, \leq, \geq, \neq, etc.).
@@ -657,6 +754,24 @@ impl LatexParser {
                     LatexToken::ClosedVolume => {
                         self.next();
                         self.parse_closed_integral(3)
+                    }
+                    // Quantifiers
+                    LatexToken::ForAll => {
+                        self.next();
+                        self.parse_forall()
+                    }
+                    LatexToken::Exists => {
+                        self.next();
+                        self.parse_exists()
+                    }
+                    // Logical negation
+                    LatexToken::Lnot => {
+                        self.next();
+                        let operand = self.parse_power()?;
+                        Ok(Expression::Logical {
+                            op: crate::ast::LogicalOp::Not,
+                            operands: vec![operand],
+                        })
                     }
                     _ => Err(ParseError::unexpected_token(
                         vec!["expression"],
@@ -1420,6 +1535,107 @@ impl LatexParser {
         })
     }
 
+    // ============================================================
+    // Quantifier Parsing
+    // ============================================================
+
+    /// Parses a universal quantifier: \forall x P(x) or \forall x \in S P(x)
+    fn parse_forall(&mut self) -> ParseResult<Expression> {
+        // Expect variable
+        let variable = match self.peek() {
+            Some((LatexToken::Letter(ch), _)) => {
+                let v = ch.to_string();
+                self.next();
+                v
+            }
+            Some((LatexToken::Command(cmd), _)) => {
+                // Greek letter variable
+                let v = cmd.clone();
+                self.next();
+                v
+            }
+            _ => {
+                return Err(ParseError::custom(
+                    "expected variable after \\forall".to_string(),
+                    Some(self.current_span()),
+                ));
+            }
+        };
+
+        // Check for optional domain: \in S
+        let domain = if let Some((LatexToken::In, _)) = self.peek() {
+            self.next(); // consume \in
+            let set = self.parse_power()?;
+            Some(Box::new(set))
+        } else {
+            None
+        };
+
+        // Parse the body expression
+        let body = self.parse_expression()?;
+
+        Ok(Expression::ForAll {
+            variable,
+            domain,
+            body: Box::new(body),
+        })
+    }
+
+    /// Parses an existential quantifier: \exists x P(x) or \exists! x P(x)
+    fn parse_exists(&mut self) -> ParseResult<Expression> {
+        // Check for unique existence: \exists!
+        let unique = if let Some((LatexToken::Command(cmd), _)) = self.peek() {
+            if cmd == "!" {
+                self.next(); // consume !
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        // Expect variable
+        let variable = match self.peek() {
+            Some((LatexToken::Letter(ch), _)) => {
+                let v = ch.to_string();
+                self.next();
+                v
+            }
+            Some((LatexToken::Command(cmd), _)) => {
+                // Greek letter variable
+                let v = cmd.clone();
+                self.next();
+                v
+            }
+            _ => {
+                return Err(ParseError::custom(
+                    "expected variable after \\exists".to_string(),
+                    Some(self.current_span()),
+                ));
+            }
+        };
+
+        // Check for optional domain: \in S
+        let domain = if let Some((LatexToken::In, _)) = self.peek() {
+            self.next(); // consume \in
+            let set = self.parse_power()?;
+            Some(Box::new(set))
+        } else {
+            None
+        };
+
+        // Parse the body expression
+        let body = self.parse_expression()?;
+
+        Ok(Expression::Exists {
+            variable,
+            domain,
+            body: Box::new(body),
+            unique,
+        })
+    }
+
     /// Parses a limit: \lim_{x \to a} or \lim_{x \to a^+}
     fn parse_limit(&mut self) -> ParseResult<Expression> {
         // Expect subscript with pattern: var \to value
@@ -1859,6 +2075,10 @@ mod vectors_tests;
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_multiple_integrals.rs"]
 mod multiple_integrals_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_logic.rs"]
+mod logic_tests;
 
 #[cfg(test)]
 #[allow(clippy::approx_constant)]
