@@ -156,6 +156,35 @@ pub enum LatexToken {
     SetMid,
     /// \mathcal{P} - power set
     PowerSet,
+
+    // Vector notation
+    /// \mathbf{...} - bold vector notation
+    Mathbf,
+    /// \boldsymbol{...} - bold symbol
+    Boldsymbol,
+    /// \vec{...} - arrow vector notation
+    Vec,
+    /// \overrightarrow{...} - long arrow
+    Overrightarrow,
+    /// \hat{...} - unit vector (hat)
+    Hat,
+    /// \underline{...} - underline notation
+    Underline,
+
+    // Vector/tensor operations
+    /// \cdot used as dot product operator
+    Cdot,
+    /// \bullet - alternative dot
+    Bullet,
+    /// \otimes - tensor/outer product
+    Otimes,
+    /// \wedge - wedge product
+    Wedge,
+
+    // Nabla
+    /// \nabla - del/nabla operator
+    Nabla,
+
     /// End of file marker
     Eof,
 }
@@ -472,6 +501,84 @@ impl<'a> Tokenizer<'a> {
                 "oiint" => Ok((LatexToken::ClosedSurface, span)),
                 "oiiint" => Ok((LatexToken::ClosedVolume, span)),
 
+
+                // Set operations
+                "cup" => Ok((LatexToken::Cup, span)),
+                "cap" => Ok((LatexToken::Cap, span)),
+                "setminus" => Ok((LatexToken::Setminus, span)),
+                "triangle" | "bigtriangleup" => Ok((LatexToken::Triangle, span)),
+
+                // Set relations
+                "subset" => Ok((LatexToken::Subset, span)),
+                "subseteq" => Ok((LatexToken::SubsetEq, span)),
+                "supset" => Ok((LatexToken::Superset, span)),
+                "supseteq" => Ok((LatexToken::SupersetEq, span)),
+
+                // Set notation
+                "emptyset" | "varnothing" => Ok((LatexToken::EmptySet, span)),
+                "mid" => Ok((LatexToken::SetMid, span)),
+
+                // \mathbb{X} - number sets
+                "mathbb" => {
+                    self.skip_whitespace();
+                    if self.peek() != Some('{') {
+                        return Err(ParseError::custom(
+                            "\\mathbb must be followed by {letter}".to_string(),
+                            Some(span),
+                        ));
+                    }
+                    self.consume(); // consume {
+                    let ch = self.peek();
+                    if ch.is_none() {
+                        return Err(ParseError::unexpected_eof(vec!["letter"], Some(span)));
+                    }
+                    let ch = ch.unwrap();
+                    self.consume(); // consume letter
+                    if self.peek() != Some('}') {
+                        return Err(ParseError::custom(
+                            "\\mathbb{} must contain exactly one character".to_string(),
+                            Some(span),
+                        ));
+                    }
+                    self.consume(); // consume }
+                    let end = self.position();
+                    match ch {
+                        'N' => Ok((LatexToken::Naturals, Span::new(start, end))),
+                        'Z' => Ok((LatexToken::Integers, Span::new(start, end))),
+                        'Q' => Ok((LatexToken::Rationals, Span::new(start, end))),
+                        'R' => Ok((LatexToken::Reals, Span::new(start, end))),
+                        'C' => Ok((LatexToken::Complexes, Span::new(start, end))),
+                        'H' => Ok((LatexToken::Quaternions, Span::new(start, end))),
+                        _ => Ok((LatexToken::Command(format!("mathbb_{}", ch)), Span::new(start, end))),
+                    }
+                }
+
+                // \mathcal{P} - power set
+                "mathcal" => {
+                    self.skip_whitespace();
+                    if self.peek() != Some('{') {
+                        return Ok((LatexToken::Command("mathcal".to_string()), span));
+                    }
+                    self.consume(); // consume {
+                    let ch = self.peek();
+                    if ch.is_none() {
+                        return Err(ParseError::unexpected_eof(vec!["letter"], Some(span)));
+                    }
+                    let ch = ch.unwrap();
+                    self.consume(); // consume letter
+                    if self.peek() != Some('}') {
+                        return Err(ParseError::custom(
+                            "\\mathcal{} must contain exactly one character".to_string(),
+                            Some(span),
+                        ));
+                    }
+                    self.consume(); // consume }
+                    let end = self.position();
+                    match ch {
+                        'P' => Ok((LatexToken::PowerSet, Span::new(start, end))),
+                        _ => Ok((LatexToken::Command(format!("mathcal_{}", ch)), Span::new(start, end))),
+                    }
+                }
                 _ => Ok((LatexToken::Command(cmd), span)),
             };
         }
@@ -1055,5 +1162,55 @@ mod tests {
         let tokens = tokenize_latex(r"\notin").unwrap();
         assert_eq!(tokens.len(), 2);
         assert!(matches!(tokens[0].0, LatexToken::NotIn));
+    }
+
+    #[test]
+    fn test_tokenize_double_integral() {
+        let tokens = tokenize_latex(r"\iint").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::DoubleIntegral));
+    }
+
+    #[test]
+    fn test_tokenize_triple_integral() {
+        let tokens = tokenize_latex(r"\iiint").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::TripleIntegral));
+    }
+
+    #[test]
+    fn test_tokenize_quad_integral() {
+        let tokens = tokenize_latex(r"\iiiint").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::QuadIntegral));
+    }
+
+    #[test]
+    fn test_tokenize_closed_integral() {
+        let tokens = tokenize_latex(r"\oint").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::ClosedIntegral));
+    }
+
+    #[test]
+    fn test_tokenize_closed_surface() {
+        let tokens = tokenize_latex(r"\oiint").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::ClosedSurface));
+    }
+
+    #[test]
+    fn test_tokenize_closed_volume() {
+        let tokens = tokenize_latex(r"\oiiint").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::ClosedVolume));
+    }
+
+    #[test]
+    fn test_tokenize_single_int_still_works() {
+        // Verify \int still works as before
+        let tokens = tokenize_latex(r"\int").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].0, LatexToken::Command("int".to_string()));
     }
 }

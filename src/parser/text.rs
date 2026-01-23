@@ -70,12 +70,13 @@ pub fn parse(input: &str) -> ParseResult<Expression> {
 ///
 /// let config = ParserConfig {
 ///     implicit_multiplication: true,
+///     ..Default::default()
 /// };
 /// let expr = parse_with_config("2x", &config).unwrap();
 /// ```
 pub fn parse_with_config(input: &str, config: &ParserConfig) -> ParseResult<Expression> {
     let tokens = tokenize(input)?;
-    let parser = TextParser::new(tokens, *config);
+    let parser = TextParser::new(tokens, config.clone());
     parser.parse()
 }
 
@@ -1586,9 +1587,7 @@ mod tests {
     #[test]
     fn test_implicit_mult_number_variable() {
         // 2x should parse as 2*x
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("2x", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -1606,9 +1605,7 @@ mod tests {
     #[test]
     fn test_implicit_mult_float_variable() {
         // 3.14r should parse as 3.14*r
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("3.14r", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -1626,9 +1623,7 @@ mod tests {
     #[test]
     fn test_implicit_mult_number_parens() {
         // 2(x+1) should parse as 2*(x+1)
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("2(x+1)", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -1653,9 +1648,7 @@ mod tests {
     fn test_implicit_mult_variable_variable() {
         // x y (with space) should parse as x*y
         // Note: xy (without space) is a single identifier per tokenizer rules
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("x y", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -1674,9 +1667,7 @@ mod tests {
     fn test_implicit_mult_variable_chain() {
         // x y z (with spaces) should parse as (x*y)*z due to left-associativity
         // Note: xyz (without spaces) is a single identifier per tokenizer rules
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("x y z", &config).unwrap();
         // Due to left-associativity, this will be (x*y)*z
         match expr {
@@ -1701,9 +1692,7 @@ mod tests {
     #[test]
     fn test_implicit_mult_constant_variable() {
         // pi x should parse as pi*x
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("pi x", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -1723,9 +1712,7 @@ mod tests {
     fn test_implicit_mult_parens_parens() {
         // (a)(b) should parse as (a)*(b)
         // Currently not working - needs enhancement to track when expr came from parens
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("(a)(b)", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -1743,9 +1730,7 @@ mod tests {
     #[test]
     fn test_implicit_mult_parens_variable() {
         // (a)x should parse as (a)*x
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("(a)x", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -1763,9 +1748,7 @@ mod tests {
     #[test]
     fn test_implicit_mult_complex_expression() {
         // 2x + 3y should parse as (2*x) + (3*y)
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("2x + 3y", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -1795,9 +1778,7 @@ mod tests {
     #[test]
     fn test_implicit_mult_with_power() {
         // 2x^2 should parse as 2*(x^2)
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("2x^2", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -1821,9 +1802,7 @@ mod tests {
     #[test]
     fn test_no_implicit_mult_function_call() {
         // sin(x) should remain a function call, NOT s*i*n*(x)
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("sin(x)", &config).unwrap();
         match expr {
             Expression::Function { name, args } => {
@@ -1839,6 +1818,7 @@ mod tests {
         // With implicit multiplication disabled, 2x should fail
         let config = ParserConfig {
             implicit_multiplication: false,
+            ..ParserConfig::default()
         };
         let result = parse_with_config("2x", &config);
         assert!(result.is_err());
@@ -1849,9 +1829,7 @@ mod tests {
     fn test_implicit_mult_mixed_with_explicit() {
         // 2x * 3y should parse as (2*x) * (3*y)
         // Currently fails because "3y" is tokenized as single identifier
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("2x * 3y", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -1881,9 +1859,7 @@ mod tests {
     #[test]
     fn test_implicit_mult_parenthesized_sum() {
         // (a + b)(c + d) should parse as (a+b)*(c+d)
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("(a + b)(c + d)", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -1913,9 +1889,7 @@ mod tests {
     #[test]
     fn test_implicit_mult_number_function() {
         // 2sin(x) should parse as 2*sin(x)
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("2sin(x)", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -1948,9 +1922,7 @@ mod tests {
     #[test]
     fn test_implicit_mult_precedence() {
         // 2x + 1 should parse as (2*x) + 1, not 2*(x+1)
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("2x + 1", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -2576,9 +2548,7 @@ mod extended_implicit_multiplication {
     #[test]
     fn test_implicit_mult_factorial_then_variable() {
         // 5!x should parse as (5!)*x
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("5!x", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -2602,9 +2572,7 @@ mod extended_implicit_multiplication {
     #[test]
     fn test_implicit_mult_factorial_then_parens() {
         // 5!(x+1) should parse as (5!)*(x+1)
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("5!(x+1)", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -2634,9 +2602,7 @@ mod extended_implicit_multiplication {
     #[test]
     fn test_implicit_mult_chained_three_variables() {
         // a b c should parse as (a*b)*c
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("a b c", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -2660,9 +2626,7 @@ mod extended_implicit_multiplication {
     #[test]
     fn test_implicit_mult_constant_then_function() {
         // pi sin(x) should parse as pi*sin(x)
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("pi sin(x)", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -2680,9 +2644,7 @@ mod extended_implicit_multiplication {
     #[test]
     fn test_implicit_mult_multiple_numbers_fails() {
         // 2 3 with implicit mult should fail (numbers separated by space are ambiguous)
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         // Note: This actually tokenizes as two separate integers
         // and would need explicit multiplication. Parser should error on unexpected token.
         let result = parse_with_config("2 3", &config);
@@ -2692,9 +2654,7 @@ mod extended_implicit_multiplication {
     #[test]
     fn test_implicit_mult_power_chain() {
         // 2x^3 should parse as 2*(x^3), not (2*x)^3
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("2x^3", &config).unwrap();
         match expr {
             Expression::Binary {
@@ -2718,9 +2678,7 @@ mod extended_implicit_multiplication {
     #[test]
     fn test_implicit_mult_with_relation() {
         // 2x = 5 should parse as (2*x) = 5
-        let config = ParserConfig {
-            implicit_multiplication: true,
-        };
+        let config = ParserConfig::default();
         let expr = parse_with_config("2x = 5", &config).unwrap();
         match expr {
             Expression::Equation { left, right } => {
@@ -2847,6 +2805,7 @@ mod extended_error_cases {
         // Without implicit mult, it's an error
         let config = ParserConfig {
             implicit_multiplication: false,
+            ..ParserConfig::default()
         };
         let result = parse_with_config("2func(x)", &config);
         assert!(result.is_err());
@@ -3056,5 +3015,4 @@ mod stress_tests {
         let output = format!("{}", expr);
         assert_eq!(output, input);
     }
-
 }

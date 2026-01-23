@@ -50,6 +50,7 @@
 //!
 //! let config = ParserConfig {
 //!     implicit_multiplication: true,
+//!     ..Default::default()
 //! };
 //!
 //! // Parse with custom configuration (config reserved for future use)
@@ -270,6 +271,7 @@ impl Default for ParserConfig {
 ///
 /// let config = ParserConfig {
 ///     implicit_multiplication: true,
+///     ..Default::default()
 /// };
 ///
 /// // Parse expression with implicit multiplication
