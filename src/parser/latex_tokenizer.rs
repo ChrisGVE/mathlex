@@ -73,6 +73,89 @@ pub enum LatexToken {
     To,
     /// Infinity (\infty)
     Infty,
+
+    // Multiple integrals
+    /// \iint - double integral
+    DoubleIntegral,
+    /// \iiint - triple integral
+    TripleIntegral,
+    /// \iiiint - quadruple integral (rare)
+    QuadIntegral,
+
+    // Closed integrals
+    /// \oint - closed line integral
+    ClosedIntegral,
+    /// \oiint - closed surface integral
+    ClosedSurface,
+    /// \oiiint - closed volume integral
+    ClosedVolume,
+
+    // Quantifiers
+    /// \forall - universal quantifier
+    ForAll,
+    /// \exists - existential quantifier
+    Exists,
+
+    // Logical connectives
+    /// \land, \wedge - logical AND
+    Land,
+    /// \lor, \vee - logical OR
+    Lor,
+    /// \lnot, \neg - logical NOT
+    Lnot,
+    /// \implies, \Rightarrow - implication
+    Implies,
+    /// \iff, \Leftrightarrow - if and only if
+    Iff,
+
+    // Membership
+    /// \in - element of
+    In,
+    /// \notin - not element of
+    NotIn,
+
+
+    // Number sets (via \mathbb{X})
+    /// \mathbb{N} - natural numbers
+    Naturals,
+    /// \mathbb{Z} - integers
+    Integers,
+    /// \mathbb{Q} - rationals
+    Rationals,
+    /// \mathbb{R} - reals
+    Reals,
+    /// \mathbb{C} - complex numbers
+    Complexes,
+    /// \mathbb{H} - quaternions
+    Quaternions,
+
+    // Set operations
+    /// \cup - union
+    Cup,
+    /// \cap - intersection
+    Cap,
+    /// \setminus - set difference
+    Setminus,
+    /// \triangle, \bigtriangleup - symmetric difference
+    Triangle,
+
+    // Set relations
+    /// \subset - proper subset
+    Subset,
+    /// \subseteq - subset or equal
+    SubsetEq,
+    /// \supset - proper superset
+    Superset,
+    /// \supseteq - superset or equal
+    SupersetEq,
+
+    // Set notation
+    /// \emptyset, \varnothing - empty set
+    EmptySet,
+    /// \mid - set builder separator
+    SetMid,
+    /// \mathcal{P} - power set
+    PowerSet,
     /// End of file marker
     Eof,
 }
@@ -295,24 +378,27 @@ impl<'a> Tokenizer<'a> {
                     self.consume(); // consume {
                     let ch = self.peek();
                     if ch.is_none() {
-                        return Err(ParseError::unexpected_eof(
-                            vec!["letter"],
-                            Some(span),
-                        ));
+                        return Err(ParseError::unexpected_eof(vec!["letter"], Some(span)));
                     }
                     let ch = ch.unwrap();
                     self.consume(); // consume letter
                     if self.peek() != Some('}') {
                         return Err(ParseError::custom(
-                            "\\mathrm{} must contain exactly one character for constant notation".to_string(),
+                            "\\mathrm{} must contain exactly one character for constant notation"
+                                .to_string(),
                             Some(span),
                         ));
                     }
                     self.consume(); // consume }
                     let end = self.position();
                     match ch {
-                        'e' | 'i' => Ok((LatexToken::ExplicitConstant(ch), Span::new(start, end))),
-                        _ => Ok((LatexToken::Command(format!("mathrm_{}", ch)), Span::new(start, end))),
+                        'e' | 'i' | 'j' | 'k' => {
+                            Ok((LatexToken::ExplicitConstant(ch), Span::new(start, end)))
+                        }
+                        _ => Ok((
+                            LatexToken::Command(format!("mathrm_{}", ch)),
+                            Span::new(start, end),
+                        )),
                     }
                 }
                 "imath" | "jmath" => Ok((LatexToken::ExplicitConstant('i'), span)),
@@ -360,6 +446,32 @@ impl<'a> Tokenizer<'a> {
                         _ => Ok((LatexToken::Command("right".to_string()), span)),
                     }
                 }
+
+                // Quantifiers
+                "forall" => Ok((LatexToken::ForAll, span)),
+                "exists" => Ok((LatexToken::Exists, span)),
+
+                // Logical connectives (handle aliases)
+                "land" | "wedge" => Ok((LatexToken::Land, span)),
+                "lor" | "vee" => Ok((LatexToken::Lor, span)),
+                "lnot" | "neg" => Ok((LatexToken::Lnot, span)),
+                "implies" | "Rightarrow" => Ok((LatexToken::Implies, span)),
+                "iff" | "Leftrightarrow" => Ok((LatexToken::Iff, span)),
+
+                // Set membership
+                "in" => Ok((LatexToken::In, span)),
+                "notin" => Ok((LatexToken::NotIn, span)),
+
+                // Multiple integrals
+                "iint" => Ok((LatexToken::DoubleIntegral, span)),
+                "iiint" => Ok((LatexToken::TripleIntegral, span)),
+                "iiiint" => Ok((LatexToken::QuadIntegral, span)),
+
+                // Closed integrals
+                "oint" => Ok((LatexToken::ClosedIntegral, span)),
+                "oiint" => Ok((LatexToken::ClosedSurface, span)),
+                "oiiint" => Ok((LatexToken::ClosedVolume, span)),
+
                 _ => Ok((LatexToken::Command(cmd), span)),
             };
         }
@@ -831,5 +943,117 @@ mod tests {
         assert_eq!(tokens[0].0, LatexToken::Number("2".to_string()));
         assert!(matches!(tokens[1].0, LatexToken::Star));
         assert_eq!(tokens[2].0, LatexToken::Number("3".to_string()));
+    }
+
+    #[test]
+    fn test_tokenize_mathrm_j() {
+        let tokens = tokenize_latex(r"\mathrm{j}").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].0, LatexToken::ExplicitConstant('j'));
+    }
+
+    #[test]
+    fn test_tokenize_mathrm_k() {
+        let tokens = tokenize_latex(r"\mathrm{k}").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].0, LatexToken::ExplicitConstant('k'));
+    }
+
+    #[test]
+    fn test_bare_j_is_letter() {
+        let tokens = tokenize_latex("j").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].0, LatexToken::Letter('j'));
+    }
+
+    #[test]
+    fn test_bare_k_is_letter() {
+        let tokens = tokenize_latex("k").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].0, LatexToken::Letter('k'));
+    }
+
+    #[test]
+    fn test_mathrm_i_still_works() {
+        let tokens = tokenize_latex(r"\mathrm{i}").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].0, LatexToken::ExplicitConstant('i'));
+    }
+
+    #[test]
+    fn test_mathrm_e_still_works() {
+        let tokens = tokenize_latex(r"\mathrm{e}").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].0, LatexToken::ExplicitConstant('e'));
+    }
+
+    #[test]
+    fn test_tokenize_forall() {
+        let tokens = tokenize_latex(r"\forall").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::ForAll));
+    }
+
+    #[test]
+    fn test_tokenize_exists() {
+        let tokens = tokenize_latex(r"\exists").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::Exists));
+    }
+
+    #[test]
+    fn test_tokenize_land() {
+        let tokens = tokenize_latex(r"\land").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::Land));
+    }
+
+    #[test]
+    fn test_tokenize_lor() {
+        let tokens = tokenize_latex(r"\lor").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::Lor));
+    }
+
+    #[test]
+    fn test_tokenize_lnot() {
+        let tokens = tokenize_latex(r"\lnot").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::Lnot));
+    }
+
+    #[test]
+    fn test_tokenize_neg_alias() {
+        let tokens = tokenize_latex(r"\neg").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::Lnot));
+    }
+
+    #[test]
+    fn test_tokenize_implies() {
+        let tokens = tokenize_latex(r"\implies").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::Implies));
+    }
+
+    #[test]
+    fn test_tokenize_iff() {
+        let tokens = tokenize_latex(r"\iff").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::Iff));
+    }
+
+    #[test]
+    fn test_tokenize_in() {
+        let tokens = tokenize_latex(r"\in").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::In));
+    }
+
+    #[test]
+    fn test_tokenize_notin() {
+        let tokens = tokenize_latex(r"\notin").unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].0, LatexToken::NotIn));
     }
 }
