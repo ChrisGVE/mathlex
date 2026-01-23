@@ -277,6 +277,7 @@ use std::collections::HashSet;
 
 // Modules will be added as development progresses
 pub mod ast;
+pub mod context;
 pub mod display;
 pub mod error;
 pub mod latex;
@@ -292,6 +293,7 @@ pub use ast::{
     BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, LogicalOp, MathConstant,
     UnaryOp, VectorNotation,
 };
+pub use context::{parse_system, ExpressionContext};
 pub use error::{ParseError, ParseErrorKind, ParseResult, Position, Span};
 pub use latex::ToLatex;
 pub use metadata::{ContextSource, ExpressionMetadata, MathType};
