@@ -180,6 +180,8 @@ pub enum LatexToken {
     Otimes,
     /// \wedge - wedge product
     Wedge,
+    /// \times - cross product (also for curl: ∇×F)
+    Cross,
 
     // Nabla
     /// \nabla - del/nabla operator
@@ -394,7 +396,8 @@ impl<'a> Tokenizer<'a> {
                 }
                 "to" => Ok((LatexToken::To, span)),
                 "infty" => Ok((LatexToken::Infty, span)),
-                "cdot" | "times" => Ok((LatexToken::Star, span)),
+                "cdot" => Ok((LatexToken::Cdot, span)),
+                "times" => Ok((LatexToken::Cross, span)),
                 "mathrm" => {
                     // Parse \mathrm{e} or \mathrm{i} as explicit constants
                     self.skip_whitespace();
@@ -579,6 +582,22 @@ impl<'a> Tokenizer<'a> {
                         _ => Ok((LatexToken::Command(format!("mathcal_{}", ch)), Span::new(start, end))),
                     }
                 }
+
+                // Vector notation
+                "mathbf" => Ok((LatexToken::Mathbf, span)),
+                "boldsymbol" => Ok((LatexToken::Boldsymbol, span)),
+                "vec" => Ok((LatexToken::Vec, span)),
+                "overrightarrow" => Ok((LatexToken::Overrightarrow, span)),
+                "hat" => Ok((LatexToken::Hat, span)),
+                "underline" => Ok((LatexToken::Underline, span)),
+
+                // Vector/tensor operations
+                "bullet" => Ok((LatexToken::Bullet, span)),
+                "otimes" => Ok((LatexToken::Otimes, span)),
+
+                // Nabla (gradient, divergence, curl)
+                "nabla" => Ok((LatexToken::Nabla, span)),
+
                 _ => Ok((LatexToken::Command(cmd), span)),
             };
         }
@@ -1024,14 +1043,14 @@ mod tests {
     fn test_tokenize_cdot() {
         let tokens = tokenize_latex(r"\cdot").unwrap();
         assert_eq!(tokens.len(), 2);
-        assert!(matches!(tokens[0].0, LatexToken::Star));
+        assert!(matches!(tokens[0].0, LatexToken::Cdot));
     }
 
     #[test]
     fn test_tokenize_times() {
         let tokens = tokenize_latex(r"\times").unwrap();
         assert_eq!(tokens.len(), 2);
-        assert!(matches!(tokens[0].0, LatexToken::Star));
+        assert!(matches!(tokens[0].0, LatexToken::Cross));
     }
 
     #[test]
@@ -1039,7 +1058,7 @@ mod tests {
         let tokens = tokenize_latex(r"a \cdot b").unwrap();
         assert_eq!(tokens.len(), 4); // a, \cdot, b, eof
         assert_eq!(tokens[0].0, LatexToken::Letter('a'));
-        assert!(matches!(tokens[1].0, LatexToken::Star));
+        assert!(matches!(tokens[1].0, LatexToken::Cdot));
         assert_eq!(tokens[2].0, LatexToken::Letter('b'));
     }
 
@@ -1048,7 +1067,7 @@ mod tests {
         let tokens = tokenize_latex(r"2 \times 3").unwrap();
         assert_eq!(tokens.len(), 4); // 2, \times, 3, eof
         assert_eq!(tokens[0].0, LatexToken::Number("2".to_string()));
-        assert!(matches!(tokens[1].0, LatexToken::Star));
+        assert!(matches!(tokens[1].0, LatexToken::Cross));
         assert_eq!(tokens[2].0, LatexToken::Number("3".to_string()));
     }
 

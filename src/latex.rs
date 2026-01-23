@@ -446,13 +446,27 @@ impl ToLatex for Expression {
                     4 => r"\iiiint",
                     _ => r"\int\cdots\int", // fallback
                 };
-                let vars_str = vars.iter().map(|v| format!("d{}", v)).collect::<Vec<_>>().join(" \\, ");
+                let vars_str = vars
+                    .iter()
+                    .map(|v| format!("d{}", v))
+                    .collect::<Vec<_>>()
+                    .join(" \\, ");
                 if let Some(b) = bounds {
                     // Format bounds as subscripts for multiple integrals
-                    let bounds_latex: Vec<String> = b.bounds.iter()
-                        .map(|ib| format!("_{{{}}}^{{{}}}", ib.lower.to_latex(), ib.upper.to_latex()))
+                    let bounds_latex: Vec<String> = b
+                        .bounds
+                        .iter()
+                        .map(|ib| {
+                            format!("_{{{}}}^{{{}}}", ib.lower.to_latex(), ib.upper.to_latex())
+                        })
                         .collect();
-                    format!("{}{} {} \\, {}", int_cmd, bounds_latex.join(""), integrand.to_latex(), vars_str)
+                    format!(
+                        "{}{} {} \\, {}",
+                        int_cmd,
+                        bounds_latex.join(""),
+                        integrand.to_latex(),
+                        vars_str
+                    )
                 } else {
                     format!("{} {} \\, {}", int_cmd, integrand.to_latex(), vars_str)
                 }
@@ -472,7 +486,13 @@ impl ToLatex for Expression {
                     _ => r"\oint", // fallback
                 };
                 if let Some(s) = surface {
-                    format!("{}_{{{}}} {} \\, d{}", int_cmd, s, integrand.to_latex(), var)
+                    format!(
+                        "{}_{{{}}} {} \\, d{}",
+                        int_cmd,
+                        s,
+                        integrand.to_latex(),
+                        var
+                    )
                 } else {
                     format!("{} {} \\, d{}", int_cmd, integrand.to_latex(), var)
                 }
@@ -735,40 +755,100 @@ impl ToLatex for Expression {
 
             // Tensor notation expressions
             Expression::Tensor { name, indices } => {
-                let upper: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Upper).collect();
-                let lower: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Lower).collect();
+                let upper: Vec<_> = indices
+                    .iter()
+                    .filter(|i| i.index_type == IndexType::Upper)
+                    .collect();
+                let lower: Vec<_> = indices
+                    .iter()
+                    .filter(|i| i.index_type == IndexType::Lower)
+                    .collect();
                 let mut result = name.clone();
                 if !upper.is_empty() {
-                    result.push_str(&format!("^{{{}}}", upper.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join("")));
+                    result.push_str(&format!(
+                        "^{{{}}}",
+                        upper
+                            .iter()
+                            .map(|i| i.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join("")
+                    ));
                 }
                 if !lower.is_empty() {
-                    result.push_str(&format!("_{{{}}}", lower.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join("")));
+                    result.push_str(&format!(
+                        "_{{{}}}",
+                        lower
+                            .iter()
+                            .map(|i| i.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join("")
+                    ));
                 }
                 result
             }
 
             Expression::KroneckerDelta { indices } => {
-                let upper: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Upper).collect();
-                let lower: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Lower).collect();
+                let upper: Vec<_> = indices
+                    .iter()
+                    .filter(|i| i.index_type == IndexType::Upper)
+                    .collect();
+                let lower: Vec<_> = indices
+                    .iter()
+                    .filter(|i| i.index_type == IndexType::Lower)
+                    .collect();
                 let mut result = r"\delta".to_string();
                 if !upper.is_empty() {
-                    result.push_str(&format!("^{{{}}}", upper.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join("")));
+                    result.push_str(&format!(
+                        "^{{{}}}",
+                        upper
+                            .iter()
+                            .map(|i| i.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join("")
+                    ));
                 }
                 if !lower.is_empty() {
-                    result.push_str(&format!("_{{{}}}", lower.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join("")));
+                    result.push_str(&format!(
+                        "_{{{}}}",
+                        lower
+                            .iter()
+                            .map(|i| i.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join("")
+                    ));
                 }
                 result
             }
 
             Expression::LeviCivita { indices } => {
-                let upper: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Upper).collect();
-                let lower: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Lower).collect();
+                let upper: Vec<_> = indices
+                    .iter()
+                    .filter(|i| i.index_type == IndexType::Upper)
+                    .collect();
+                let lower: Vec<_> = indices
+                    .iter()
+                    .filter(|i| i.index_type == IndexType::Lower)
+                    .collect();
                 let mut result = r"\varepsilon".to_string();
                 if !upper.is_empty() {
-                    result.push_str(&format!("^{{{}}}", upper.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join("")));
+                    result.push_str(&format!(
+                        "^{{{}}}",
+                        upper
+                            .iter()
+                            .map(|i| i.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join("")
+                    ));
                 }
                 if !lower.is_empty() {
-                    result.push_str(&format!("_{{{}}}", lower.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join("")));
+                    result.push_str(&format!(
+                        "_{{{}}}",
+                        lower
+                            .iter()
+                            .map(|i| i.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join("")
+                    ));
                 }
                 result
             }

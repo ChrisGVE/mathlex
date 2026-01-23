@@ -75,7 +75,7 @@ use std::collections::HashSet;
 
 use crate::ast::{
     BinaryOp, Direction, Expression, InequalityOp, IndexType, IntegralBounds, MathConstant,
-    MathFloat, TensorIndex,
+    MathFloat, TensorIndex, VectorNotation,
 };
 use crate::error::{ParseError, ParseResult, Span};
 use crate::parser::latex_tokenizer::{tokenize_latex, LatexToken};
@@ -344,8 +344,56 @@ impl LatexParser {
 
         loop {
             if let Some((token, _)) = self.peek() {
+                // Check for vector product operators first
+                match token {
+                    LatexToken::Bullet => {
+                        // Dot product: a \bullet b
+                        self.next(); // consume \bullet
+                        let right = self.parse_power()?;
+                        left = Expression::DotProduct {
+                            left: Box::new(left),
+                            right: Box::new(right),
+                        };
+                        continue;
+                    }
+                    LatexToken::Otimes => {
+                        // Outer product: a \otimes b
+                        self.next(); // consume \otimes
+                        let right = self.parse_power()?;
+                        left = Expression::OuterProduct {
+                            left: Box::new(left),
+                            right: Box::new(right),
+                        };
+                        continue;
+                    }
+                    LatexToken::Wedge => {
+                        // Wedge product: a \wedge b (exterior algebra)
+                        self.next(); // consume \wedge
+                        let right = self.parse_power()?;
+                        left = Expression::CrossProduct {
+                            left: Box::new(left),
+                            right: Box::new(right),
+                        };
+                        continue;
+                    }
+                    _ => {}
+                }
+
+                // Check for Cross (could be cross product or multiplication)
+                // Treat \times as cross product when operands appear to be vectors
+                if matches!(token, LatexToken::Cross) {
+                    self.next(); // consume \times
+                    let right = self.parse_power()?;
+                    left = Expression::CrossProduct {
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    };
+                    continue;
+                }
+
+                // Regular multiplication operators
                 let op = match token {
-                    LatexToken::Star => BinaryOp::Mul,
+                    LatexToken::Star | LatexToken::Cdot => BinaryOp::Mul,
                     LatexToken::Slash => BinaryOp::Div,
                     _ => {
                         // Check for implicit multiplication (e.g., dx means d*x)
@@ -358,7 +406,7 @@ impl LatexParser {
                 };
 
                 // Consume explicit operator (but not for implicit multiplication)
-                if matches!(token, LatexToken::Star | LatexToken::Slash) {
+                if matches!(token, LatexToken::Star | LatexToken::Cdot | LatexToken::Slash) {
                     self.next();
                 }
 
@@ -561,6 +609,28 @@ impl LatexParser {
                         let env_name = env_name.clone();
                         self.next(); // consume
                         self.parse_matrix_environment(&env_name)
+                    }
+                    // Vector notation: \mathbf{v}, \vec{a}, etc.
+                    LatexToken::Mathbf | LatexToken::Boldsymbol => {
+                        self.next(); // consume token
+                        self.parse_marked_vector(VectorNotation::Bold)
+                    }
+                    LatexToken::Vec | LatexToken::Overrightarrow => {
+                        self.next(); // consume token
+                        self.parse_marked_vector(VectorNotation::Arrow)
+                    }
+                    LatexToken::Hat => {
+                        self.next(); // consume token
+                        self.parse_marked_vector(VectorNotation::Hat)
+                    }
+                    LatexToken::Underline => {
+                        self.next(); // consume token
+                        self.parse_marked_vector(VectorNotation::Underline)
+                    }
+                    // Nabla (gradient, divergence, curl)
+                    LatexToken::Nabla => {
+                        self.next(); // consume \nabla
+                        self.parse_nabla()
                     }
                     _ => Err(ParseError::unexpected_token(
                         vec!["expression"],
@@ -1376,6 +1446,133 @@ impl LatexParser {
         Ok((index, lower, upper))
     }
 
+    // ============================================================
+    // Vector Notation Parsing
+    // ============================================================
+
+    /// Parses a marked vector: \mathbf{v}, \vec{a}, \hat{n}, \underline{u}
+    /// Returns MarkedVector with the given notation style.
+    fn parse_marked_vector(&mut self, notation: VectorNotation) -> ParseResult<Expression> {
+        // The argument is in braces or a single letter
+        let name = if self.check(&LatexToken::LBrace) {
+            // Parse the braced content as a vector name (consecutive letters)
+            self.braced(|p| p.parse_vector_name())?
+        } else {
+            // Single letter without braces: \vec a
+            match self.peek() {
+                Some((LatexToken::Letter(ch), _)) => {
+                    let ch = *ch;
+                    self.next();
+                    ch.to_string()
+                }
+                Some((LatexToken::Command(cmd), _)) => {
+                    // Greek letter: \vec\alpha
+                    let cmd = cmd.clone();
+                    self.next();
+                    cmd
+                }
+                _ => {
+                    return Err(ParseError::custom(
+                        "expected variable name after vector notation command".to_string(),
+                        Some(self.current_span()),
+                    ));
+                }
+            }
+        };
+
+        Ok(Expression::MarkedVector { name, notation })
+    }
+
+    /// Parses a vector name from consecutive letters or a single command.
+    /// Used for \overrightarrow{AB}, \mathbf{v}, etc.
+    fn parse_vector_name(&mut self) -> ParseResult<String> {
+        let mut name = String::new();
+
+        // Collect consecutive letters
+        while let Some((token, _)) = self.peek() {
+            match token {
+                LatexToken::Letter(ch) => {
+                    name.push(*ch);
+                    self.next();
+                }
+                LatexToken::Command(cmd) => {
+                    // Greek letter: append command name
+                    if name.is_empty() {
+                        name = cmd.clone();
+                        self.next();
+                        break; // Only one command allowed
+                    } else {
+                        break; // Can't mix letters and commands
+                    }
+                }
+                _ => break,
+            }
+        }
+
+        if name.is_empty() {
+            return Err(ParseError::custom(
+                "expected variable name in vector notation".to_string(),
+                Some(self.current_span()),
+            ));
+        }
+
+        Ok(name)
+    }
+
+    /// Parses nabla-based expressions: \nabla f, \nabla \cdot F, \nabla \times F
+    fn parse_nabla(&mut self) -> ParseResult<Expression> {
+        // Check what follows \nabla
+        match self.peek() {
+            Some((LatexToken::Cdot, _)) => {
+                // \nabla \cdot F (divergence)
+                self.next(); // consume \cdot
+                let field = self.parse_power()?;
+                Ok(Expression::Divergence {
+                    field: Box::new(field),
+                })
+            }
+            Some((LatexToken::Bullet, _)) => {
+                // \nabla \bullet F (divergence with bullet)
+                self.next(); // consume \bullet
+                let field = self.parse_power()?;
+                Ok(Expression::Divergence {
+                    field: Box::new(field),
+                })
+            }
+            Some((LatexToken::Cross, _)) => {
+                // \nabla \times F (curl)
+                self.next(); // consume \times
+                let field = self.parse_power()?;
+                Ok(Expression::Curl {
+                    field: Box::new(field),
+                })
+            }
+            Some((LatexToken::Caret, _)) => {
+                // \nabla^2 f (Laplacian)
+                self.next(); // consume ^
+                let power = self.parse_braced_or_atom()?;
+                if let Expression::Integer(2) = power {
+                    let expr = self.parse_power()?;
+                    Ok(Expression::Laplacian {
+                        expr: Box::new(expr),
+                    })
+                } else {
+                    Err(ParseError::custom(
+                        "expected \\nabla^2 for Laplacian".to_string(),
+                        Some(self.current_span()),
+                    ))
+                }
+            }
+            _ => {
+                // \nabla f (gradient) - just nabla followed by expression
+                let expr = self.parse_power()?;
+                Ok(Expression::Gradient {
+                    expr: Box::new(expr),
+                })
+            }
+        }
+    }
+
     /// Parses a matrix environment (\begin{matrix}...\end{matrix} and variants).
     fn parse_matrix_environment(&mut self, env_name: &str) -> ParseResult<Expression> {
         // Validate environment name
@@ -1517,6 +1714,10 @@ mod errors_tests;
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_tensors.rs"]
 mod tensors_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_vectors.rs"]
+mod vectors_tests;
 
 #[cfg(test)]
 #[allow(clippy::approx_constant)]
@@ -2517,15 +2718,16 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_times_multiplication() {
+    fn test_parse_times_cross_product() {
+        // \times is parsed as CrossProduct in mathematical notation
+        // Consuming libraries can interpret this as scalar multiplication when operands are scalars
         let expr = parse_latex(r"2 \times 3").unwrap();
         match expr {
-            Expression::Binary { op, left, right } => {
-                assert_eq!(op, BinaryOp::Mul);
+            Expression::CrossProduct { left, right } => {
                 assert_eq!(*left, Expression::Integer(2));
                 assert_eq!(*right, Expression::Integer(3));
             }
-            _ => panic!("Expected binary multiplication"),
+            _ => panic!("Expected cross product, got {:?}", expr),
         }
     }
 
@@ -2557,13 +2759,10 @@ mod tests {
 
     #[test]
     fn test_parse_times_with_parentheses() {
+        // \times is parsed as CrossProduct
         let expr = parse_latex(r"(a + b) \times (c - d)").unwrap();
         match expr {
-            Expression::Binary {
-                op: BinaryOp::Mul,
-                left,
-                right,
-            } => {
+            Expression::CrossProduct { left, right } => {
                 assert!(matches!(
                     *left,
                     Expression::Binary {
@@ -2579,7 +2778,7 @@ mod tests {
                     }
                 ));
             }
-            _ => panic!("Expected binary multiplication"),
+            _ => panic!("Expected cross product, got {:?}", expr),
         }
     }
 

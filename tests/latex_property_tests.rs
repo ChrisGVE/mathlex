@@ -60,8 +60,45 @@ fn semantically_equal(a: &Expression, b: &Expression) -> bool {
         ) => {
             n1 == n2
                 && a1.len() == a2.len()
-                && a1.iter().zip(a2.iter()).all(|(x, y)| semantically_equal(x, y))
+                && a1
+                    .iter()
+                    .zip(a2.iter())
+                    .all(|(x, y)| semantically_equal(x, y))
         }
+
+        // Vector products
+        (
+            Expression::CrossProduct {
+                left: l1,
+                right: r1,
+            },
+            Expression::CrossProduct {
+                left: l2,
+                right: r2,
+            },
+        ) => semantically_equal(l1, l2) && semantically_equal(r1, r2),
+
+        (
+            Expression::DotProduct {
+                left: l1,
+                right: r1,
+            },
+            Expression::DotProduct {
+                left: l2,
+                right: r2,
+            },
+        ) => semantically_equal(l1, l2) && semantically_equal(r1, r2),
+
+        (
+            Expression::OuterProduct {
+                left: l1,
+                right: r1,
+            },
+            Expression::OuterProduct {
+                left: l2,
+                right: r2,
+            },
+        ) => semantically_equal(l1, l2) && semantically_equal(r1, r2),
 
         // For other types, fall back to direct equality
         _ => a == b,
@@ -172,9 +209,8 @@ fn arb_complex_latex() -> impl Strategy<Value = String> {
                     }
                 }),
                 // Fractions: \frac{a}{b}
-                (inner.clone(), inner.clone()).prop_map(|(num, den)| {
-                    format!(r"\frac{{{}}}{{{}}}", num, den)
-                }),
+                (inner.clone(), inner.clone())
+                    .prop_map(|(num, den)| { format!(r"\frac{{{}}}{{{}}}", num, den) }),
                 // Functions with single argument: \sin(x)
                 (arb_latex_function(), inner.clone()).prop_map(|(func, arg)| {
                     if func == r"\sqrt" {
@@ -508,23 +544,36 @@ proptest! {
 
     /// Property: Multiplication is parsed with correct operator
     ///
-    /// a * b or a \cdot b should parse to multiplication.
+    /// a \cdot b should parse to multiplication.
+    /// a \times b should parse to CrossProduct (semantic distinction in mathematical notation).
     #[test]
     fn prop_parse_multiplication(a in arb_latex_number(), b in arb_latex_number()) {
-        let latex1 = format!(r"{} \cdot {}", a, b);
-        let latex2 = format!(r"{} \times {}", a, b);
+        // Test \cdot as multiplication
+        let latex_cdot = format!(r"{} \cdot {}", a, b);
+        if let Ok(expr) = parse_latex(&latex_cdot) {
+            match expr {
+                Expression::Binary { op: BinaryOp::Mul, .. } => {
+                    // Correctly parsed as multiplication
+                }
+                _ => {
+                    return Err(TestCaseError::fail(
+                        format!("Expected multiplication for \\cdot, got: {:?}", expr)
+                    ));
+                }
+            }
+        }
 
-        for latex in [latex1, latex2] {
-            if let Ok(expr) = parse_latex(&latex) {
-                match expr {
-                    Expression::Binary { op: BinaryOp::Mul, .. } => {
-                        // Correctly parsed as multiplication
-                    }
-                    _ => {
-                        return Err(TestCaseError::fail(
-                            format!("Expected multiplication, got: {:?}", expr)
-                        ));
-                    }
+        // Test \times as CrossProduct
+        let latex_times = format!(r"{} \times {}", a, b);
+        if let Ok(expr) = parse_latex(&latex_times) {
+            match expr {
+                Expression::CrossProduct { .. } => {
+                    // Correctly parsed as cross product
+                }
+                _ => {
+                    return Err(TestCaseError::fail(
+                        format!("Expected CrossProduct for \\times, got: {:?}", expr)
+                    ));
                 }
             }
         }
@@ -576,7 +625,10 @@ fn test_parse_latex_pi() {
 fn test_parse_latex_frac() {
     let expr = parse_latex(r"\frac{1}{2}").unwrap();
     match expr {
-        Expression::Binary { op: BinaryOp::Div, .. } | Expression::Rational { .. } => {}
+        Expression::Binary {
+            op: BinaryOp::Div, ..
+        }
+        | Expression::Rational { .. } => {}
         _ => panic!("Expected division or rational"),
     }
 }
@@ -597,7 +649,9 @@ fn test_parse_latex_sqrt() {
     let expr = parse_latex(r"\sqrt{4}").unwrap();
     match expr {
         Expression::Function { name, .. } if name == "sqrt" => {}
-        Expression::Binary { op: BinaryOp::Pow, .. } => {}
+        Expression::Binary {
+            op: BinaryOp::Pow, ..
+        } => {}
         _ => panic!("Expected sqrt function or power"),
     }
 }

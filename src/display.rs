@@ -313,9 +313,18 @@ impl fmt::Display for Expression {
                     3 => "∭",
                     _ => "∫∫...", // fallback
                 };
-                let vars_str = vars.iter().map(|v| format!("d{}", v)).collect::<Vec<_>>().join(" ");
+                let vars_str = vars
+                    .iter()
+                    .map(|v| format!("d{}", v))
+                    .collect::<Vec<_>>()
+                    .join(" ");
                 if let Some(b) = bounds {
-                    let bounds_str = b.bounds.iter().map(|ib| format!("{}", ib)).collect::<Vec<_>>().join(", ");
+                    let bounds_str = b
+                        .bounds
+                        .iter()
+                        .map(|ib| format!("{}", ib))
+                        .collect::<Vec<_>>()
+                        .join(", ");
                     write!(f, "{} {} {} [{}]", symbol, integrand, vars_str, bounds_str)
                 } else {
                     write!(f, "{} {} {}", symbol, integrand, vars_str)
@@ -566,39 +575,105 @@ impl fmt::Display for Expression {
             Expression::Tensor { name, indices } => {
                 write!(f, "{}", name)?;
                 // Group indices by type for cleaner display
-                let upper: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Upper).collect();
-                let lower: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Lower).collect();
+                let upper: Vec<_> = indices
+                    .iter()
+                    .filter(|i| i.index_type == IndexType::Upper)
+                    .collect();
+                let lower: Vec<_> = indices
+                    .iter()
+                    .filter(|i| i.index_type == IndexType::Lower)
+                    .collect();
                 if !upper.is_empty() {
-                    write!(f, "^{{{}}}", upper.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join(""))?;
+                    write!(
+                        f,
+                        "^{{{}}}",
+                        upper
+                            .iter()
+                            .map(|i| i.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join("")
+                    )?;
                 }
                 if !lower.is_empty() {
-                    write!(f, "_{{{}}}", lower.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join(""))?;
+                    write!(
+                        f,
+                        "_{{{}}}",
+                        lower
+                            .iter()
+                            .map(|i| i.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join("")
+                    )?;
                 }
                 Ok(())
             }
 
             Expression::KroneckerDelta { indices } => {
                 write!(f, "δ")?;
-                let upper: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Upper).collect();
-                let lower: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Lower).collect();
+                let upper: Vec<_> = indices
+                    .iter()
+                    .filter(|i| i.index_type == IndexType::Upper)
+                    .collect();
+                let lower: Vec<_> = indices
+                    .iter()
+                    .filter(|i| i.index_type == IndexType::Lower)
+                    .collect();
                 if !upper.is_empty() {
-                    write!(f, "^{{{}}}", upper.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join(""))?;
+                    write!(
+                        f,
+                        "^{{{}}}",
+                        upper
+                            .iter()
+                            .map(|i| i.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join("")
+                    )?;
                 }
                 if !lower.is_empty() {
-                    write!(f, "_{{{}}}", lower.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join(""))?;
+                    write!(
+                        f,
+                        "_{{{}}}",
+                        lower
+                            .iter()
+                            .map(|i| i.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join("")
+                    )?;
                 }
                 Ok(())
             }
 
             Expression::LeviCivita { indices } => {
                 write!(f, "ε")?;
-                let upper: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Upper).collect();
-                let lower: Vec<_> = indices.iter().filter(|i| i.index_type == IndexType::Lower).collect();
+                let upper: Vec<_> = indices
+                    .iter()
+                    .filter(|i| i.index_type == IndexType::Upper)
+                    .collect();
+                let lower: Vec<_> = indices
+                    .iter()
+                    .filter(|i| i.index_type == IndexType::Lower)
+                    .collect();
                 if !upper.is_empty() {
-                    write!(f, "^{{{}}}", upper.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join(""))?;
+                    write!(
+                        f,
+                        "^{{{}}}",
+                        upper
+                            .iter()
+                            .map(|i| i.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join("")
+                    )?;
                 }
                 if !lower.is_empty() {
-                    write!(f, "_{{{}}}", lower.iter().map(|i| i.name.as_str()).collect::<Vec<_>>().join(""))?;
+                    write!(
+                        f,
+                        "_{{{}}}",
+                        lower
+                            .iter()
+                            .map(|i| i.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join("")
+                    )?;
                 }
                 Ok(())
             }
