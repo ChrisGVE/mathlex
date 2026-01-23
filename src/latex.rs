@@ -142,6 +142,8 @@ impl ToLatex for MathConstant {
             MathConstant::Pi => r"\pi".to_string(),
             MathConstant::E => "e".to_string(),
             MathConstant::I => "i".to_string(),
+            MathConstant::J => r"\mathbf{j}".to_string(),
+            MathConstant::K => r"\mathbf{k}".to_string(),
             MathConstant::Infinity => r"\infty".to_string(),
             MathConstant::NegInfinity => r"-\infty".to_string(),
         }

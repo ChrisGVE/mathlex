@@ -116,6 +116,8 @@ impl fmt::Display for MathConstant {
             MathConstant::Pi => write!(f, "pi"),
             MathConstant::E => write!(f, "e"),
             MathConstant::I => write!(f, "i"),
+            MathConstant::J => write!(f, "j"),
+            MathConstant::K => write!(f, "k"),
             MathConstant::Infinity => write!(f, "inf"),
             MathConstant::NegInfinity => write!(f, "-inf"),
         }

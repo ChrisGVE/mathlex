@@ -164,10 +164,20 @@ impl fmt::Display for MathFloat {
 /// - **`Pi`**: Parsed from `π` (Unicode) or `\pi` (LaTeX)
 /// - **`E`**: Parsed from `e` (plain text) or `e` (LaTeX)
 /// - **`I`**: Parsed from `i` (plain text) or `i` (LaTeX), represents the imaginary unit
+///   (also serves as quaternion basis vector i)
+/// - **`J`**: Quaternion basis vector j, parsed from `\mathbf{j}` or in quaternion context
+/// - **`K`**: Quaternion basis vector k, parsed from `\mathbf{k}` or in quaternion context
 /// - **`Infinity`**: Parsed from `∞` (Unicode) or `\infty` (LaTeX)
 /// - **`NegInfinity`**: Not directly produced by parsers. The input `-∞` is parsed as
 ///   `Unary { op: Neg, operand: Constant(Infinity) }`. This variant exists for programmatic
 ///   construction and simplification by consumers.
+///
+/// ## Quaternion Context
+///
+/// The presence of `J` or `K` constants in an expression implies quaternion context.
+/// The existing `I` constant serves dual purpose: complex imaginary unit and quaternion
+/// basis vector i. In quaternion expressions (a + bi + cj + dk), the multiplication
+/// rules are: i² = j² = k² = ijk = -1.
 ///
 /// ## Examples
 ///
@@ -177,6 +187,13 @@ impl fmt::Display for MathFloat {
 /// let pi = MathConstant::Pi;
 /// let euler = MathConstant::E;
 /// assert_ne!(pi, euler);
+///
+/// // Quaternion basis vectors
+/// let i = MathConstant::I;
+/// let j = MathConstant::J;
+/// let k = MathConstant::K;
+/// assert_ne!(i, j);
+/// assert_ne!(j, k);
 ///
 /// // Note: NegInfinity is for programmatic use
 /// let neg_inf = MathConstant::NegInfinity;
@@ -192,7 +209,16 @@ pub enum MathConstant {
     E,
 
     /// The imaginary unit i, where i² = -1
+    /// Also serves as quaternion basis vector i.
     I,
+
+    /// Quaternion basis vector j.
+    /// Satisfies j² = -1 and ij = k, ji = -k.
+    J,
+
+    /// Quaternion basis vector k.
+    /// Satisfies k² = -1 and jk = i, kj = -i.
+    K,
 
     /// Positive infinity (∞)
     Infinity,

@@ -810,6 +810,8 @@ impl LatexParser {
             Expression::Constant(c) => Ok(match c {
                 MathConstant::E => "e".to_string(),
                 MathConstant::I => "i".to_string(),
+                MathConstant::J => "j".to_string(),
+                MathConstant::K => "k".to_string(),
                 MathConstant::Pi => "pi".to_string(),
                 MathConstant::Infinity => "inf".to_string(),
                 MathConstant::NegInfinity => "neginf".to_string(),
