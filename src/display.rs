@@ -495,6 +495,17 @@ impl fmt::Display for Expression {
 
             Expression::Nabla => write!(f, "∇"),
 
+            // Linear algebra operations
+            Expression::Determinant { matrix } => write!(f, "det({})", matrix),
+
+            Expression::Trace { matrix } => write!(f, "tr({})", matrix),
+
+            Expression::Rank { matrix } => write!(f, "rank({})", matrix),
+
+            Expression::ConjugateTranspose { matrix } => write!(f, "{}†", matrix),
+
+            Expression::MatrixInverse { matrix } => write!(f, "{}⁻¹", matrix),
+
             // Set theory expressions
             Expression::NumberSetExpr(set) => {
                 let symbol = match set {

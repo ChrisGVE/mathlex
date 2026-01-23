@@ -649,6 +649,27 @@ impl ToLatex for Expression {
 
             Expression::Nabla => r"\nabla".to_string(),
 
+            // Linear algebra operations
+            Expression::Determinant { matrix } => {
+                format!(r"\det({})", matrix.to_latex())
+            }
+
+            Expression::Trace { matrix } => {
+                format!(r"\text{{tr}}({})", matrix.to_latex())
+            }
+
+            Expression::Rank { matrix } => {
+                format!(r"\text{{rank}}({})", matrix.to_latex())
+            }
+
+            Expression::ConjugateTranspose { matrix } => {
+                format!(r"{}^\dagger", matrix.to_latex())
+            }
+
+            Expression::MatrixInverse { matrix } => {
+                format!(r"{}^{{-1}}", matrix.to_latex())
+            }
+
             // Set theory expressions
             Expression::NumberSetExpr(set) => {
                 let latex = match set {

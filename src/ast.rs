@@ -1725,6 +1725,108 @@ pub enum Expression {
     Nabla,
 
     // ============================================================
+    // Linear Algebra Operations
+    // ============================================================
+
+    /// Determinant of a matrix: det(A) or |A|.
+    ///
+    /// Returns a scalar value representing the signed volume scaling factor
+    /// of the linear transformation represented by the matrix.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // det(A)
+    /// let det = Expression::Determinant {
+    ///     matrix: Box::new(Expression::Variable("A".to_string())),
+    /// };
+    /// ```
+    Determinant {
+        /// The matrix expression
+        matrix: Box<Expression>,
+    },
+
+    /// Trace of a matrix: tr(A).
+    ///
+    /// Returns the sum of the diagonal elements of a square matrix.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // tr(A)
+    /// let trace = Expression::Trace {
+    ///     matrix: Box::new(Expression::Variable("A".to_string())),
+    /// };
+    /// ```
+    Trace {
+        /// The matrix expression
+        matrix: Box<Expression>,
+    },
+
+    /// Rank of a matrix: rank(A).
+    ///
+    /// Returns the dimension of the column space (or row space) of the matrix.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // rank(A)
+    /// let rank = Expression::Rank {
+    ///     matrix: Box::new(Expression::Variable("A".to_string())),
+    /// };
+    /// ```
+    Rank {
+        /// The matrix expression
+        matrix: Box<Expression>,
+    },
+
+    /// Conjugate transpose (Hermitian adjoint): A†, A*, or A^H.
+    ///
+    /// The transpose of the complex conjugate of the matrix.
+    /// For real matrices, this is just the transpose.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // A† (conjugate transpose)
+    /// let adjoint = Expression::ConjugateTranspose {
+    ///     matrix: Box::new(Expression::Variable("A".to_string())),
+    /// };
+    /// ```
+    ConjugateTranspose {
+        /// The matrix expression
+        matrix: Box<Expression>,
+    },
+
+    /// Matrix inverse: A⁻¹.
+    ///
+    /// The matrix that when multiplied by A gives the identity matrix.
+    /// Only exists for square matrices with non-zero determinant.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use mathlex::ast::Expression;
+    ///
+    /// // A⁻¹
+    /// let inverse = Expression::MatrixInverse {
+    ///     matrix: Box::new(Expression::Variable("A".to_string())),
+    /// };
+    /// ```
+    MatrixInverse {
+        /// The matrix expression
+        matrix: Box<Expression>,
+    },
+
+    // ============================================================
     // Set Theory Expressions
     // ============================================================
 

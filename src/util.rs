@@ -273,6 +273,15 @@ impl Expression {
 
             Expression::Nabla => {}
 
+            // Linear algebra operations - recurse on matrix operand
+            Expression::Determinant { matrix }
+            | Expression::Trace { matrix }
+            | Expression::Rank { matrix }
+            | Expression::ConjugateTranspose { matrix }
+            | Expression::MatrixInverse { matrix } => {
+                matrix.collect_variables(variables);
+            }
+
             // Set theory expressions
             Expression::NumberSetExpr(_) | Expression::EmptySet => {}
 
@@ -505,6 +514,15 @@ impl Expression {
 
             Expression::Nabla => {}
 
+            // Linear algebra operations - recurse on matrix operand
+            Expression::Determinant { matrix }
+            | Expression::Trace { matrix }
+            | Expression::Rank { matrix }
+            | Expression::ConjugateTranspose { matrix }
+            | Expression::MatrixInverse { matrix } => {
+                matrix.collect_functions(functions);
+            }
+
             // Set theory expressions - no functions to collect from NumberSetExpr/EmptySet
             Expression::NumberSetExpr(_) | Expression::EmptySet => {}
 
@@ -728,6 +746,15 @@ impl Expression {
 
             Expression::Nabla => {}
 
+            // Linear algebra operations - recurse on matrix operand
+            Expression::Determinant { matrix }
+            | Expression::Trace { matrix }
+            | Expression::Rank { matrix }
+            | Expression::ConjugateTranspose { matrix }
+            | Expression::MatrixInverse { matrix } => {
+                matrix.collect_constants(constants);
+            }
+
             // Set theory expressions - no constants to collect from NumberSetExpr/EmptySet
             Expression::NumberSetExpr(_) | Expression::EmptySet => {}
 
@@ -939,6 +966,13 @@ impl Expression {
 
             Expression::Nabla => 1,
 
+            // Linear algebra operations - 1 + depth of matrix operand
+            Expression::Determinant { matrix }
+            | Expression::Trace { matrix }
+            | Expression::Rank { matrix }
+            | Expression::ConjugateTranspose { matrix }
+            | Expression::MatrixInverse { matrix } => 1 + matrix.depth(),
+
             // Set theory expressions
             Expression::NumberSetExpr(_) | Expression::EmptySet => 1,
 
@@ -1130,6 +1164,13 @@ impl Expression {
             | Expression::Curl { field } => 1 + field.node_count(),
 
             Expression::Nabla => 1,
+
+            // Linear algebra operations - 1 + count of matrix operand
+            Expression::Determinant { matrix }
+            | Expression::Trace { matrix }
+            | Expression::Rank { matrix }
+            | Expression::ConjugateTranspose { matrix }
+            | Expression::MatrixInverse { matrix } => 1 + matrix.node_count(),
 
             // Set theory expressions
             Expression::NumberSetExpr(_) | Expression::EmptySet => 1,
@@ -1550,6 +1591,27 @@ impl Expression {
             },
 
             Expression::Nabla => Expression::Nabla,
+
+            // Linear algebra operations
+            Expression::Determinant { matrix } => Expression::Determinant {
+                matrix: Box::new(matrix.substitute(var, replacement)),
+            },
+
+            Expression::Trace { matrix } => Expression::Trace {
+                matrix: Box::new(matrix.substitute(var, replacement)),
+            },
+
+            Expression::Rank { matrix } => Expression::Rank {
+                matrix: Box::new(matrix.substitute(var, replacement)),
+            },
+
+            Expression::ConjugateTranspose { matrix } => Expression::ConjugateTranspose {
+                matrix: Box::new(matrix.substitute(var, replacement)),
+            },
+
+            Expression::MatrixInverse { matrix } => Expression::MatrixInverse {
+                matrix: Box::new(matrix.substitute(var, replacement)),
+            },
 
             // Set theory expressions
             Expression::NumberSetExpr(_) | Expression::EmptySet => self.clone(),
@@ -2046,6 +2108,27 @@ impl Expression {
             },
 
             Expression::Nabla => Expression::Nabla,
+
+            // Linear algebra operations
+            Expression::Determinant { matrix } => Expression::Determinant {
+                matrix: Box::new(matrix.substitute_all(subs)),
+            },
+
+            Expression::Trace { matrix } => Expression::Trace {
+                matrix: Box::new(matrix.substitute_all(subs)),
+            },
+
+            Expression::Rank { matrix } => Expression::Rank {
+                matrix: Box::new(matrix.substitute_all(subs)),
+            },
+
+            Expression::ConjugateTranspose { matrix } => Expression::ConjugateTranspose {
+                matrix: Box::new(matrix.substitute_all(subs)),
+            },
+
+            Expression::MatrixInverse { matrix } => Expression::MatrixInverse {
+                matrix: Box::new(matrix.substitute_all(subs)),
+            },
 
             // Set theory expressions
             Expression::NumberSetExpr(_) | Expression::EmptySet => self.clone(),
