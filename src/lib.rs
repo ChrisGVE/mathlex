@@ -79,6 +79,8 @@
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
+use std::collections::HashSet;
+
 // Modules will be added as development progresses
 pub mod ast;
 pub mod display;
@@ -92,7 +94,8 @@ pub mod ffi;
 
 // Re-export key types at crate root for convenience
 pub use ast::{
-    BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, LogicalOp, MathConstant, UnaryOp,
+    BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, LogicalOp, MathConstant,
+    UnaryOp, VectorNotation,
 };
 pub use error::{ParseError, ParseErrorKind, ParseResult, Position, Span};
 pub use latex::ToLatex;
@@ -100,26 +103,82 @@ pub use latex::ToLatex;
 // Re-export parser functions
 pub use parser::{parse, parse_latex};
 
-/// Configuration options for the mathematical expression parser.
+/// Number system context for parsing.
 ///
-/// This struct controls various parsing behaviors. Currently supports
-/// configuring implicit multiplication handling.
+/// Indicates the assumed number system for parsing expressions.
+/// This can help disambiguate notation in context-dependent scenarios.
 ///
 /// # Examples
 ///
 /// ```
-/// use mathlex::ParserConfig;
+/// use mathlex::NumberSystem;
+///
+/// let real = NumberSystem::Real;
+/// let complex = NumberSystem::Complex;
+/// let quaternion = NumberSystem::Quaternion;
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum NumberSystem {
+    /// Real number system (default)
+    #[default]
+    Real,
+    /// Complex number system
+    Complex,
+    /// Quaternion number system
+    Quaternion,
+}
+
+/// Index convention for tensor notation.
+///
+/// Specifies how repeated indices should be interpreted in expressions.
+///
+/// # Examples
+///
+/// ```
+/// use mathlex::IndexConvention;
+///
+/// let standard = IndexConvention::Standard;
+/// let einstein = IndexConvention::EinsteinSummation;
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum IndexConvention {
+    /// Standard index notation (default)
+    #[default]
+    Standard,
+    /// Einstein summation convention (implied summation over repeated indices)
+    EinsteinSummation,
+}
+
+/// Configuration options for the mathematical expression parser.
+///
+/// This struct controls various parsing behaviors including implicit
+/// multiplication, number system context, and symbol declarations.
+///
+/// # Examples
+///
+/// ```
+/// use mathlex::{ParserConfig, NumberSystem, IndexConvention};
+/// use std::collections::HashSet;
 ///
 /// // Use default configuration
 /// let config = ParserConfig::default();
 /// assert_eq!(config.implicit_multiplication, true);
 ///
-/// // Create custom configuration
+/// // Create custom configuration with context hints
+/// let mut declared_vectors = HashSet::new();
+/// declared_vectors.insert("v".to_string());
+/// declared_vectors.insert("u".to_string());
+///
 /// let config = ParserConfig {
 ///     implicit_multiplication: false,
+///     number_system: NumberSystem::Complex,
+///     index_convention: IndexConvention::EinsteinSummation,
+///     declared_vectors,
+///     declared_matrices: HashSet::new(),
+///     declared_scalars: HashSet::new(),
 /// };
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParserConfig {
     /// Enable implicit multiplication (e.g., `2x` means `2*x`).
     ///
@@ -129,12 +188,57 @@ pub struct ParserConfig {
     ///
     /// Default: `true`
     pub implicit_multiplication: bool,
+
+    /// Number system context for parsing.
+    ///
+    /// Indicates the assumed number system which can help disambiguate
+    /// notation in context-dependent scenarios.
+    ///
+    /// Default: `NumberSystem::Real`
+    pub number_system: NumberSystem,
+
+    /// Index convention for tensor notation.
+    ///
+    /// Specifies how repeated indices should be interpreted in expressions,
+    /// particularly for Einstein summation convention.
+    ///
+    /// Default: `IndexConvention::Standard`
+    pub index_convention: IndexConvention,
+
+    /// Declared vector symbols.
+    ///
+    /// A set of symbol names that should be treated as vectors during parsing.
+    /// This helps the parser disambiguate between scalar and vector quantities.
+    ///
+    /// Default: empty set
+    pub declared_vectors: HashSet<String>,
+
+    /// Declared matrix symbols.
+    ///
+    /// A set of symbol names that should be treated as matrices during parsing.
+    /// This helps the parser disambiguate between scalar and matrix quantities.
+    ///
+    /// Default: empty set
+    pub declared_matrices: HashSet<String>,
+
+    /// Declared scalar symbols.
+    ///
+    /// A set of symbol names that should be explicitly treated as scalars.
+    /// Useful when certain symbols might otherwise be ambiguous.
+    ///
+    /// Default: empty set
+    pub declared_scalars: HashSet<String>,
 }
 
 impl Default for ParserConfig {
     fn default() -> Self {
         Self {
             implicit_multiplication: true,
+            number_system: NumberSystem::default(),
+            index_convention: IndexConvention::default(),
+            declared_vectors: HashSet::new(),
+            declared_matrices: HashSet::new(),
+            declared_scalars: HashSet::new(),
         }
     }
 }
@@ -201,6 +305,7 @@ mod tests {
     fn test_parser_config_custom() {
         let config = ParserConfig {
             implicit_multiplication: false,
+            ..ParserConfig::default()
         };
         assert!(!config.implicit_multiplication);
     }
@@ -210,9 +315,11 @@ mod tests {
         let config1 = ParserConfig::default();
         let config2 = ParserConfig {
             implicit_multiplication: true,
+            ..ParserConfig::default()
         };
         let config3 = ParserConfig {
             implicit_multiplication: false,
+            ..ParserConfig::default()
         };
 
         assert_eq!(config1, config2);
@@ -222,7 +329,7 @@ mod tests {
     #[test]
     fn test_parser_config_clone() {
         let config = ParserConfig::default();
-        let cloned = config;
+        let cloned = config.clone();
         assert_eq!(config, cloned);
     }
 
@@ -267,6 +374,7 @@ mod tests {
     fn test_parse_with_config_custom() {
         let config = ParserConfig {
             implicit_multiplication: false,
+            ..ParserConfig::default()
         };
         let expr = parse_with_config("2 + 3", &config).unwrap();
         assert!(matches!(
