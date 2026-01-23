@@ -632,6 +632,32 @@ impl LatexParser {
                         self.next(); // consume \nabla
                         self.parse_nabla()
                     }
+                    // Multiple integrals: \iint, \iiint, \iiiint
+                    LatexToken::DoubleIntegral => {
+                        self.next();
+                        self.parse_multiple_integral(2)
+                    }
+                    LatexToken::TripleIntegral => {
+                        self.next();
+                        self.parse_multiple_integral(3)
+                    }
+                    LatexToken::QuadIntegral => {
+                        self.next();
+                        self.parse_multiple_integral(4)
+                    }
+                    // Closed integrals: \oint, \oiint, \oiiint
+                    LatexToken::ClosedIntegral => {
+                        self.next();
+                        self.parse_closed_integral(1)
+                    }
+                    LatexToken::ClosedSurface => {
+                        self.next();
+                        self.parse_closed_integral(2)
+                    }
+                    LatexToken::ClosedVolume => {
+                        self.next();
+                        self.parse_closed_integral(3)
+                    }
                     _ => Err(ParseError::unexpected_token(
                         vec!["expression"],
                         format!("{:?}", token),
@@ -1283,6 +1309,117 @@ impl LatexParser {
         }
     }
 
+    /// Parses a multiple integral: \iint, \iiint, \iiiint
+    /// Format: \iint f(x,y) dy dx or \iint_{bounds} f(x,y) dy dx
+    fn parse_multiple_integral(&mut self, dimension: u8) -> ParseResult<Expression> {
+        // Check for optional bounds subscript
+        let bounds = if self.check(&LatexToken::Underscore) {
+            self.next(); // consume _
+            let _region = self.parse_braced_or_atom()?;
+            // For simplicity, we don't track the region expression
+            // In full implementation, this could be enhanced to store bounds
+            None
+        } else {
+            None
+        };
+
+        // Parse integrand
+        let integrand = self.parse_multiplicative()?;
+
+        // Parse the differential variables (dy dx, dz dy dx, etc.)
+        let mut vars = Vec::new();
+        while let Some((LatexToken::Letter('d'), _)) = self.peek() {
+            self.next(); // consume 'd'
+            if let Some((LatexToken::Letter(var_ch), _)) = self.peek() {
+                vars.push(var_ch.to_string());
+                self.next(); // consume variable
+            } else {
+                return Err(ParseError::custom(
+                    "expected variable name after 'd' in multiple integral".to_string(),
+                    Some(self.current_span()),
+                ));
+            }
+        }
+
+        if vars.is_empty() {
+            return Err(ParseError::custom(
+                format!(
+                    "expected {} differential variables for {}-dimensional integral",
+                    dimension,
+                    match dimension {
+                        2 => "double",
+                        3 => "triple",
+                        4 => "quadruple",
+                        _ => "multiple",
+                    }
+                ),
+                Some(self.current_span()),
+            ));
+        }
+
+        Ok(Expression::MultipleIntegral {
+            dimension,
+            integrand: Box::new(integrand),
+            bounds,
+            vars,
+        })
+    }
+
+    /// Parses a closed/contour integral: \oint, \oiint, \oiiint
+    /// Format: \oint_C f(x) dx or \oiint_S f(x,y) dA
+    fn parse_closed_integral(&mut self, dimension: u8) -> ParseResult<Expression> {
+        // Check for optional surface/curve subscript
+        let surface = if self.check(&LatexToken::Underscore) {
+            self.next(); // consume _
+            let surface_expr = self.parse_braced_or_atom()?;
+            // Extract name if it's a variable
+            match surface_expr {
+                Expression::Variable(name) => Some(name),
+                _ => None,
+            }
+        } else {
+            None
+        };
+
+        // Parse integrand
+        let integrand = self.parse_multiplicative()?;
+
+        // Parse the differential variable
+        let var = if let Some((LatexToken::Letter('d'), _)) = self.peek() {
+            self.next(); // consume 'd'
+            if let Some((LatexToken::Letter(var_ch), _)) = self.peek() {
+                let v = var_ch.to_string();
+                self.next(); // consume variable
+                v
+            } else {
+                // Could be dA, dS, etc. - check for uppercase
+                if let Some((LatexToken::Letter(var_ch), _)) = self.peek() {
+                    let v = var_ch.to_string();
+                    self.next();
+                    v
+                } else {
+                    "".to_string() // Will error below
+                }
+            }
+        } else {
+            "".to_string()
+        };
+
+        if var.is_empty() {
+            return Err(ParseError::custom(
+                "expected differential variable in closed integral".to_string(),
+                Some(self.current_span()),
+            ));
+        }
+
+        Ok(Expression::ClosedIntegral {
+            dimension,
+            integrand: Box::new(integrand),
+            surface,
+            var,
+        })
+    }
+
     /// Parses a limit: \lim_{x \to a} or \lim_{x \to a^+}
     fn parse_limit(&mut self) -> ParseResult<Expression> {
         // Expect subscript with pattern: var \to value
@@ -1718,6 +1855,10 @@ mod tensors_tests;
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_vectors.rs"]
 mod vectors_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_multiple_integrals.rs"]
+mod multiple_integrals_tests;
 
 #[cfg(test)]
 #[allow(clippy::approx_constant)]
