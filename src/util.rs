@@ -139,6 +139,35 @@ impl Expression {
                 }
             }
 
+            // Multiple integral - recurse on integrand and bounds
+            Expression::MultipleIntegral {
+                integrand,
+                vars,
+                bounds,
+                ..
+            } => {
+                integrand.collect_variables(variables);
+                for v in vars {
+                    variables.insert(v.clone());
+                }
+                if let Some(b) = bounds {
+                    for ib in &b.bounds {
+                        ib.lower.collect_variables(variables);
+                        ib.upper.collect_variables(variables);
+                    }
+                }
+            }
+
+            // Closed integral - recurse on integrand
+            Expression::ClosedIntegral {
+                integrand,
+                var,
+                ..
+            } => {
+                integrand.collect_variables(variables);
+                variables.insert(var.clone());
+            }
+
             // Limit - recurse on expression and target value
             Expression::Limit { expr, var, to, .. } => {
                 expr.collect_variables(variables);
@@ -319,6 +348,24 @@ impl Expression {
                 }
             }
 
+            // Multiple integral - recurse on integrand and bounds
+            Expression::MultipleIntegral {
+                integrand, bounds, ..
+            } => {
+                integrand.collect_functions(functions);
+                if let Some(b) = bounds {
+                    for ib in &b.bounds {
+                        ib.lower.collect_functions(functions);
+                        ib.upper.collect_functions(functions);
+                    }
+                }
+            }
+
+            // Closed integral - recurse on integrand
+            Expression::ClosedIntegral { integrand, .. } => {
+                integrand.collect_functions(functions);
+            }
+
             // Limit - recurse on expression and target value
             Expression::Limit { expr, to, .. } => {
                 expr.collect_functions(functions);
@@ -472,6 +519,24 @@ impl Expression {
                 }
             }
 
+            // Multiple integral - recurse on integrand and bounds
+            Expression::MultipleIntegral {
+                integrand, bounds, ..
+            } => {
+                integrand.collect_constants(constants);
+                if let Some(b) = bounds {
+                    for ib in &b.bounds {
+                        ib.lower.collect_constants(constants);
+                        ib.upper.collect_constants(constants);
+                    }
+                }
+            }
+
+            // Closed integral - recurse on integrand
+            Expression::ClosedIntegral { integrand, .. } => {
+                integrand.collect_constants(constants);
+            }
+
             // Limit - recurse on expression and target value
             Expression::Limit { expr, to, .. } => {
                 expr.collect_constants(constants);
@@ -618,6 +683,24 @@ impl Expression {
                 1 + integrand_depth.max(bounds_depth)
             }
 
+            // Multiple integral - 1 + max depth among integrand and all bounds
+            Expression::MultipleIntegral {
+                integrand, bounds, ..
+            } => {
+                let integrand_depth = integrand.depth();
+                let bounds_depth = bounds.as_ref().map_or(0, |b| {
+                    b.bounds
+                        .iter()
+                        .map(|ib| ib.lower.depth().max(ib.upper.depth()))
+                        .max()
+                        .unwrap_or(0)
+                });
+                1 + integrand_depth.max(bounds_depth)
+            }
+
+            // Closed integral - 1 + integrand depth
+            Expression::ClosedIntegral { integrand, .. } => 1 + integrand.depth(),
+
             // Limit - 1 + max depth of expression and target
             Expression::Limit { expr, to, .. } => 1 + expr.depth().max(to.depth()),
 
@@ -756,6 +839,22 @@ impl Expression {
                     .map_or(0, |b| b.lower.node_count() + b.upper.node_count());
                 1 + integrand.node_count() + bounds_count
             }
+
+            // Multiple integral - 1 + integrand count + all bounds count
+            Expression::MultipleIntegral {
+                integrand, bounds, ..
+            } => {
+                let bounds_count = bounds.as_ref().map_or(0, |b| {
+                    b.bounds
+                        .iter()
+                        .map(|ib| ib.lower.node_count() + ib.upper.node_count())
+                        .sum::<usize>()
+                });
+                1 + integrand.node_count() + bounds_count
+            }
+
+            // Closed integral - 1 + integrand count
+            Expression::ClosedIntegral { integrand, .. } => 1 + integrand.node_count(),
 
             // Limit - 1 + expression count + target count
             Expression::Limit { expr, to, .. } => 1 + expr.node_count() + to.node_count(),
@@ -951,6 +1050,56 @@ impl Expression {
                             lower: Box::new(b.lower.substitute(var, replacement)),
                             upper: Box::new(b.upper.substitute(var, replacement)),
                         }),
+                    }
+                }
+            }
+
+            // Multiple integral - vars are bound in integrand
+            Expression::MultipleIntegral {
+                dimension,
+                integrand,
+                bounds,
+                vars,
+            } => {
+                // Check if any of the integration variables match
+                let is_bound = vars.contains(&var.to_string());
+                Expression::MultipleIntegral {
+                    dimension: *dimension,
+                    integrand: if is_bound {
+                        integrand.clone()
+                    } else {
+                        Box::new(integrand.substitute(var, replacement))
+                    },
+                    bounds: bounds.as_ref().map(|b| crate::ast::MultipleBounds {
+                        bounds: b.bounds.iter().map(|ib| crate::ast::IntegralBounds {
+                            lower: Box::new(ib.lower.substitute(var, replacement)),
+                            upper: Box::new(ib.upper.substitute(var, replacement)),
+                        }).collect(),
+                    }),
+                    vars: vars.clone(),
+                }
+            }
+
+            // Closed integral - var is bound in integrand
+            Expression::ClosedIntegral {
+                dimension,
+                integrand,
+                surface,
+                var: int_var,
+            } => {
+                if int_var == var {
+                    Expression::ClosedIntegral {
+                        dimension: *dimension,
+                        integrand: integrand.clone(),
+                        surface: surface.clone(),
+                        var: int_var.clone(),
+                    }
+                } else {
+                    Expression::ClosedIntegral {
+                        dimension: *dimension,
+                        integrand: Box::new(integrand.substitute(var, replacement)),
+                        surface: surface.clone(),
+                        var: int_var.clone(),
                     }
                 }
             }
@@ -1255,6 +1404,56 @@ impl Expression {
                             lower: Box::new(b.lower.substitute_all(subs)),
                             upper: Box::new(b.upper.substitute_all(subs)),
                         }),
+                    }
+                }
+            }
+
+            // Multiple integral - vars are bound in integrand
+            Expression::MultipleIntegral {
+                dimension,
+                integrand,
+                bounds,
+                vars,
+            } => {
+                // Check if any of the integration variables are in subs
+                let any_bound = vars.iter().any(|v| subs.contains_key(v));
+                Expression::MultipleIntegral {
+                    dimension: *dimension,
+                    integrand: if any_bound {
+                        integrand.clone()
+                    } else {
+                        Box::new(integrand.substitute_all(subs))
+                    },
+                    bounds: bounds.as_ref().map(|b| crate::ast::MultipleBounds {
+                        bounds: b.bounds.iter().map(|ib| crate::ast::IntegralBounds {
+                            lower: Box::new(ib.lower.substitute_all(subs)),
+                            upper: Box::new(ib.upper.substitute_all(subs)),
+                        }).collect(),
+                    }),
+                    vars: vars.clone(),
+                }
+            }
+
+            // Closed integral - var is bound in integrand
+            Expression::ClosedIntegral {
+                dimension,
+                integrand,
+                surface,
+                var: int_var,
+            } => {
+                if subs.contains_key(int_var) {
+                    Expression::ClosedIntegral {
+                        dimension: *dimension,
+                        integrand: integrand.clone(),
+                        surface: surface.clone(),
+                        var: int_var.clone(),
+                    }
+                } else {
+                    Expression::ClosedIntegral {
+                        dimension: *dimension,
+                        integrand: Box::new(integrand.substitute_all(subs)),
+                        surface: surface.clone(),
+                        var: int_var.clone(),
                     }
                 }
             }

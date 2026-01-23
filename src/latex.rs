@@ -423,6 +423,51 @@ impl ToLatex for Expression {
                 }
             }
 
+            Expression::MultipleIntegral {
+                dimension,
+                integrand,
+                bounds,
+                vars,
+            } => {
+                // Use dimension to determine LaTeX command
+                let int_cmd = match dimension {
+                    2 => r"\iint",
+                    3 => r"\iiint",
+                    4 => r"\iiiint",
+                    _ => r"\int\cdots\int", // fallback
+                };
+                let vars_str = vars.iter().map(|v| format!("d{}", v)).collect::<Vec<_>>().join(" \\, ");
+                if let Some(b) = bounds {
+                    // Format bounds as subscripts for multiple integrals
+                    let bounds_latex: Vec<String> = b.bounds.iter()
+                        .map(|ib| format!("_{{{}}}^{{{}}}", ib.lower.to_latex(), ib.upper.to_latex()))
+                        .collect();
+                    format!("{}{} {} \\, {}", int_cmd, bounds_latex.join(""), integrand.to_latex(), vars_str)
+                } else {
+                    format!("{} {} \\, {}", int_cmd, integrand.to_latex(), vars_str)
+                }
+            }
+
+            Expression::ClosedIntegral {
+                dimension,
+                integrand,
+                surface,
+                var,
+            } => {
+                // Use dimension to determine LaTeX command
+                let int_cmd = match dimension {
+                    1 => r"\oint",
+                    2 => r"\oiint",
+                    3 => r"\oiiint",
+                    _ => r"\oint", // fallback
+                };
+                if let Some(s) = surface {
+                    format!("{}_{{{}}} {} \\, d{}", int_cmd, s, integrand.to_latex(), var)
+                } else {
+                    format!("{} {} \\, d{}", int_cmd, integrand.to_latex(), var)
+                }
+            }
+
             Expression::Limit {
                 expr,
                 var,

@@ -459,6 +459,29 @@ pub struct IntegralBounds {
     pub upper: Box<Expression>,
 }
 
+/// Bounds for multiple integrals (region specification).
+///
+/// Contains bounds for each variable of integration in order.
+/// For a double integral ∬_R f dA, the region R may be specified
+/// as separate bounds for each variable.
+///
+/// # Examples
+///
+/// ```ignore
+/// // Bounds for ∬_[0,1]×[0,2] f(x,y) dy dx
+/// MultipleBounds {
+///     bounds: vec![
+///         IntegralBounds { lower: 0, upper: 1 },  // x bounds
+///         IntegralBounds { lower: 0, upper: 2 },  // y bounds
+///     ],
+/// }
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MultipleBounds {
+    /// Bounds for each variable, in integration order
+    pub bounds: Vec<IntegralBounds>,
+}
+
 /// Notation style for marking vectors.
 ///
 /// Specifies how a vector is visually distinguished in mathematical notation.
@@ -898,6 +921,78 @@ pub enum Expression {
 
         /// Integration bounds (None for indefinite integral, Some for definite)
         bounds: Option<IntegralBounds>,
+    },
+
+    /// Multiple integral (double, triple, etc.).
+    ///
+    /// Represents integrals like ∬ f dA (double) or ∭ f dV (triple).
+    /// The dimension indicates the number of integral signs.
+    ///
+    /// ## Dimension Semantics
+    ///
+    /// - **dimension = 2**: Double integral (∬), typically over an area
+    /// - **dimension = 3**: Triple integral (∭), typically over a volume
+    /// - **dimension > 3**: Higher-dimensional integrals
+    ///
+    /// ## Examples
+    ///
+    /// ```ignore
+    /// // Double integral: ∬_R f(x,y) dy dx
+    /// Expression::MultipleIntegral {
+    ///     dimension: 2,
+    ///     integrand: Box::new(f_expr),
+    ///     bounds: None,
+    ///     vars: vec!["y".to_string(), "x".to_string()],
+    /// }
+    /// ```
+    MultipleIntegral {
+        /// Number of integral signs (2=double, 3=triple)
+        dimension: u8,
+
+        /// The integrand expression
+        integrand: Box<Expression>,
+
+        /// Optional bounds for each variable
+        bounds: Option<MultipleBounds>,
+
+        /// Variables of integration in order
+        vars: Vec<String>,
+    },
+
+    /// Closed/contour integral (line, surface, volume).
+    ///
+    /// Represents closed path integrals like ∮ (line), ∯ (surface), ∰ (volume).
+    /// These indicate integration over a closed curve, surface, or volume.
+    ///
+    /// ## Dimension Semantics
+    ///
+    /// - **dimension = 1**: Line integral over closed curve (∮)
+    /// - **dimension = 2**: Surface integral over closed surface (∯)
+    /// - **dimension = 3**: Volume integral over closed volume (∰)
+    ///
+    /// ## Examples
+    ///
+    /// ```ignore
+    /// // Line integral: ∮_C F · dr
+    /// Expression::ClosedIntegral {
+    ///     dimension: 1,
+    ///     integrand: Box::new(f_dot_dr),
+    ///     surface: Some("C".to_string()),
+    ///     var: "r".to_string(),
+    /// }
+    /// ```
+    ClosedIntegral {
+        /// Dimension: 1=line (∮), 2=surface (∯), 3=volume (∰)
+        dimension: u8,
+
+        /// The integrand expression
+        integrand: Box<Expression>,
+
+        /// Optional surface/curve name (e.g., "S", "C")
+        surface: Option<String>,
+
+        /// Variable of integration
+        var: String,
     },
 
     /// Limit.

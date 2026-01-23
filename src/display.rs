@@ -297,6 +297,47 @@ impl fmt::Display for Expression {
                 }
             }
 
+            Expression::MultipleIntegral {
+                dimension,
+                integrand,
+                bounds,
+                vars,
+            } => {
+                // Use dimension to determine symbol
+                let symbol = match dimension {
+                    2 => "∬",
+                    3 => "∭",
+                    _ => "∫∫...", // fallback
+                };
+                let vars_str = vars.iter().map(|v| format!("d{}", v)).collect::<Vec<_>>().join(" ");
+                if let Some(b) = bounds {
+                    let bounds_str = b.bounds.iter().map(|ib| format!("{}", ib)).collect::<Vec<_>>().join(", ");
+                    write!(f, "{} {} {} [{}]", symbol, integrand, vars_str, bounds_str)
+                } else {
+                    write!(f, "{} {} {}", symbol, integrand, vars_str)
+                }
+            }
+
+            Expression::ClosedIntegral {
+                dimension,
+                integrand,
+                surface,
+                var,
+            } => {
+                // Use dimension to determine symbol
+                let symbol = match dimension {
+                    1 => "∮",
+                    2 => "∯",
+                    3 => "∰",
+                    _ => "∮", // fallback
+                };
+                if let Some(s) = surface {
+                    write!(f, "{}_{} {} d{}", symbol, s, integrand, var)
+                } else {
+                    write!(f, "{} {} d{}", symbol, integrand, var)
+                }
+            }
+
             Expression::Limit {
                 expr,
                 var,
