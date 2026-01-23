@@ -551,6 +551,29 @@ impl ToLatex for Expression {
                     .collect::<Vec<_>>()
                     .join(&format!(" {} ", op.to_latex())),
             },
+
+            Expression::MarkedVector { name, notation } => {
+                use crate::ast::VectorNotation;
+                match notation {
+                    VectorNotation::Bold => format!(r"\mathbf{{{}}}", name),
+                    VectorNotation::Arrow => format!(r"\vec{{{}}}", name),
+                    VectorNotation::Hat => format!(r"\hat{{{}}}", name),
+                    VectorNotation::Underline => format!(r"\underline{{{}}}", name),
+                    VectorNotation::Plain => name.clone(),
+                }
+            }
+
+            Expression::DotProduct { left, right } => {
+                format!(r"{} \cdot {}", left.to_latex(), right.to_latex())
+            }
+
+            Expression::CrossProduct { left, right } => {
+                format!(r"{} \times {}", left.to_latex(), right.to_latex())
+            }
+
+            Expression::OuterProduct { left, right } => {
+                format!(r"{} \otimes {}", left.to_latex(), right.to_latex())
+            }
         }
     }
 }

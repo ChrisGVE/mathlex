@@ -1259,6 +1259,58 @@ pub enum Expression {
         /// The operands
         operands: Vec<Expression>,
     },
+
+    /// Marked vector with explicit notation style.
+    ///
+    /// Represents a vector variable with a specific visual notation
+    /// (bold, arrow, hat, underline, or plain).
+    ///
+    /// # Examples
+    /// - `\mathbf{v}` → Bold notation
+    /// - `\vec{a}` → Arrow notation
+    /// - `\hat{n}` → Hat notation (typically for unit vectors)
+    MarkedVector {
+        /// The vector name
+        name: String,
+        /// The notation style
+        notation: VectorNotation,
+    },
+
+    /// Dot product (inner product) of two vectors.
+    ///
+    /// # Examples
+    /// - `u · v`
+    /// - `\mathbf{a} \cdot \mathbf{b}`
+    DotProduct {
+        /// Left operand
+        left: Box<Expression>,
+        /// Right operand
+        right: Box<Expression>,
+    },
+
+    /// Cross product of two vectors.
+    ///
+    /// # Examples
+    /// - `u × v`
+    /// - `\mathbf{a} \times \mathbf{b}`
+    CrossProduct {
+        /// Left operand
+        left: Box<Expression>,
+        /// Right operand
+        right: Box<Expression>,
+    },
+
+    /// Outer product (tensor product) of two vectors.
+    ///
+    /// # Examples
+    /// - `u ⊗ v`
+    /// - `\mathbf{a} \otimes \mathbf{b}`
+    OuterProduct {
+        /// Left operand
+        left: Box<Expression>,
+        /// Right operand
+        right: Box<Expression>,
+    },
 }
 
 #[cfg(test)]

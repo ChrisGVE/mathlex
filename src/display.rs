@@ -410,6 +410,34 @@ impl fmt::Display for Expression {
                     Ok(())
                 }
             },
+
+            Expression::MarkedVector { name, notation } => {
+                let prefix = match notation {
+                    VectorNotation::Bold => "[bold]",
+                    VectorNotation::Arrow => "",
+                    VectorNotation::Hat => "",
+                    VectorNotation::Underline => "[underline]",
+                    VectorNotation::Plain => "",
+                };
+                let suffix = match notation {
+                    VectorNotation::Arrow => "⃗",
+                    VectorNotation::Hat => "̂",
+                    _ => "",
+                };
+                write!(f, "{}{}{}", prefix, name, suffix)
+            }
+
+            Expression::DotProduct { left, right } => {
+                write!(f, "{} · {}", left, right)
+            }
+
+            Expression::CrossProduct { left, right } => {
+                write!(f, "{} × {}", left, right)
+            }
+
+            Expression::OuterProduct { left, right } => {
+                write!(f, "{} ⊗ {}", left, right)
+            }
         }
     }
 }

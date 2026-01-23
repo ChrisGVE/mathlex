@@ -206,6 +206,17 @@ impl Expression {
                     operand.collect_variables(variables);
                 }
             }
+
+            // MarkedVector - no variables to collect (name is not a variable reference)
+            Expression::MarkedVector { .. } => {}
+
+            // Vector products - recurse on both operands
+            Expression::DotProduct { left, right }
+            | Expression::CrossProduct { left, right }
+            | Expression::OuterProduct { left, right } => {
+                left.collect_variables(variables);
+                right.collect_variables(variables);
+            }
         }
     }
 
@@ -350,7 +361,18 @@ impl Expression {
             Expression::Logical { operands, .. } => {
                 for op in operands { op.collect_functions(functions); }
             }
- }
+
+            // MarkedVector - no functions to collect
+            Expression::MarkedVector { .. } => {}
+
+            // Vector products - recurse on both operands
+            Expression::DotProduct { left, right }
+            | Expression::CrossProduct { left, right }
+            | Expression::OuterProduct { left, right } => {
+                left.collect_functions(functions);
+                right.collect_functions(functions);
+            }
+        }
     }
 
     /// Finds all unique mathematical constants in the expression.
@@ -492,7 +514,18 @@ impl Expression {
             Expression::Logical { operands, .. } => {
                 for op in operands { op.collect_constants(constants); }
             }
- }
+
+            // MarkedVector - no constants to collect
+            Expression::MarkedVector { .. } => {}
+
+            // Vector products - recurse on both operands
+            Expression::DotProduct { left, right }
+            | Expression::CrossProduct { left, right }
+            | Expression::OuterProduct { left, right } => {
+                left.collect_constants(constants);
+                right.collect_constants(constants);
+            }
+        }
     }
 
     /// Calculates the maximum depth of the expression tree.
@@ -628,6 +661,14 @@ impl Expression {
             Expression::Logical { operands, .. } => {
                 1 + operands.iter().map(|e| e.depth()).max().unwrap_or(0)
             }
+
+            // MarkedVector - depth 1 (leaf node)
+            Expression::MarkedVector { .. } => 1,
+
+            // Vector products - 1 + max depth of operands
+            Expression::DotProduct { left, right }
+            | Expression::CrossProduct { left, right }
+            | Expression::OuterProduct { left, right } => 1 + left.depth().max(right.depth()),
         }
     }
 
@@ -756,6 +797,16 @@ impl Expression {
             // Logical - 1 + sum of operand counts
             Expression::Logical { operands, .. } => {
                 1 + operands.iter().map(|e| e.node_count()).sum::<usize>()
+            }
+
+            // MarkedVector - count 1 (leaf node)
+            Expression::MarkedVector { .. } => 1,
+
+            // Vector products - 1 + count of both operands
+            Expression::DotProduct { left, right }
+            | Expression::CrossProduct { left, right }
+            | Expression::OuterProduct { left, right } => {
+                1 + left.node_count() + right.node_count()
             }
         }
     }
@@ -1052,6 +1103,25 @@ impl Expression {
                     .map(|e| e.substitute(var, replacement))
                     .collect(),
             },
+
+            // MarkedVector - no variables to substitute (name is literal, not a variable reference)
+            Expression::MarkedVector { .. } => self.clone(),
+
+            // Vector products - recurse on both operands
+            Expression::DotProduct { left, right } => Expression::DotProduct {
+                left: Box::new(left.substitute(var, replacement)),
+                right: Box::new(right.substitute(var, replacement)),
+            },
+
+            Expression::CrossProduct { left, right } => Expression::CrossProduct {
+                left: Box::new(left.substitute(var, replacement)),
+                right: Box::new(right.substitute(var, replacement)),
+            },
+
+            Expression::OuterProduct { left, right } => Expression::OuterProduct {
+                left: Box::new(left.substitute(var, replacement)),
+                right: Box::new(right.substitute(var, replacement)),
+            },
         }
     }
 
@@ -1330,6 +1400,25 @@ impl Expression {
             Expression::Logical { op, operands } => Expression::Logical {
                 op: *op,
                 operands: operands.iter().map(|e| e.substitute_all(subs)).collect(),
+            },
+
+            // MarkedVector - no variables to substitute (name is literal, not a variable reference)
+            Expression::MarkedVector { .. } => self.clone(),
+
+            // Vector products - recurse on both operands
+            Expression::DotProduct { left, right } => Expression::DotProduct {
+                left: Box::new(left.substitute_all(subs)),
+                right: Box::new(right.substitute_all(subs)),
+            },
+
+            Expression::CrossProduct { left, right } => Expression::CrossProduct {
+                left: Box::new(left.substitute_all(subs)),
+                right: Box::new(right.substitute_all(subs)),
+            },
+
+            Expression::OuterProduct { left, right } => Expression::OuterProduct {
+                left: Box::new(left.substitute_all(subs)),
+                right: Box::new(right.substitute_all(subs)),
             },
         }
     }
