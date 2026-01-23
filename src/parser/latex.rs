@@ -161,12 +161,24 @@ impl LatexParser {
         }
 
         // Rule 2: Explicit markers are always constants
-        // Rule 3: Default for e and i (unbound)
-        if is_explicit || ch == 'e' || ch == 'i' {
+        // This includes e, i (complex) and j, k (quaternion) from \mathrm{x}
+        if is_explicit {
             return match ch {
                 'e' => Expression::Constant(MathConstant::E),
                 'i' => Expression::Constant(MathConstant::I),
+                'j' => Expression::Constant(MathConstant::J),
+                'k' => Expression::Constant(MathConstant::K),
                 _ => Expression::Variable(name),
+            };
+        }
+
+        // Rule 3: Default for e and i (unbound) - these are constants
+        // Note: j and k default to variables (quaternion context requires explicit markers)
+        if ch == 'e' || ch == 'i' {
+            return match ch {
+                'e' => Expression::Constant(MathConstant::E),
+                'i' => Expression::Constant(MathConstant::I),
+                _ => unreachable!(),
             };
         }
 
@@ -1866,6 +1878,9 @@ impl LatexParser {
 
     /// Parses a marked vector: \mathbf{v}, \vec{a}, \hat{n}, \underline{u}
     /// Returns MarkedVector with the given notation style.
+    ///
+    /// Special case: \mathbf{j} and \mathbf{k} return quaternion basis constants
+    /// MathConstant::J and MathConstant::K respectively.
     fn parse_marked_vector(&mut self, notation: VectorNotation) -> ParseResult<Expression> {
         // The argument is in braces or a single letter
         let name = if self.check(&LatexToken::LBrace) {
@@ -1893,6 +1908,15 @@ impl LatexParser {
                 }
             }
         };
+
+        // Special case: \mathbf{j} and \mathbf{k} are quaternion basis vectors
+        if notation == VectorNotation::Bold {
+            match name.as_str() {
+                "j" => return Ok(Expression::Constant(MathConstant::J)),
+                "k" => return Ok(Expression::Constant(MathConstant::K)),
+                _ => {}
+            }
+        }
 
         Ok(Expression::MarkedVector { name, notation })
     }
@@ -2144,6 +2168,10 @@ mod logic_tests;
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_sets.rs"]
 mod sets_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_quaternions.rs"]
+mod quaternions_tests;
 
 #[cfg(test)]
 #[allow(clippy::approx_constant)]
