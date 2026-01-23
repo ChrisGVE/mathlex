@@ -246,6 +246,35 @@ impl Expression {
                 left.collect_variables(variables);
                 right.collect_variables(variables);
             }
+
+            // Set theory expressions
+            Expression::NumberSetExpr(_) | Expression::EmptySet => {}
+
+            Expression::SetOperation { left, right, .. } => {
+                left.collect_variables(variables);
+                right.collect_variables(variables);
+            }
+
+            Expression::SetRelationExpr { element, set, .. } => {
+                element.collect_variables(variables);
+                set.collect_variables(variables);
+            }
+
+            Expression::SetBuilder {
+                variable,
+                domain,
+                predicate,
+            } => {
+                variables.insert(variable.clone());
+                if let Some(d) = domain {
+                    d.collect_variables(variables);
+                }
+                predicate.collect_variables(variables);
+            }
+
+            Expression::PowerSet { set } => {
+                set.collect_variables(variables);
+            }
         }
     }
 
@@ -419,6 +448,32 @@ impl Expression {
                 left.collect_functions(functions);
                 right.collect_functions(functions);
             }
+
+            // Set theory expressions - no functions to collect from NumberSetExpr/EmptySet
+            Expression::NumberSetExpr(_) | Expression::EmptySet => {}
+
+            Expression::SetOperation { left, right, .. } => {
+                left.collect_functions(functions);
+                right.collect_functions(functions);
+            }
+
+            Expression::SetRelationExpr { element, set, .. } => {
+                element.collect_functions(functions);
+                set.collect_functions(functions);
+            }
+
+            Expression::SetBuilder {
+                domain, predicate, ..
+            } => {
+                if let Some(d) = domain {
+                    d.collect_functions(functions);
+                }
+                predicate.collect_functions(functions);
+            }
+
+            Expression::PowerSet { set } => {
+                set.collect_functions(functions);
+            }
         }
     }
 
@@ -590,6 +645,32 @@ impl Expression {
                 left.collect_constants(constants);
                 right.collect_constants(constants);
             }
+
+            // Set theory expressions - no constants to collect from NumberSetExpr/EmptySet
+            Expression::NumberSetExpr(_) | Expression::EmptySet => {}
+
+            Expression::SetOperation { left, right, .. } => {
+                left.collect_constants(constants);
+                right.collect_constants(constants);
+            }
+
+            Expression::SetRelationExpr { element, set, .. } => {
+                element.collect_constants(constants);
+                set.collect_constants(constants);
+            }
+
+            Expression::SetBuilder {
+                domain, predicate, ..
+            } => {
+                if let Some(d) = domain {
+                    d.collect_constants(constants);
+                }
+                predicate.collect_constants(constants);
+            }
+
+            Expression::PowerSet { set } => {
+                set.collect_constants(constants);
+            }
         }
     }
 
@@ -752,6 +833,24 @@ impl Expression {
             Expression::DotProduct { left, right }
             | Expression::CrossProduct { left, right }
             | Expression::OuterProduct { left, right } => 1 + left.depth().max(right.depth()),
+
+            // Set theory expressions
+            Expression::NumberSetExpr(_) | Expression::EmptySet => 1,
+
+            Expression::SetOperation { left, right, .. } => 1 + left.depth().max(right.depth()),
+
+            Expression::SetRelationExpr { element, set, .. } => {
+                1 + element.depth().max(set.depth())
+            }
+
+            Expression::SetBuilder {
+                domain, predicate, ..
+            } => {
+                let domain_depth = domain.as_ref().map_or(0, |d| d.depth());
+                1 + domain_depth.max(predicate.depth())
+            }
+
+            Expression::PowerSet { set } => 1 + set.depth(),
         }
     }
 
@@ -907,6 +1006,26 @@ impl Expression {
             | Expression::OuterProduct { left, right } => {
                 1 + left.node_count() + right.node_count()
             }
+
+            // Set theory expressions
+            Expression::NumberSetExpr(_) | Expression::EmptySet => 1,
+
+            Expression::SetOperation { left, right, .. } => {
+                1 + left.node_count() + right.node_count()
+            }
+
+            Expression::SetRelationExpr { element, set, .. } => {
+                1 + element.node_count() + set.node_count()
+            }
+
+            Expression::SetBuilder {
+                domain, predicate, ..
+            } => {
+                let domain_count = domain.as_ref().map_or(0, |d| d.node_count());
+                1 + domain_count + predicate.node_count()
+            }
+
+            Expression::PowerSet { set } => 1 + set.node_count(),
         }
     }
 
@@ -1271,6 +1390,55 @@ impl Expression {
                 left: Box::new(left.substitute(var, replacement)),
                 right: Box::new(right.substitute(var, replacement)),
             },
+
+            // Set theory expressions
+            Expression::NumberSetExpr(_) | Expression::EmptySet => self.clone(),
+
+            Expression::SetOperation { op, left, right } => Expression::SetOperation {
+                op: *op,
+                left: Box::new(left.substitute(var, replacement)),
+                right: Box::new(right.substitute(var, replacement)),
+            },
+
+            Expression::SetRelationExpr {
+                relation,
+                element,
+                set,
+            } => Expression::SetRelationExpr {
+                relation: *relation,
+                element: Box::new(element.substitute(var, replacement)),
+                set: Box::new(set.substitute(var, replacement)),
+            },
+
+            // SetBuilder - variable is bound in predicate
+            Expression::SetBuilder {
+                variable: bound_var,
+                domain,
+                predicate,
+            } => {
+                if bound_var == var {
+                    // var is bound, don't substitute in predicate
+                    Expression::SetBuilder {
+                        variable: bound_var.clone(),
+                        domain: domain
+                            .as_ref()
+                            .map(|d| Box::new(d.substitute(var, replacement))),
+                        predicate: predicate.clone(),
+                    }
+                } else {
+                    Expression::SetBuilder {
+                        variable: bound_var.clone(),
+                        domain: domain
+                            .as_ref()
+                            .map(|d| Box::new(d.substitute(var, replacement))),
+                        predicate: Box::new(predicate.substitute(var, replacement)),
+                    }
+                }
+            }
+
+            Expression::PowerSet { set } => Expression::PowerSet {
+                set: Box::new(set.substitute(var, replacement)),
+            },
         }
     }
 
@@ -1618,6 +1786,51 @@ impl Expression {
             Expression::OuterProduct { left, right } => Expression::OuterProduct {
                 left: Box::new(left.substitute_all(subs)),
                 right: Box::new(right.substitute_all(subs)),
+            },
+
+            // Set theory expressions
+            Expression::NumberSetExpr(_) | Expression::EmptySet => self.clone(),
+
+            Expression::SetOperation { op, left, right } => Expression::SetOperation {
+                op: *op,
+                left: Box::new(left.substitute_all(subs)),
+                right: Box::new(right.substitute_all(subs)),
+            },
+
+            Expression::SetRelationExpr {
+                relation,
+                element,
+                set,
+            } => Expression::SetRelationExpr {
+                relation: *relation,
+                element: Box::new(element.substitute_all(subs)),
+                set: Box::new(set.substitute_all(subs)),
+            },
+
+            // SetBuilder - variable is bound in predicate
+            Expression::SetBuilder {
+                variable: bound_var,
+                domain,
+                predicate,
+            } => {
+                if subs.contains_key(bound_var) {
+                    // var is bound, don't substitute in predicate
+                    Expression::SetBuilder {
+                        variable: bound_var.clone(),
+                        domain: domain.as_ref().map(|d| Box::new(d.substitute_all(subs))),
+                        predicate: predicate.clone(),
+                    }
+                } else {
+                    Expression::SetBuilder {
+                        variable: bound_var.clone(),
+                        domain: domain.as_ref().map(|d| Box::new(d.substitute_all(subs))),
+                        predicate: Box::new(predicate.substitute_all(subs)),
+                    }
+                }
+            }
+
+            Expression::PowerSet { set } => Expression::PowerSet {
+                set: Box::new(set.substitute_all(subs)),
             },
         }
     }

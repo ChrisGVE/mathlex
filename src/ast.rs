@@ -527,6 +527,108 @@ pub enum VectorNotation {
     /// Plain notation: v (no special marking)
     Plain,
 }
+
+/// Set operation type.
+///
+/// Represents binary operations on sets in set theory notation.
+///
+/// ## Examples
+///
+/// ```
+/// use mathlex::ast::SetOp;
+///
+/// let union = SetOp::Union;          // A ∪ B
+/// let intersection = SetOp::Intersection;  // A ∩ B
+/// let difference = SetOp::Difference;      // A ∖ B
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum SetOp {
+    /// Union of two sets: A ∪ B
+    Union,
+
+    /// Intersection of two sets: A ∩ B
+    Intersection,
+
+    /// Set difference: A ∖ B (elements in A but not in B)
+    Difference,
+
+    /// Symmetric difference: A △ B (elements in exactly one set)
+    SymmetricDiff,
+
+    /// Cartesian product: A × B
+    CartesianProd,
+}
+
+/// Set membership and subset relations.
+///
+/// Represents relations between elements and sets, or between sets.
+///
+/// ## Examples
+///
+/// ```
+/// use mathlex::ast::SetRelation;
+///
+/// let member = SetRelation::In;       // x ∈ S
+/// let subset = SetRelation::SubsetEq; // A ⊆ B
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum SetRelation {
+    /// Element membership: x ∈ S
+    In,
+
+    /// Non-membership: x ∉ S
+    NotIn,
+
+    /// Proper subset: A ⊂ B
+    Subset,
+
+    /// Subset or equal: A ⊆ B
+    SubsetEq,
+
+    /// Proper superset: A ⊃ B
+    Superset,
+
+    /// Superset or equal: A ⊇ B
+    SupersetEq,
+}
+
+/// Standard number sets in mathematics.
+///
+/// These are the commonly used number sets denoted with blackboard bold letters.
+///
+/// ## Examples
+///
+/// ```
+/// use mathlex::ast::NumberSet;
+///
+/// let naturals = NumberSet::Natural;   // ℕ
+/// let reals = NumberSet::Real;         // ℝ
+/// let complex = NumberSet::Complex;    // ℂ
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum NumberSet {
+    /// Natural numbers: ℕ = {0, 1, 2, 3, ...} or {1, 2, 3, ...}
+    Natural,
+
+    /// Integers: ℤ = {..., -2, -1, 0, 1, 2, ...}
+    Integer,
+
+    /// Rational numbers: ℚ (fractions p/q where p,q ∈ ℤ, q ≠ 0)
+    Rational,
+
+    /// Real numbers: ℝ
+    Real,
+
+    /// Complex numbers: ℂ
+    Complex,
+
+    /// Quaternions: ℍ
+    Quaternion,
+}
+
 /// The main AST node type representing mathematical expressions.
 ///
 /// This enum covers the full range of mathematical expressions that mathlex can parse,
@@ -1405,6 +1507,109 @@ pub enum Expression {
         left: Box<Expression>,
         /// Right operand
         right: Box<Expression>,
+    },
+
+    // ============================================================
+    // Set Theory Expressions
+    // ============================================================
+
+    /// A standard number set (ℕ, ℤ, ℚ, ℝ, ℂ, ℍ).
+    ///
+    /// Represents one of the standard mathematical number sets.
+    ///
+    /// ## Examples
+    ///
+    /// ```ignore
+    /// // The real numbers ℝ
+    /// Expression::NumberSetExpr(NumberSet::Real)
+    /// ```
+    NumberSetExpr(NumberSet),
+
+    /// Binary set operation.
+    ///
+    /// Represents operations like union (∪), intersection (∩), etc.
+    ///
+    /// ## Examples
+    ///
+    /// ```ignore
+    /// // A ∪ B (union)
+    /// Expression::SetOperation {
+    ///     op: SetOp::Union,
+    ///     left: Box::new(a),
+    ///     right: Box::new(b),
+    /// }
+    /// ```
+    SetOperation {
+        /// The set operation
+        op: SetOp,
+        /// Left operand set
+        left: Box<Expression>,
+        /// Right operand set
+        right: Box<Expression>,
+    },
+
+    /// Set membership or relation expression.
+    ///
+    /// Represents relations like x ∈ S, A ⊆ B, etc.
+    ///
+    /// ## Examples
+    ///
+    /// ```ignore
+    /// // x ∈ ℝ
+    /// Expression::SetRelationExpr {
+    ///     relation: SetRelation::In,
+    ///     element: Box::new(Expression::Variable("x".to_string())),
+    ///     set: Box::new(Expression::NumberSetExpr(NumberSet::Real)),
+    /// }
+    /// ```
+    SetRelationExpr {
+        /// The relation type
+        relation: SetRelation,
+        /// The element (or left set for subset relations)
+        element: Box<Expression>,
+        /// The set (or right set for subset relations)
+        set: Box<Expression>,
+    },
+
+    /// Set builder notation: {x | P(x)} or {x ∈ S | P(x)}.
+    ///
+    /// Defines a set by a predicate on its elements.
+    ///
+    /// ## Examples
+    ///
+    /// ```ignore
+    /// // {x ∈ ℝ | x > 0}
+    /// Expression::SetBuilder {
+    ///     variable: "x".to_string(),
+    ///     domain: Some(Box::new(Expression::NumberSetExpr(NumberSet::Real))),
+    ///     predicate: Box::new(x_greater_than_zero),
+    /// }
+    /// ```
+    SetBuilder {
+        /// The bound variable
+        variable: String,
+        /// Optional domain set
+        domain: Option<Box<Expression>>,
+        /// The predicate that defines membership
+        predicate: Box<Expression>,
+    },
+
+    /// The empty set: ∅ or {}.
+    EmptySet,
+
+    /// Power set: 𝒫(S) - the set of all subsets of S.
+    ///
+    /// ## Examples
+    ///
+    /// ```ignore
+    /// // 𝒫(A)
+    /// Expression::PowerSet {
+    ///     set: Box::new(Expression::Variable("A".to_string())),
+    /// }
+    /// ```
+    PowerSet {
+        /// The set to take the power set of
+        set: Box<Expression>,
     },
 }
 

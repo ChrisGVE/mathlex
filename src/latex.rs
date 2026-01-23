@@ -619,6 +619,69 @@ impl ToLatex for Expression {
             Expression::OuterProduct { left, right } => {
                 format!(r"{} \otimes {}", left.to_latex(), right.to_latex())
             }
+
+            // Set theory expressions
+            Expression::NumberSetExpr(set) => {
+                let latex = match set {
+                    NumberSet::Natural => r"\mathbb{N}",
+                    NumberSet::Integer => r"\mathbb{Z}",
+                    NumberSet::Rational => r"\mathbb{Q}",
+                    NumberSet::Real => r"\mathbb{R}",
+                    NumberSet::Complex => r"\mathbb{C}",
+                    NumberSet::Quaternion => r"\mathbb{H}",
+                };
+                latex.to_string()
+            }
+
+            Expression::SetOperation { op, left, right } => {
+                let latex_op = match op {
+                    SetOp::Union => r"\cup",
+                    SetOp::Intersection => r"\cap",
+                    SetOp::Difference => r"\setminus",
+                    SetOp::SymmetricDiff => r"\triangle",
+                    SetOp::CartesianProd => r"\times",
+                };
+                format!("{} {} {}", left.to_latex(), latex_op, right.to_latex())
+            }
+
+            Expression::SetRelationExpr {
+                relation,
+                element,
+                set,
+            } => {
+                let latex_rel = match relation {
+                    SetRelation::In => r"\in",
+                    SetRelation::NotIn => r"\notin",
+                    SetRelation::Subset => r"\subset",
+                    SetRelation::SubsetEq => r"\subseteq",
+                    SetRelation::Superset => r"\supset",
+                    SetRelation::SupersetEq => r"\supseteq",
+                };
+                format!("{} {} {}", element.to_latex(), latex_rel, set.to_latex())
+            }
+
+            Expression::SetBuilder {
+                variable,
+                domain,
+                predicate,
+            } => {
+                if let Some(d) = domain {
+                    format!(
+                        r"\{{{} \in {} \mid {}\}}",
+                        variable,
+                        d.to_latex(),
+                        predicate.to_latex()
+                    )
+                } else {
+                    format!(r"\{{{} \mid {}\}}", variable, predicate.to_latex())
+                }
+            }
+
+            Expression::EmptySet => r"\emptyset".to_string(),
+
+            Expression::PowerSet { set } => {
+                format!(r"\mathcal{{P}}({})", set.to_latex())
+            }
         }
     }
 }

@@ -479,6 +479,62 @@ impl fmt::Display for Expression {
             Expression::OuterProduct { left, right } => {
                 write!(f, "{} ⊗ {}", left, right)
             }
+
+            // Set theory expressions
+            Expression::NumberSetExpr(set) => {
+                let symbol = match set {
+                    NumberSet::Natural => "ℕ",
+                    NumberSet::Integer => "ℤ",
+                    NumberSet::Rational => "ℚ",
+                    NumberSet::Real => "ℝ",
+                    NumberSet::Complex => "ℂ",
+                    NumberSet::Quaternion => "ℍ",
+                };
+                write!(f, "{}", symbol)
+            }
+
+            Expression::SetOperation { op, left, right } => {
+                let symbol = match op {
+                    SetOp::Union => "∪",
+                    SetOp::Intersection => "∩",
+                    SetOp::Difference => "∖",
+                    SetOp::SymmetricDiff => "△",
+                    SetOp::CartesianProd => "×",
+                };
+                write!(f, "{} {} {}", left, symbol, right)
+            }
+
+            Expression::SetRelationExpr {
+                relation,
+                element,
+                set,
+            } => {
+                let symbol = match relation {
+                    SetRelation::In => "∈",
+                    SetRelation::NotIn => "∉",
+                    SetRelation::Subset => "⊂",
+                    SetRelation::SubsetEq => "⊆",
+                    SetRelation::Superset => "⊃",
+                    SetRelation::SupersetEq => "⊇",
+                };
+                write!(f, "{} {} {}", element, symbol, set)
+            }
+
+            Expression::SetBuilder {
+                variable,
+                domain,
+                predicate,
+            } => {
+                if let Some(d) = domain {
+                    write!(f, "{{{} ∈ {} | {}}}", variable, d, predicate)
+                } else {
+                    write!(f, "{{{} | {}}}", variable, predicate)
+                }
+            }
+
+            Expression::EmptySet => write!(f, "∅"),
+
+            Expression::PowerSet { set } => write!(f, "𝒫({})", set),
         }
     }
 }
