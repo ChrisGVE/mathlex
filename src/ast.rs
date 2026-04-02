@@ -39,9 +39,9 @@
 //! - **Some ASTs don't round-trip perfectly** due to precedence and formatting choices.
 //!   For example, `(2 + 3) * 4` and `2 + 3 * 4` have different ASTs but the first may display
 //!   without parentheses depending on context.
-//! - **`MathConstant::NegInfinity` requires explicit parsing** as a distinct constant.
-//!   The expression `-∞` is parsed as `Unary { op: Neg, operand: Constant(Infinity) }`,
-//!   not as `Constant(NegInfinity)`.
+//! - **`MathConstant::NegInfinity` is produced by parsers** when unary minus is applied to
+//!   infinity. Both `-∞` (plain text) and `-\infty` (LaTeX) parse directly as
+//!   `Constant(NegInfinity)`.
 //!
 //! ### Serialization Notes
 //!
@@ -168,9 +168,9 @@ impl fmt::Display for MathFloat {
 /// - **`J`**: Quaternion basis vector j, parsed from `\mathbf{j}` or in quaternion context
 /// - **`K`**: Quaternion basis vector k, parsed from `\mathbf{k}` or in quaternion context
 /// - **`Infinity`**: Parsed from `∞` (Unicode) or `\infty` (LaTeX)
-/// - **`NegInfinity`**: Not directly produced by parsers. The input `-∞` is parsed as
-///   `Unary { op: Neg, operand: Constant(Infinity) }`. This variant exists for programmatic
-///   construction and simplification by consumers.
+/// - **`NegInfinity`**: Produced by parsers when unary minus is applied to infinity.
+///   Both `-∞` / `-inf` (plain text) and `-\infty` (LaTeX) parse directly as
+///   `Constant(NegInfinity)`.
 ///
 /// ## Quaternion Context
 ///
@@ -2074,7 +2074,6 @@ pub enum Expression {
     // ============================================================
     // Function Theory and Relations
     // ============================================================
-
     /// Function signature/mapping declaration: f: A → B
     ///
     /// Represents a function with its domain and codomain, commonly used in
@@ -2093,8 +2092,8 @@ pub enum Expression {
     /// // f: ℝ → ℝ
     /// let real_func = Expression::FunctionSignature {
     ///     name: "f".to_string(),
-    ///     domain: Box::new(Expression::NumberSetExpr(NumberSet::Reals)),
-    ///     codomain: Box::new(Expression::NumberSetExpr(NumberSet::Reals)),
+    ///     domain: Box::new(Expression::NumberSetExpr(NumberSet::Real)),
+    ///     codomain: Box::new(Expression::NumberSetExpr(NumberSet::Real)),
     /// };
     /// ```
     FunctionSignature {
@@ -2140,7 +2139,6 @@ pub enum Expression {
     // ============================================================
     // Differential Forms
     // ============================================================
-
     /// Differential of a variable: dx, dy, dt
     ///
     /// Represents the differential form of a single variable.

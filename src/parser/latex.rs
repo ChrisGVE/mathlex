@@ -74,7 +74,7 @@
 use std::collections::HashSet;
 
 use crate::ast::{
-    BinaryOp, Direction, Expression, InequalityOp, IndexType, IntegralBounds, LogicalOp,
+    BinaryOp, Direction, Expression, IndexType, InequalityOp, IntegralBounds, LogicalOp,
     MathConstant, MathFloat, RelationOp, SetOp, SetRelation, TensorIndex, VectorNotation,
 };
 use crate::error::{ParseError, ParseResult, Span};
@@ -119,6 +119,12 @@ struct LatexParser {
     pos: usize,
     /// Stack of bound variable scopes (for sum/product index variables)
     bound_scopes: Vec<HashSet<String>>,
+    /// Flag indicating we're parsing inside an integral context where
+    /// 'dx' should not be parsed as a Differential
+    in_integral_context: bool,
+    /// Flag indicating we're parsing inside a fraction where
+    /// 'dx' should not be parsed as a Differential (to allow d/dx derivative notation)
+    in_fraction_context: bool,
 }
 
 impl LatexParser {
@@ -128,6 +134,8 @@ impl LatexParser {
             tokens,
             pos: 0,
             bound_scopes: Vec::new(),
+            in_integral_context: false,
+            in_fraction_context: false,
         }
     }
 
@@ -455,12 +463,12 @@ impl LatexParser {
                     let is_relation = matches!(
                         next_token,
                         LatexToken::Equals
-                        | LatexToken::Less
-                        | LatexToken::Greater
-                        | LatexToken::Sim
-                        | LatexToken::Equiv
-                        | LatexToken::Cong
-                        | LatexToken::Approx
+                            | LatexToken::Less
+                            | LatexToken::Greater
+                            | LatexToken::Sim
+                            | LatexToken::Equiv
+                            | LatexToken::Cong
+                            | LatexToken::Approx
                     ) || matches!(
                         next_token,
                         LatexToken::Command(cmd) if matches!(
@@ -637,7 +645,10 @@ impl LatexParser {
                 };
 
                 // Consume explicit operator (but not for implicit multiplication)
-                if matches!(token, LatexToken::Star | LatexToken::Cdot | LatexToken::Slash) {
+                if matches!(
+                    token,
+                    LatexToken::Star | LatexToken::Cdot | LatexToken::Slash
+                ) {
                     self.next();
                 }
 
@@ -658,13 +669,14 @@ impl LatexParser {
     /// Determines if implicit multiplication should be inserted in LaTeX.
     /// This is used for patterns like 2x, xy, 2\pi, i\pi, etc.
     fn should_insert_implicit_mult(&self, left: &Expression) -> bool {
-        // Only insert implicit mult when left is a simple variable, number, or constant
+        // Only insert implicit mult when left is a simple variable, number, constant, or differential
         let is_valid_left = matches!(
             left,
             Expression::Variable(_)
                 | Expression::Integer(_)
                 | Expression::Float(_)
                 | Expression::Constant(_)
+                | Expression::Differential { .. }
         );
         if !is_valid_left {
             return false;
@@ -672,7 +684,16 @@ impl LatexParser {
 
         // Check if next token is something that could start a multiplicand
         match self.peek() {
-            Some((LatexToken::Letter(_), _)) => true,
+            Some((LatexToken::Letter(ch), _)) => {
+                // In integral context, don't trigger implicit mult for 'd' followed by a letter
+                // This allows the integral parser to handle 'dx' properly
+                if self.in_integral_context && *ch == 'd' {
+                    if let Some((LatexToken::Letter(_), _)) = self.peek_ahead(1) {
+                        return false;
+                    }
+                }
+                true
+            }
             Some((LatexToken::Command(cmd), _)) => {
                 // Exclude relation commands and right delimiters - they should not trigger implicit mult
                 !matches!(
@@ -770,7 +791,8 @@ impl LatexParser {
                         let ch = *ch;
 
                         // Check for differential: d followed by variable
-                        if ch == 'd' {
+                        // But NOT in integral or fraction context
+                        if ch == 'd' && !self.in_integral_context && !self.in_fraction_context {
                             // Peek ahead to see if next token is a letter
                             if let Some((LatexToken::Letter(var_ch), _)) = self.peek_ahead(1) {
                                 let var_ch = *var_ch;
@@ -783,7 +805,7 @@ impl LatexParser {
                         }
 
                         self.next(); // consume
-                        // Use context-aware resolution for e and i
+                                     // Use context-aware resolution for e and i
                         if ch == 'e' || ch == 'i' {
                             Ok(self.resolve_letter(ch, false))
                         } else {
@@ -822,10 +844,15 @@ impl LatexParser {
                         // Unary minus
                         self.next(); // consume -
                         let operand = self.parse_power()?;
-                        Ok(Expression::Unary {
-                            op: crate::ast::UnaryOp::Neg,
-                            operand: Box::new(operand),
-                        })
+                        // Fold -∞ into NegInfinity
+                        if matches!(operand, Expression::Constant(MathConstant::Infinity)) {
+                            Ok(Expression::Constant(MathConstant::NegInfinity))
+                        } else {
+                            Ok(Expression::Unary {
+                                op: crate::ast::UnaryOp::Neg,
+                                operand: Box::new(operand),
+                            })
+                        }
                     }
                     LatexToken::Plus => {
                         // Unary plus
@@ -931,9 +958,7 @@ impl LatexParser {
                             // Just parse the next atom
                             self.parse_power()?
                         };
-                        Ok(Expression::PowerSet {
-                            set: Box::new(set),
-                        })
+                        Ok(Expression::PowerSet { set: Box::new(set) })
                     }
                     // Number sets: \mathbb{N}, \mathbb{Z}, \mathbb{Q}, \mathbb{R}, \mathbb{C}, \mathbb{H}
                     LatexToken::Naturals => {
@@ -997,8 +1022,11 @@ impl LatexParser {
             // Fractions: \frac{num}{denom}
             // Also handles derivatives: \frac{d}{dx} or \frac{\partial}{\partial x}
             "frac" => {
+                // Parse numerator with fraction context
+                self.in_fraction_context = true;
                 let numerator = self.braced(|p| p.parse_expression())?;
                 let denominator = self.braced(|p| p.parse_expression())?;
+                self.in_fraction_context = false;
 
                 // Try to parse as derivative
                 if let Some(derivative) =
@@ -1071,10 +1099,10 @@ impl LatexParser {
             }
 
             // Greek letters -> Variables
-            "alpha" | "beta" | "gamma" | "zeta" | "eta" | "theta"
-            | "iota" | "kappa" | "lambda" | "mu" | "nu" | "xi" | "omicron" | "pi" | "rho"
-            | "sigma" | "tau" | "upsilon" | "phi" | "chi" | "psi" | "omega" | "Gamma" | "Delta"
-            | "Theta" | "Lambda" | "Xi" | "Pi" | "Sigma" | "Upsilon" | "Phi" | "Psi" | "Omega" => {
+            "alpha" | "beta" | "gamma" | "zeta" | "eta" | "theta" | "iota" | "kappa" | "lambda"
+            | "mu" | "nu" | "xi" | "omicron" | "pi" | "rho" | "sigma" | "tau" | "upsilon"
+            | "phi" | "chi" | "psi" | "omega" | "Gamma" | "Delta" | "Theta" | "Lambda" | "Xi"
+            | "Pi" | "Sigma" | "Upsilon" | "Phi" | "Psi" | "Omega" => {
                 // Special case: \pi is a constant
                 if cmd == "pi" {
                     Ok(Expression::Constant(MathConstant::Pi))
@@ -1581,7 +1609,10 @@ impl LatexParser {
 
         // Parse integrand - use multiplicative level so x + 1 parses as (int x) + 1
         // For greedy parsing like \int x + 1 dx, parentheses are required: \int (x + 1) dx
+        // Set integral context to prevent 'dx' from being parsed as a Differential
+        self.in_integral_context = true;
         let integrand = self.parse_multiplicative()?;
+        self.in_integral_context = false;
 
         // Expect 'd' followed by variable name
         if let Some((LatexToken::Letter('d'), _)) = self.peek() {
@@ -1625,8 +1656,10 @@ impl LatexParser {
             None
         };
 
-        // Parse integrand
+        // Parse integrand with integral context set
+        self.in_integral_context = true;
         let integrand = self.parse_multiplicative()?;
+        self.in_integral_context = false;
 
         // Parse the differential variables (dy dx, dz dy dx, etc.)
         let mut vars = Vec::new();
@@ -1683,8 +1716,10 @@ impl LatexParser {
             None
         };
 
-        // Parse integrand
+        // Parse integrand with integral context set
+        self.in_integral_context = true;
         let integrand = self.parse_multiplicative()?;
+        self.in_integral_context = false;
 
         // Parse the differential variable
         let var = if let Some((LatexToken::Letter('d'), _)) = self.peek() {

@@ -361,6 +361,53 @@ fn test_mathrm_other_letter() {
 }
 
 // =============================================================================
+// NegInfinity folding
+// =============================================================================
+
+#[test]
+fn test_neg_infty_is_neg_infinity() {
+    // -\infty should fold to Constant(NegInfinity)
+    let expr = parse_latex(r"-\infty").unwrap();
+    assert_eq!(expr, Expression::Constant(MathConstant::NegInfinity));
+}
+
+#[test]
+fn test_neg_infty_in_limit() {
+    // \lim_{x \to -\infty} f(x) should have NegInfinity as the limit target
+    let expr = parse_latex(r"\lim_{x \to -\infty} f(x)").unwrap();
+    match expr {
+        Expression::Limit { to, .. } => {
+            assert_eq!(*to, Expression::Constant(MathConstant::NegInfinity));
+        }
+        _ => panic!("Expected Limit variant"),
+    }
+}
+
+#[test]
+fn test_neg_infty_in_integral_bound() {
+    // \int_{-\infty}^{\infty} should have NegInfinity as lower bound
+    let expr = parse_latex(r"\int_{-\infty}^{\infty} x dx").unwrap();
+    match expr {
+        Expression::Integral { bounds, .. } => {
+            let bounds = bounds.expect("Expected definite integral bounds");
+            assert_eq!(
+                *bounds.lower,
+                Expression::Constant(MathConstant::NegInfinity)
+            );
+            assert_eq!(*bounds.upper, Expression::Constant(MathConstant::Infinity));
+        }
+        _ => panic!("Expected Integral variant"),
+    }
+}
+
+#[test]
+fn test_positive_infty_unchanged() {
+    // \infty should remain Constant(Infinity), not NegInfinity
+    let expr = parse_latex(r"\infty").unwrap();
+    assert_eq!(expr, Expression::Constant(MathConstant::Infinity));
+}
+
+// =============================================================================
 // Tokenizer tests for ExplicitConstant
 // =============================================================================
 

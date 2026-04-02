@@ -508,6 +508,13 @@ impl TextParser {
                 self.next(); // consume operator
                 let operand = self.parse_unary()?; // allow multiple unary operators
 
+                // Fold -∞ into NegInfinity
+                if matches!(op, UnaryOp::Neg)
+                    && matches!(operand, Expression::Constant(MathConstant::Infinity))
+                {
+                    return Ok(Expression::Constant(MathConstant::NegInfinity));
+                }
+
                 return Ok(Expression::Unary {
                     op,
                     operand: Box::new(operand),
@@ -812,6 +819,18 @@ mod tests {
     fn test_parse_constant_inf() {
         let expr = parse("inf").unwrap();
         assert_eq!(expr, Expression::Constant(MathConstant::Infinity));
+    }
+
+    #[test]
+    fn test_parse_constant_neg_inf() {
+        let expr = parse("-inf").unwrap();
+        assert_eq!(expr, Expression::Constant(MathConstant::NegInfinity));
+    }
+
+    #[test]
+    fn test_parse_neg_unicode_infinity() {
+        let expr = parse("-\u{221E}").unwrap();
+        assert_eq!(expr, Expression::Constant(MathConstant::NegInfinity));
     }
 
     #[test]
@@ -3275,8 +3294,20 @@ mod vector_operations {
         let expr = parse("dot(a + b, c * d)").unwrap();
         match expr {
             Expression::DotProduct { left, right } => {
-                assert!(matches!(*left, Expression::Binary { op: BinaryOp::Add, .. }));
-                assert!(matches!(*right, Expression::Binary { op: BinaryOp::Mul, .. }));
+                assert!(matches!(
+                    *left,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+                assert!(matches!(
+                    *right,
+                    Expression::Binary {
+                        op: BinaryOp::Mul,
+                        ..
+                    }
+                ));
             }
             _ => panic!("Expected DotProduct"),
         }
@@ -3336,7 +3367,13 @@ mod vector_calculus {
         let expr = parse("grad(x^2 + y^2)").unwrap();
         match expr {
             Expression::Gradient { expr } => {
-                assert!(matches!(*expr, Expression::Binary { op: BinaryOp::Add, .. }));
+                assert!(matches!(
+                    *expr,
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
             }
             _ => panic!("Expected Gradient"),
         }
