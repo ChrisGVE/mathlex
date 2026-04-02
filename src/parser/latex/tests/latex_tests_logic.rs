@@ -35,10 +35,7 @@ fn test_forall_with_domain() {
         } => {
             assert_eq!(variable, "x");
             assert!(domain.is_some());
-            assert_eq!(
-                *domain.unwrap(),
-                Expression::Variable("S".to_string())
-            );
+            assert_eq!(*domain.unwrap(), Expression::Variable("S".to_string()));
             assert_eq!(*body, Expression::Variable("P".to_string()));
         }
         _ => panic!("Expected ForAll, got {:?}", expr),

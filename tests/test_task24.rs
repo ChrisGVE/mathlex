@@ -1,6 +1,6 @@
-use mathlex::parser::parse_latex;
-use mathlex::ast::{Expression, RelationOp, NumberSet};
+use mathlex::ast::{Expression, NumberSet, RelationOp};
 use mathlex::latex::ToLatex;
+use mathlex::parser::parse_latex;
 
 #[test]
 fn test_parse_similar_relation() {
@@ -64,10 +64,20 @@ fn test_parse_function_composition() {
 fn test_parse_function_signature_reals() {
     let expr = parse_latex(r"f: \mathbb{R} \to \mathbb{R}").unwrap();
     match expr {
-        Expression::FunctionSignature { name, domain, codomain } => {
+        Expression::FunctionSignature {
+            name,
+            domain,
+            codomain,
+        } => {
             assert_eq!(name, "f");
-            assert!(matches!(*domain, Expression::NumberSetExpr(NumberSet::Real)));
-            assert!(matches!(*codomain, Expression::NumberSetExpr(NumberSet::Real)));
+            assert!(matches!(
+                *domain,
+                Expression::NumberSetExpr(NumberSet::Real)
+            ));
+            assert!(matches!(
+                *codomain,
+                Expression::NumberSetExpr(NumberSet::Real)
+            ));
         }
         _ => panic!("Expected FunctionSignature expression"),
     }
@@ -77,10 +87,20 @@ fn test_parse_function_signature_reals() {
 fn test_parse_function_signature_complex() {
     let expr = parse_latex(r"g: \mathbb{C} \to \mathbb{R}").unwrap();
     match expr {
-        Expression::FunctionSignature { name, domain, codomain } => {
+        Expression::FunctionSignature {
+            name,
+            domain,
+            codomain,
+        } => {
             assert_eq!(name, "g");
-            assert!(matches!(*domain, Expression::NumberSetExpr(NumberSet::Complex)));
-            assert!(matches!(*codomain, Expression::NumberSetExpr(NumberSet::Real)));
+            assert!(matches!(
+                *domain,
+                Expression::NumberSetExpr(NumberSet::Complex)
+            ));
+            assert!(matches!(
+                *codomain,
+                Expression::NumberSetExpr(NumberSet::Real)
+            ));
         }
         _ => panic!("Expected FunctionSignature expression"),
     }

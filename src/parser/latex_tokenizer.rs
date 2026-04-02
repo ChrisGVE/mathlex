@@ -116,7 +116,6 @@ pub enum LatexToken {
     /// \notin - not element of
     NotIn,
 
-
     // Number sets (via \mathbb{X})
     /// \mathbb{N} - natural numbers
     Naturals,
@@ -520,7 +519,6 @@ impl<'a> Tokenizer<'a> {
                 "oiint" => Ok((LatexToken::ClosedSurface, span)),
                 "oiiint" => Ok((LatexToken::ClosedVolume, span)),
 
-
                 // Set operations
                 "cup" => Ok((LatexToken::Cup, span)),
                 "cap" => Ok((LatexToken::Cap, span)),
@@ -568,7 +566,10 @@ impl<'a> Tokenizer<'a> {
                         'R' => Ok((LatexToken::Reals, Span::new(start, end))),
                         'C' => Ok((LatexToken::Complexes, Span::new(start, end))),
                         'H' => Ok((LatexToken::Quaternions, Span::new(start, end))),
-                        _ => Ok((LatexToken::Command(format!("mathbb_{}", ch)), Span::new(start, end))),
+                        _ => Ok((
+                            LatexToken::Command(format!("mathbb_{}", ch)),
+                            Span::new(start, end),
+                        )),
                     }
                 }
 
@@ -595,7 +596,10 @@ impl<'a> Tokenizer<'a> {
                     let end = self.position();
                     match ch {
                         'P' => Ok((LatexToken::PowerSet, Span::new(start, end))),
-                        _ => Ok((LatexToken::Command(format!("mathcal_{}", ch)), Span::new(start, end))),
+                        _ => Ok((
+                            LatexToken::Command(format!("mathcal_{}", ch)),
+                            Span::new(start, end),
+                        )),
                     }
                 }
 

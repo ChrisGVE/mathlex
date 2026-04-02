@@ -40,15 +40,13 @@ fn test_gradient_of_function() {
 fn test_divergence_basic() {
     let expr = parse_latex(r"\nabla \cdot \mathbf{F}").unwrap();
     match expr {
-        Expression::Divergence { field } => {
-            match *field {
-                Expression::MarkedVector { name, notation } => {
-                    assert_eq!(name, "F");
-                    assert_eq!(notation, VectorNotation::Bold);
-                }
-                _ => panic!("Expected MarkedVector, got {:?}", field),
+        Expression::Divergence { field } => match *field {
+            Expression::MarkedVector { name, notation } => {
+                assert_eq!(name, "F");
+                assert_eq!(notation, VectorNotation::Bold);
             }
-        }
+            _ => panic!("Expected MarkedVector, got {:?}", field),
+        },
         _ => panic!("Expected Divergence, got {:?}", expr),
     }
 }
@@ -61,15 +59,13 @@ fn test_divergence_basic() {
 fn test_curl_basic() {
     let expr = parse_latex(r"\nabla \times \mathbf{F}").unwrap();
     match expr {
-        Expression::Curl { field } => {
-            match *field {
-                Expression::MarkedVector { name, notation } => {
-                    assert_eq!(name, "F");
-                    assert_eq!(notation, VectorNotation::Bold);
-                }
-                _ => panic!("Expected MarkedVector, got {:?}", field),
+        Expression::Curl { field } => match *field {
+            Expression::MarkedVector { name, notation } => {
+                assert_eq!(name, "F");
+                assert_eq!(notation, VectorNotation::Bold);
             }
-        }
+            _ => panic!("Expected MarkedVector, got {:?}", field),
+        },
         _ => panic!("Expected Curl, got {:?}", expr),
     }
 }
@@ -111,19 +107,21 @@ fn test_dot_product_basic() {
     // Note: Current parser may treat \cdot as multiplication
     // Accept either DotProduct or Binary multiplication
     match expr {
-        Expression::DotProduct { left, right } => {
-            match (*left, *right) {
-                (
-                    Expression::MarkedVector { name: n1, .. },
-                    Expression::MarkedVector { name: n2, .. },
-                ) => {
-                    assert_eq!(n1, "u");
-                    assert_eq!(n2, "v");
-                }
-                _ => panic!("Expected MarkedVectors"),
+        Expression::DotProduct { left, right } => match (*left, *right) {
+            (
+                Expression::MarkedVector { name: n1, .. },
+                Expression::MarkedVector { name: n2, .. },
+            ) => {
+                assert_eq!(n1, "u");
+                assert_eq!(n2, "v");
             }
-        }
-        Expression::Binary { op: BinaryOp::Mul, left, right } => {
+            _ => panic!("Expected MarkedVectors"),
+        },
+        Expression::Binary {
+            op: BinaryOp::Mul,
+            left,
+            right,
+        } => {
             // Also acceptable - \cdot parsed as multiplication
             match (*left, *right) {
                 (
@@ -148,18 +146,16 @@ fn test_dot_product_basic() {
 fn test_cross_product_basic() {
     let expr = parse_latex(r"\mathbf{a} \times \mathbf{b}").unwrap();
     match expr {
-        Expression::CrossProduct { left, right } => {
-            match (*left, *right) {
-                (
-                    Expression::MarkedVector { name: n1, .. },
-                    Expression::MarkedVector { name: n2, .. },
-                ) => {
-                    assert_eq!(n1, "a");
-                    assert_eq!(n2, "b");
-                }
-                _ => panic!("Expected MarkedVectors"),
+        Expression::CrossProduct { left, right } => match (*left, *right) {
+            (
+                Expression::MarkedVector { name: n1, .. },
+                Expression::MarkedVector { name: n2, .. },
+            ) => {
+                assert_eq!(n1, "a");
+                assert_eq!(n2, "b");
             }
-        }
+            _ => panic!("Expected MarkedVectors"),
+        },
         _ => panic!("Expected CrossProduct, got {:?}", expr),
     }
 }

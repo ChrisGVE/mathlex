@@ -80,7 +80,9 @@ fn test_element_of() {
     let expr = parse_latex(r"x \in A").unwrap();
     match expr {
         Expression::SetRelationExpr {
-            relation, element, set,
+            relation,
+            element,
+            set,
         } => {
             assert_eq!(relation, SetRelation::In);
             assert_eq!(*element, Expression::Variable("x".to_string()));
@@ -170,7 +172,9 @@ fn test_forall_basic() {
     let expr = parse_latex(r"\forall x P").unwrap();
     match expr {
         Expression::ForAll {
-            variable, domain, body,
+            variable,
+            domain,
+            body,
         } => {
             assert_eq!(variable, "x");
             assert!(domain.is_none());
@@ -190,10 +194,7 @@ fn test_forall_with_domain() {
         } => {
             assert_eq!(variable, "x");
             assert!(domain.is_some());
-            assert_eq!(
-                *domain.unwrap(),
-                Expression::Variable("S".to_string())
-            );
+            assert_eq!(*domain.unwrap(), Expression::Variable("S".to_string()));
         }
         _ => panic!("Expected ForAll with domain, got {:?}", expr),
     }
@@ -285,7 +286,13 @@ fn test_element_of_union() {
     match expr {
         Expression::SetRelationExpr { relation, set, .. } => {
             assert_eq!(relation, SetRelation::In);
-            assert!(matches!(*set, Expression::SetOperation { op: SetOp::Union, .. }));
+            assert!(matches!(
+                *set,
+                Expression::SetOperation {
+                    op: SetOp::Union,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected SetRelationExpr with Union"),
     }
@@ -296,10 +303,17 @@ fn test_intersection_precedence_over_union() {
     // A ∪ B ∩ C = A ∪ (B ∩ C)
     let expr = parse_latex(r"A \cup B \cap C").unwrap();
     match expr {
-        Expression::SetOperation { op: SetOp::Union, right, .. } => {
+        Expression::SetOperation {
+            op: SetOp::Union,
+            right,
+            ..
+        } => {
             assert!(matches!(
                 *right,
-                Expression::SetOperation { op: SetOp::Intersection, .. }
+                Expression::SetOperation {
+                    op: SetOp::Intersection,
+                    ..
+                }
             ));
         }
         _ => panic!("Expected Union with Intersection on right"),
@@ -326,7 +340,11 @@ fn test_empty_set_in_union() {
     // ∅ ∪ A = A (mathematically, but we just check parsing)
     let expr = parse_latex(r"\emptyset \cup A").unwrap();
     match expr {
-        Expression::SetOperation { op: SetOp::Union, left, .. } => {
+        Expression::SetOperation {
+            op: SetOp::Union,
+            left,
+            ..
+        } => {
             assert_eq!(*left, Expression::EmptySet);
         }
         _ => panic!("Expected Union with EmptySet"),

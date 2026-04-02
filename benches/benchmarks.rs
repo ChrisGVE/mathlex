@@ -427,9 +427,7 @@ fn benchmark_latex_parser_quaternions(c: &mut Criterion) {
 fn benchmark_latex_parser_sets(c: &mut Criterion) {
     let mut group = c.benchmark_group("latex_parser_sets");
 
-    group.bench_function("union", |b| {
-        b.iter(|| parse_latex(black_box(r"A \cup B")))
-    });
+    group.bench_function("union", |b| b.iter(|| parse_latex(black_box(r"A \cup B"))));
 
     group.bench_function("intersection", |b| {
         b.iter(|| parse_latex(black_box(r"A \cap B")))
@@ -482,9 +480,7 @@ fn benchmark_latex_parser_logic(c: &mut Criterion) {
         b.iter(|| parse_latex(black_box(r"P \iff Q")))
     });
 
-    group.bench_function("negation", |b| {
-        b.iter(|| parse_latex(black_box(r"\neg P")))
-    });
+    group.bench_function("negation", |b| b.iter(|| parse_latex(black_box(r"\neg P"))));
 
     group.finish();
 }
@@ -495,7 +491,11 @@ fn benchmark_latex_parser_realistic(c: &mut Criterion) {
 
     // Maxwell's equation (divergence)
     group.bench_function("maxwell_divergence", |b| {
-        b.iter(|| parse_latex(black_box(r"\nabla \cdot \mathbf{E} = \frac{\rho}{\epsilon_0}")))
+        b.iter(|| {
+            parse_latex(black_box(
+                r"\nabla \cdot \mathbf{E} = \frac{\rho}{\epsilon_0}",
+            ))
+        })
     });
 
     // Maxwell's equation (curl)
@@ -527,11 +527,7 @@ fn benchmark_latex_parser_realistic(c: &mut Criterion) {
 
     // Nested vector calculus
     group.bench_function("nested_vector_ops", |b| {
-        b.iter(|| {
-            parse_latex(black_box(
-                r"\nabla \cdot (\nabla \times \mathbf{F}) = 0",
-            ))
-        })
+        b.iter(|| parse_latex(black_box(r"\nabla \cdot (\nabla \times \mathbf{F}) = 0")))
     });
 
     group.finish();
@@ -549,29 +545,19 @@ fn benchmark_text_parser_new_features(c: &mut Criterion) {
         b.iter(|| parse(black_box("div(F)")))
     });
 
-    group.bench_function("curl_keyword", |b| {
-        b.iter(|| parse(black_box("curl(F)")))
-    });
+    group.bench_function("curl_keyword", |b| b.iter(|| parse(black_box("curl(F)"))));
 
-    group.bench_function("logical_and", |b| {
-        b.iter(|| parse(black_box("P and Q")))
-    });
+    group.bench_function("logical_and", |b| b.iter(|| parse(black_box("P and Q"))));
 
-    group.bench_function("logical_or", |b| {
-        b.iter(|| parse(black_box("P or Q")))
-    });
+    group.bench_function("logical_or", |b| b.iter(|| parse(black_box("P or Q"))));
 
     group.bench_function("implication", |b| {
         b.iter(|| parse(black_box("P implies Q")))
     });
 
-    group.bench_function("forall", |b| {
-        b.iter(|| parse(black_box("forall x, P(x)")))
-    });
+    group.bench_function("forall", |b| b.iter(|| parse(black_box("forall x, P(x)"))));
 
-    group.bench_function("exists", |b| {
-        b.iter(|| parse(black_box("exists x, P(x)")))
-    });
+    group.bench_function("exists", |b| b.iter(|| parse(black_box("exists x, P(x)"))));
 
     group.finish();
 }
@@ -584,21 +570,13 @@ fn benchmark_latex_parser_matrix_ops(c: &mut Criterion) {
         b.iter(|| parse_latex(black_box(r"\det(A)")))
     });
 
-    group.bench_function("trace", |b| {
-        b.iter(|| parse_latex(black_box(r"\tr(A)")))
-    });
+    group.bench_function("trace", |b| b.iter(|| parse_latex(black_box(r"\tr(A)"))));
 
-    group.bench_function("rank", |b| {
-        b.iter(|| parse_latex(black_box(r"\rank(A)")))
-    });
+    group.bench_function("rank", |b| b.iter(|| parse_latex(black_box(r"\rank(A)"))));
 
-    group.bench_function("inverse", |b| {
-        b.iter(|| parse_latex(black_box(r"A^{-1}")))
-    });
+    group.bench_function("inverse", |b| b.iter(|| parse_latex(black_box(r"A^{-1}"))));
 
-    group.bench_function("transpose", |b| {
-        b.iter(|| parse_latex(black_box(r"A^T")))
-    });
+    group.bench_function("transpose", |b| b.iter(|| parse_latex(black_box(r"A^T"))));
 
     group.bench_function("conjugate_transpose", |b| {
         b.iter(|| parse_latex(black_box(r"A^\dagger")))

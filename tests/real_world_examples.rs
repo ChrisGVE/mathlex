@@ -15,7 +15,9 @@ fn test_quadratic_formula_simplified() {
     // Simplified version: (-b + √(b² - 4ac)) / (2a)
     let expr = parse_latex(r"\frac{-b + \sqrt{b^2 - 4 * a * c}}{2 * a}").unwrap();
     match expr {
-        Expression::Binary { op: BinaryOp::Div, .. } => {
+        Expression::Binary {
+            op: BinaryOp::Div, ..
+        } => {
             // Structure is correct - division at top level
         }
         _ => panic!("Expected division at top level, got {:?}", expr),
@@ -29,8 +31,20 @@ fn test_pythagorean_theorem() {
     match expr {
         Expression::Equation { left, right, .. } => {
             // Both sides should be valid
-            assert!(matches!(*left, Expression::Binary { op: BinaryOp::Pow, .. }));
-            assert!(matches!(*right, Expression::Binary { op: BinaryOp::Add, .. }));
+            assert!(matches!(
+                *left,
+                Expression::Binary {
+                    op: BinaryOp::Pow,
+                    ..
+                }
+            ));
+            assert!(matches!(
+                *right,
+                Expression::Binary {
+                    op: BinaryOp::Add,
+                    ..
+                }
+            ));
         }
         _ => panic!("Expected Equation, got {:?}", expr),
     }
@@ -83,7 +97,12 @@ fn test_summation() {
     // Σᵢ₌₁ⁿ i
     let expr = parse_latex(r"\sum_{i=1}^{n} i").unwrap();
     match expr {
-        Expression::Sum { index, lower, upper, .. } => {
+        Expression::Sum {
+            index,
+            lower,
+            upper,
+            ..
+        } => {
             assert_eq!(index, "i");
             assert_eq!(*lower, Expression::Integer(1));
             assert_eq!(*upper, Expression::Variable("n".to_string()));
@@ -113,7 +132,11 @@ fn test_euler_formula() {
     // e^{iπ} + 1
     let expr = parse_latex(r"e^{i * \pi} + 1").unwrap();
     match expr {
-        Expression::Binary { op: BinaryOp::Add, left, .. } => {
+        Expression::Binary {
+            op: BinaryOp::Add,
+            left,
+            ..
+        } => {
             // e^{iπ} should be exp function
             match *left {
                 Expression::Function { name, .. } if name == "exp" => {}
@@ -129,7 +152,11 @@ fn test_trig_functions() {
     // sin(x) + cos(x)
     let expr = parse_latex(r"\sin(x) + \cos(x)").unwrap();
     match expr {
-        Expression::Binary { op: BinaryOp::Add, left, right } => {
+        Expression::Binary {
+            op: BinaryOp::Add,
+            left,
+            right,
+        } => {
             assert!(matches!(*left, Expression::Function { name, .. } if name == "sin"));
             assert!(matches!(*right, Expression::Function { name, .. } if name == "cos"));
         }
@@ -160,10 +187,18 @@ fn test_complex_number() {
     // 3 + 4i (using explicit marker)
     let expr = parse_latex(r"3 + 4 * \mathrm{i}").unwrap();
     match expr {
-        Expression::Binary { op: BinaryOp::Add, left, right } => {
+        Expression::Binary {
+            op: BinaryOp::Add,
+            left,
+            right,
+        } => {
             assert_eq!(*left, Expression::Integer(3));
             match *right {
-                Expression::Binary { op: BinaryOp::Mul, left: l, right: r } => {
+                Expression::Binary {
+                    op: BinaryOp::Mul,
+                    left: l,
+                    right: r,
+                } => {
                     assert_eq!(*l, Expression::Integer(4));
                     assert_eq!(*r, Expression::Constant(MathConstant::I));
                 }
@@ -179,7 +214,11 @@ fn test_imaginary_unit() {
     // i² = -1 (just i²)
     let expr = parse_latex(r"\mathrm{i}^2").unwrap();
     match expr {
-        Expression::Binary { op: BinaryOp::Pow, left, right } => {
+        Expression::Binary {
+            op: BinaryOp::Pow,
+            left,
+            right,
+        } => {
             assert_eq!(*left, Expression::Constant(MathConstant::I));
             assert_eq!(*right, Expression::Integer(2));
         }
@@ -266,7 +305,9 @@ fn test_line_integral() {
     // ∮_C F dr
     let expr = parse_latex(r"\oint_C F dr").unwrap();
     match expr {
-        Expression::ClosedIntegral { dimension, surface, .. } => {
+        Expression::ClosedIntegral {
+            dimension, surface, ..
+        } => {
             assert_eq!(dimension, 1);
             assert_eq!(surface, Some("C".to_string()));
         }
@@ -300,8 +341,8 @@ fn test_nth_root() {
         Expression::Function { name, args } => {
             assert_eq!(name, "root");
             assert_eq!(args.len(), 2);
-            assert_eq!(args[0], Expression::Integer(8));  // radicand
-            assert_eq!(args[1], Expression::Integer(3));  // index
+            assert_eq!(args[0], Expression::Integer(8)); // radicand
+            assert_eq!(args[1], Expression::Integer(3)); // index
         }
         _ => panic!("Expected Function(root), got {:?}", expr),
     }
@@ -315,7 +356,11 @@ fn test_nth_root() {
 fn test_fraction() {
     let expr = parse_latex(r"\frac{a}{b}").unwrap();
     match expr {
-        Expression::Binary { op: BinaryOp::Div, left, right } => {
+        Expression::Binary {
+            op: BinaryOp::Div,
+            left,
+            right,
+        } => {
             assert_eq!(*left, Expression::Variable("a".to_string()));
             assert_eq!(*right, Expression::Variable("b".to_string()));
         }

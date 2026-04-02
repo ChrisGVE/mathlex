@@ -80,7 +80,9 @@ fn test_quaternion_sum_explicit() {
     let expr = parse_latex(r"1 + \mathrm{i} + \mathrm{j} + \mathrm{k}").unwrap();
     // This should parse as nested additions with quaternion constants
     match expr {
-        Expression::Binary { op: BinaryOp::Add, .. } => {
+        Expression::Binary {
+            op: BinaryOp::Add, ..
+        } => {
             // Just verify it parses without error
         }
         _ => panic!("Expected binary addition, got {:?}", expr),
@@ -93,7 +95,9 @@ fn test_quaternion_with_coefficients() {
     let expr = parse_latex(r"a * \mathrm{i} + b * \mathrm{j} + c * \mathrm{k}").unwrap();
     // Verify it parses - detailed structure validation would be extensive
     match expr {
-        Expression::Binary { op: BinaryOp::Add, .. } => {}
+        Expression::Binary {
+            op: BinaryOp::Add, ..
+        } => {}
         _ => panic!("Expected binary addition, got {:?}", expr),
     }
 }

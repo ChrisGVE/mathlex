@@ -228,18 +228,22 @@ fn test_outer_product() {
 fn test_vector_product_with_marked_vectors() {
     let expr = parse_latex(r"\mathbf{a} \bullet \mathbf{b}").unwrap();
     match expr {
-        Expression::DotProduct { left, right } => {
-            match (*left, *right) {
-                (
-                    Expression::MarkedVector { name: n1, notation: VectorNotation::Bold },
-                    Expression::MarkedVector { name: n2, notation: VectorNotation::Bold },
-                ) => {
-                    assert_eq!(n1, "a");
-                    assert_eq!(n2, "b");
-                }
-                _ => panic!("Expected MarkedVectors in dot product"),
+        Expression::DotProduct { left, right } => match (*left, *right) {
+            (
+                Expression::MarkedVector {
+                    name: n1,
+                    notation: VectorNotation::Bold,
+                },
+                Expression::MarkedVector {
+                    name: n2,
+                    notation: VectorNotation::Bold,
+                },
+            ) => {
+                assert_eq!(n1, "a");
+                assert_eq!(n2, "b");
             }
-        }
+            _ => panic!("Expected MarkedVectors in dot product"),
+        },
         _ => panic!("Expected DotProduct, got {:?}", expr),
     }
 }
@@ -262,18 +266,26 @@ fn test_gradient_of_scalar_product() {
 fn test_vector_in_expression() {
     let expr = parse_latex(r"\mathbf{v} + \mathbf{u}").unwrap();
     match expr {
-        Expression::Binary { op: crate::ast::BinaryOp::Add, left, right } => {
-            match (*left, *right) {
-                (
-                    Expression::MarkedVector { name: n1, notation: VectorNotation::Bold },
-                    Expression::MarkedVector { name: n2, notation: VectorNotation::Bold },
-                ) => {
-                    assert_eq!(n1, "v");
-                    assert_eq!(n2, "u");
-                }
-                _ => panic!("Expected MarkedVectors in addition"),
+        Expression::Binary {
+            op: crate::ast::BinaryOp::Add,
+            left,
+            right,
+        } => match (*left, *right) {
+            (
+                Expression::MarkedVector {
+                    name: n1,
+                    notation: VectorNotation::Bold,
+                },
+                Expression::MarkedVector {
+                    name: n2,
+                    notation: VectorNotation::Bold,
+                },
+            ) => {
+                assert_eq!(n1, "v");
+                assert_eq!(n2, "u");
             }
-        }
+            _ => panic!("Expected MarkedVectors in addition"),
+        },
         _ => panic!("Expected Binary Add, got {:?}", expr),
     }
 }

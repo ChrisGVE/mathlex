@@ -1279,22 +1279,16 @@ impl Expression {
             // Differential forms
             Expression::Differential { .. } => 1,
 
-            Expression::WedgeProduct { left, right } => {
-                1 + left.node_count() + right.node_count()
-            }
+            Expression::WedgeProduct { left, right } => 1 + left.node_count() + right.node_count(),
 
             // Function theory
             Expression::FunctionSignature {
                 domain, codomain, ..
             } => 1 + domain.node_count() + codomain.node_count(),
 
-            Expression::Composition { outer, inner } => {
-                1 + outer.node_count() + inner.node_count()
-            }
+            Expression::Composition { outer, inner } => 1 + outer.node_count() + inner.node_count(),
 
-            Expression::Relation { left, right, .. } => {
-                1 + left.node_count() + right.node_count()
-            }
+            Expression::Relation { left, right, .. } => 1 + left.node_count() + right.node_count(),
         }
     }
 
