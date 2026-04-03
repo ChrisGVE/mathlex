@@ -269,12 +269,50 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    /// Scans the optional decimal fraction into `buf`; returns true if consumed.
+    fn scan_decimal_part(&mut self, buf: &mut String) -> bool {
+        if self.peek() == Some('.') && matches!(self.peek_ahead(1), Some(d) if d.is_ascii_digit()) {
+            buf.push('.');
+            self.consume();
+            while let Some(ch) = self.peek() {
+                if ch.is_ascii_digit() {
+                    buf.push(ch);
+                    self.consume();
+                } else {
+                    break;
+                }
+            }
+            return true;
+        }
+        false
+    }
+
+    /// Scans the optional scientific-notation exponent into `buf`; returns true if consumed.
+    fn scan_exponent_part(&mut self, buf: &mut String) -> bool {
+        if matches!(self.peek(), Some('e' | 'E')) {
+            buf.push(self.peek().unwrap());
+            self.consume();
+            if matches!(self.peek(), Some('+' | '-')) {
+                buf.push(self.peek().unwrap());
+                self.consume();
+            }
+            while let Some(ch) = self.peek() {
+                if ch.is_ascii_digit() {
+                    buf.push(ch);
+                    self.consume();
+                } else {
+                    break;
+                }
+            }
+            return true;
+        }
+        false
+    }
+
     /// Scans a number (integer or float, including scientific notation).
     fn scan_number(&mut self) -> ParseResult<(Token, Span)> {
         let start = self.position();
         let mut number_str = String::new();
-        let mut has_dot = false;
-        let mut has_exp = false;
 
         // Scan integer part
         while let Some(ch) = self.peek() {
@@ -286,59 +324,12 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        // Check for decimal point
-        if self.peek() == Some('.') {
-            // Look ahead to ensure it's followed by a digit
-            if let Some(next) = self.peek_ahead(1) {
-                if next.is_ascii_digit() {
-                    has_dot = true;
-                    number_str.push('.');
-                    self.consume();
-
-                    // Scan fractional part
-                    while let Some(ch) = self.peek() {
-                        if ch.is_ascii_digit() {
-                            number_str.push(ch);
-                            self.consume();
-                        } else {
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Check for exponent
-        if let Some(ch) = self.peek() {
-            if ch == 'e' || ch == 'E' {
-                has_exp = true;
-                number_str.push(ch);
-                self.consume();
-
-                // Optional sign
-                if let Some(sign) = self.peek() {
-                    if sign == '+' || sign == '-' {
-                        number_str.push(sign);
-                        self.consume();
-                    }
-                }
-
-                // Exponent digits
-                while let Some(ch) = self.peek() {
-                    if ch.is_ascii_digit() {
-                        number_str.push(ch);
-                        self.consume();
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
+        let has_dot = self.scan_decimal_part(&mut number_str);
+        let has_exp = self.scan_exponent_part(&mut number_str);
 
         let end = self.position();
         let span = Span::new(start, end);
 
-        // Parse the number
         if has_dot || has_exp {
             match number_str.parse::<f64>() {
                 Ok(n) => Ok((Token::Float(n), span)),
@@ -411,6 +402,124 @@ impl<'a> Tokenizer<'a> {
         (token, span)
     }
 
+    /// Scans multi-character operators and Unicode symbol tokens.
+    ///
+    /// Returns `Ok(Some(token))` if the character starts a multi-char or Unicode
+    /// token, `Ok(None)` if the character should be handled as a single-char token.
+    fn scan_multi_char_op(
+        &mut self,
+        ch: char,
+        start: Position,
+    ) -> ParseResult<Option<SpannedToken>> {
+        match ch {
+            '!' => {
+                self.consume();
+                if self.peek() == Some('=') {
+                    self.consume();
+                    let end = self.position();
+                    return Ok(Some(SpannedToken::new(
+                        Token::NotEquals,
+                        Span::new(start, end),
+                    )));
+                }
+                Ok(Some(SpannedToken::new(
+                    Token::Bang,
+                    Span::new(start, self.position()),
+                )))
+            }
+            '<' => {
+                self.consume();
+                if self.peek() == Some('=') {
+                    self.consume();
+                    let end = self.position();
+                    return Ok(Some(SpannedToken::new(
+                        Token::LessEq,
+                        Span::new(start, end),
+                    )));
+                }
+                Ok(Some(SpannedToken::new(
+                    Token::Less,
+                    Span::new(start, self.position()),
+                )))
+            }
+            '>' => {
+                self.consume();
+                if self.peek() == Some('=') {
+                    self.consume();
+                    let end = self.position();
+                    return Ok(Some(SpannedToken::new(
+                        Token::GreaterEq,
+                        Span::new(start, end),
+                    )));
+                }
+                Ok(Some(SpannedToken::new(
+                    Token::Greater,
+                    Span::new(start, self.position()),
+                )))
+            }
+            '*' => {
+                self.consume();
+                if self.peek() == Some('*') {
+                    self.consume();
+                    let end = self.position();
+                    return Ok(Some(SpannedToken::new(
+                        Token::DoubleStar,
+                        Span::new(start, end),
+                    )));
+                }
+                Ok(Some(SpannedToken::new(
+                    Token::Star,
+                    Span::new(start, self.position()),
+                )))
+            }
+            // Unicode inequality symbols
+            '≤' => {
+                self.consume();
+                Ok(Some(SpannedToken::new(
+                    Token::LessEq,
+                    Span::new(start, self.position()),
+                )))
+            }
+            '≥' => {
+                self.consume();
+                Ok(Some(SpannedToken::new(
+                    Token::GreaterEq,
+                    Span::new(start, self.position()),
+                )))
+            }
+            '≠' => {
+                self.consume();
+                Ok(Some(SpannedToken::new(
+                    Token::NotEquals,
+                    Span::new(start, self.position()),
+                )))
+            }
+            // Unicode mathematical constants
+            'π' => {
+                self.consume();
+                Ok(Some(SpannedToken::new(
+                    Token::Pi,
+                    Span::new(start, self.position()),
+                )))
+            }
+            '∞' => {
+                self.consume();
+                Ok(Some(SpannedToken::new(
+                    Token::Infinity,
+                    Span::new(start, self.position()),
+                )))
+            }
+            '√' => {
+                self.consume();
+                Ok(Some(SpannedToken::new(
+                    Token::Sqrt,
+                    Span::new(start, self.position()),
+                )))
+            }
+            _ => Ok(None),
+        }
+    }
+
     /// Scans the next token.
     fn scan_token(&mut self) -> ParseResult<Option<SpannedToken>> {
         self.skip_whitespace();
@@ -434,107 +543,8 @@ impl<'a> Tokenizer<'a> {
         }
 
         // Multi-character operators and Unicode symbols
-        match ch {
-            '!' => {
-                self.consume();
-                if self.peek() == Some('=') {
-                    self.consume();
-                    let end = self.position();
-                    return Ok(Some(SpannedToken::new(
-                        Token::NotEquals,
-                        Span::new(start, end),
-                    )));
-                }
-                let end = self.position();
-                return Ok(Some(SpannedToken::new(Token::Bang, Span::new(start, end))));
-            }
-            '<' => {
-                self.consume();
-                if self.peek() == Some('=') {
-                    self.consume();
-                    let end = self.position();
-                    return Ok(Some(SpannedToken::new(
-                        Token::LessEq,
-                        Span::new(start, end),
-                    )));
-                }
-                let end = self.position();
-                return Ok(Some(SpannedToken::new(Token::Less, Span::new(start, end))));
-            }
-            '>' => {
-                self.consume();
-                if self.peek() == Some('=') {
-                    self.consume();
-                    let end = self.position();
-                    return Ok(Some(SpannedToken::new(
-                        Token::GreaterEq,
-                        Span::new(start, end),
-                    )));
-                }
-                let end = self.position();
-                return Ok(Some(SpannedToken::new(
-                    Token::Greater,
-                    Span::new(start, end),
-                )));
-            }
-            // Unicode inequality symbols
-            '≤' => {
-                self.consume();
-                let end = self.position();
-                return Ok(Some(SpannedToken::new(
-                    Token::LessEq,
-                    Span::new(start, end),
-                )));
-            }
-            '≥' => {
-                self.consume();
-                let end = self.position();
-                return Ok(Some(SpannedToken::new(
-                    Token::GreaterEq,
-                    Span::new(start, end),
-                )));
-            }
-            '≠' => {
-                self.consume();
-                let end = self.position();
-                return Ok(Some(SpannedToken::new(
-                    Token::NotEquals,
-                    Span::new(start, end),
-                )));
-            }
-            // Unicode mathematical constants
-            'π' => {
-                self.consume();
-                let end = self.position();
-                return Ok(Some(SpannedToken::new(Token::Pi, Span::new(start, end))));
-            }
-            '∞' => {
-                self.consume();
-                let end = self.position();
-                return Ok(Some(SpannedToken::new(
-                    Token::Infinity,
-                    Span::new(start, end),
-                )));
-            }
-            '√' => {
-                self.consume();
-                let end = self.position();
-                return Ok(Some(SpannedToken::new(Token::Sqrt, Span::new(start, end))));
-            }
-            '*' => {
-                self.consume();
-                if self.peek() == Some('*') {
-                    self.consume();
-                    let end = self.position();
-                    return Ok(Some(SpannedToken::new(
-                        Token::DoubleStar,
-                        Span::new(start, end),
-                    )));
-                }
-                let end = self.position();
-                return Ok(Some(SpannedToken::new(Token::Star, Span::new(start, end))));
-            }
-            _ => {}
+        if let Some(tok) = self.scan_multi_char_op(ch, start)? {
+            return Ok(Some(tok));
         }
 
         // Single-character tokens
