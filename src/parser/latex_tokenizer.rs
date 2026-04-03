@@ -379,6 +379,238 @@ impl<'a> Tokenizer<'a> {
         (num, Span::new(start, end))
     }
 
+    /// Parses `\mathrm{X}` and returns an explicit constant or fallback command.
+    fn scan_mathrm(
+        &mut self,
+        cmd_span: Span,
+        token_start: Position,
+    ) -> ParseResult<(LatexToken, Span)> {
+        self.skip_whitespace();
+        if self.peek() != Some('{') {
+            return Err(ParseError::custom(
+                "\\mathrm must be followed by {content}".to_string(),
+                Some(cmd_span),
+            ));
+        }
+        self.consume(); // consume {
+        let ch = self
+            .peek()
+            .ok_or_else(|| ParseError::unexpected_eof(vec!["letter"], Some(cmd_span)))?;
+        self.consume(); // consume letter
+        if self.peek() != Some('}') {
+            return Err(ParseError::custom(
+                "\\mathrm{} must contain exactly one character for constant notation".to_string(),
+                Some(cmd_span),
+            ));
+        }
+        self.consume(); // consume }
+        let end = self.position();
+        match ch {
+            'e' | 'i' | 'j' | 'k' => Ok((
+                LatexToken::ExplicitConstant(ch),
+                Span::new(token_start, end),
+            )),
+            _ => Ok((
+                LatexToken::Command(format!("mathrm_{}", ch)),
+                Span::new(token_start, end),
+            )),
+        }
+    }
+
+    /// Parses `\mathbb{X}` and returns the matching number-set token.
+    fn scan_mathbb(
+        &mut self,
+        cmd_span: Span,
+        token_start: Position,
+    ) -> ParseResult<(LatexToken, Span)> {
+        self.skip_whitespace();
+        if self.peek() != Some('{') {
+            return Err(ParseError::custom(
+                "\\mathbb must be followed by {letter}".to_string(),
+                Some(cmd_span),
+            ));
+        }
+        self.consume(); // consume {
+        let ch = self
+            .peek()
+            .ok_or_else(|| ParseError::unexpected_eof(vec!["letter"], Some(cmd_span)))?;
+        self.consume(); // consume letter
+        if self.peek() != Some('}') {
+            return Err(ParseError::custom(
+                "\\mathbb{} must contain exactly one character".to_string(),
+                Some(cmd_span),
+            ));
+        }
+        self.consume(); // consume }
+        let end = self.position();
+        let tok = match ch {
+            'N' => LatexToken::Naturals,
+            'Z' => LatexToken::Integers,
+            'Q' => LatexToken::Rationals,
+            'R' => LatexToken::Reals,
+            'C' => LatexToken::Complexes,
+            'H' => LatexToken::Quaternions,
+            _ => LatexToken::Command(format!("mathbb_{}", ch)),
+        };
+        Ok((tok, Span::new(token_start, end)))
+    }
+
+    /// Parses `\mathcal{X}` and returns a power-set token or fallback command.
+    fn scan_mathcal(
+        &mut self,
+        cmd_span: Span,
+        token_start: Position,
+    ) -> ParseResult<(LatexToken, Span)> {
+        self.skip_whitespace();
+        if self.peek() != Some('{') {
+            return Ok((LatexToken::Command("mathcal".to_string()), cmd_span));
+        }
+        self.consume(); // consume {
+        let ch = self
+            .peek()
+            .ok_or_else(|| ParseError::unexpected_eof(vec!["letter"], Some(cmd_span)))?;
+        self.consume(); // consume letter
+        if self.peek() != Some('}') {
+            return Err(ParseError::custom(
+                "\\mathcal{} must contain exactly one character".to_string(),
+                Some(cmd_span),
+            ));
+        }
+        self.consume(); // consume }
+        let end = self.position();
+        let tok = match ch {
+            'P' => LatexToken::PowerSet,
+            _ => LatexToken::Command(format!("mathcal_{}", ch)),
+        };
+        Ok((tok, Span::new(token_start, end)))
+    }
+
+    /// Parses the bracket after `\left` into the appropriate delimiter token.
+    fn scan_left_delimiter(
+        &mut self,
+        fallback_span: Span,
+        token_start: Position,
+    ) -> ParseResult<(LatexToken, Span)> {
+        self.skip_whitespace();
+        match self.peek() {
+            Some('(') => {
+                self.consume();
+                Ok((LatexToken::LParen, Span::new(token_start, self.position())))
+            }
+            Some('[') => {
+                self.consume();
+                Ok((
+                    LatexToken::LBracket,
+                    Span::new(token_start, self.position()),
+                ))
+            }
+            Some('|') => {
+                self.consume();
+                Ok((LatexToken::Pipe, Span::new(token_start, self.position())))
+            }
+            _ => Ok((LatexToken::Command("left".to_string()), fallback_span)),
+        }
+    }
+
+    /// Parses the bracket after `\right` into the appropriate delimiter token.
+    fn scan_right_delimiter(
+        &mut self,
+        fallback_span: Span,
+        token_start: Position,
+    ) -> ParseResult<(LatexToken, Span)> {
+        self.skip_whitespace();
+        match self.peek() {
+            Some(')') => {
+                self.consume();
+                Ok((LatexToken::RParen, Span::new(token_start, self.position())))
+            }
+            Some(']') => {
+                self.consume();
+                Ok((
+                    LatexToken::RBracket,
+                    Span::new(token_start, self.position()),
+                ))
+            }
+            Some('|') => {
+                self.consume();
+                Ok((LatexToken::Pipe, Span::new(token_start, self.position())))
+            }
+            _ => Ok((LatexToken::Command("right".to_string()), fallback_span)),
+        }
+    }
+
+    /// Resolves a scanned command name to its `LatexToken`.
+    ///
+    /// `cmd_span` covers the full `\name` span; `token_start` is the backslash position.
+    fn resolve_command(
+        &mut self,
+        cmd: String,
+        cmd_span: Span,
+        token_start: Position,
+    ) -> ParseResult<(LatexToken, Span)> {
+        match cmd.as_str() {
+            "begin" => {
+                let (name, span) = self.scan_environment(true)?;
+                Ok((LatexToken::BeginEnv(name), span))
+            }
+            "end" => {
+                let (name, span) = self.scan_environment(false)?;
+                Ok((LatexToken::EndEnv(name), span))
+            }
+            "to" => Ok((LatexToken::To, cmd_span)),
+            "infty" => Ok((LatexToken::Infty, cmd_span)),
+            "cdot" => Ok((LatexToken::Cdot, cmd_span)),
+            "times" => Ok((LatexToken::Cross, cmd_span)),
+            "mathrm" => self.scan_mathrm(cmd_span, token_start),
+            "imath" | "jmath" => Ok((LatexToken::ExplicitConstant('i'), cmd_span)),
+            "left" => self.scan_left_delimiter(cmd_span, token_start),
+            "right" => self.scan_right_delimiter(cmd_span, token_start),
+            "forall" => Ok((LatexToken::ForAll, cmd_span)),
+            "exists" => Ok((LatexToken::Exists, cmd_span)),
+            "land" => Ok((LatexToken::Land, cmd_span)),
+            "lor" | "vee" => Ok((LatexToken::Lor, cmd_span)),
+            "lnot" | "neg" => Ok((LatexToken::Lnot, cmd_span)),
+            "implies" | "Rightarrow" => Ok((LatexToken::Implies, cmd_span)),
+            "iff" | "Leftrightarrow" => Ok((LatexToken::Iff, cmd_span)),
+            "in" => Ok((LatexToken::In, cmd_span)),
+            "notin" => Ok((LatexToken::NotIn, cmd_span)),
+            "iint" => Ok((LatexToken::DoubleIntegral, cmd_span)),
+            "iiint" => Ok((LatexToken::TripleIntegral, cmd_span)),
+            "iiiint" => Ok((LatexToken::QuadIntegral, cmd_span)),
+            "oint" => Ok((LatexToken::ClosedIntegral, cmd_span)),
+            "oiint" => Ok((LatexToken::ClosedSurface, cmd_span)),
+            "oiiint" => Ok((LatexToken::ClosedVolume, cmd_span)),
+            "cup" => Ok((LatexToken::Cup, cmd_span)),
+            "cap" => Ok((LatexToken::Cap, cmd_span)),
+            "setminus" => Ok((LatexToken::Setminus, cmd_span)),
+            "triangle" | "bigtriangleup" => Ok((LatexToken::Triangle, cmd_span)),
+            "subset" => Ok((LatexToken::Subset, cmd_span)),
+            "subseteq" => Ok((LatexToken::SubsetEq, cmd_span)),
+            "supset" => Ok((LatexToken::Superset, cmd_span)),
+            "supseteq" => Ok((LatexToken::SupersetEq, cmd_span)),
+            "emptyset" | "varnothing" => Ok((LatexToken::EmptySet, cmd_span)),
+            "mid" => Ok((LatexToken::SetMid, cmd_span)),
+            "mathbb" => self.scan_mathbb(cmd_span, token_start),
+            "mathcal" => self.scan_mathcal(cmd_span, token_start),
+            "mathbf" => Ok((LatexToken::Mathbf, cmd_span)),
+            "boldsymbol" => Ok((LatexToken::Boldsymbol, cmd_span)),
+            "vec" => Ok((LatexToken::Vec, cmd_span)),
+            "overrightarrow" => Ok((LatexToken::Overrightarrow, cmd_span)),
+            "hat" => Ok((LatexToken::Hat, cmd_span)),
+            "underline" => Ok((LatexToken::Underline, cmd_span)),
+            "bullet" => Ok((LatexToken::Bullet, cmd_span)),
+            "otimes" => Ok((LatexToken::Otimes, cmd_span)),
+            "wedge" => Ok((LatexToken::Wedge, cmd_span)),
+            "nabla" => Ok((LatexToken::Nabla, cmd_span)),
+            "sim" => Ok((LatexToken::Sim, cmd_span)),
+            "equiv" => Ok((LatexToken::Equiv, cmd_span)),
+            "cong" => Ok((LatexToken::Cong, cmd_span)),
+            "approx" => Ok((LatexToken::Approx, cmd_span)),
+            "circ" => Ok((LatexToken::Circ, cmd_span)),
+            _ => Ok((LatexToken::Command(cmd), cmd_span)),
+        }
+    }
+
     /// Tokenizes the next token from the input.
     fn next_token(&mut self) -> ParseResult<(LatexToken, Span)> {
         self.skip_whitespace();
@@ -390,246 +622,12 @@ impl<'a> Tokenizer<'a> {
             None => return Ok((LatexToken::Eof, Span::at(start))),
         };
 
-        // Check for backslash (command or environment)
         if ch == '\\' {
             let (cmd, span) = self.scan_command()?;
-
-            // Special case: double backslash
             if cmd == "\\\\" {
                 return Ok((LatexToken::DoubleBackslash, span));
             }
-
-            // Check for special commands
-            return match cmd.as_str() {
-                "begin" => {
-                    let (name, span) = self.scan_environment(true)?;
-                    Ok((LatexToken::BeginEnv(name), span))
-                }
-                "end" => {
-                    let (name, span) = self.scan_environment(false)?;
-                    Ok((LatexToken::EndEnv(name), span))
-                }
-                "to" => Ok((LatexToken::To, span)),
-                "infty" => Ok((LatexToken::Infty, span)),
-                "cdot" => Ok((LatexToken::Cdot, span)),
-                "times" => Ok((LatexToken::Cross, span)),
-                "mathrm" => {
-                    // Parse \mathrm{e} or \mathrm{i} as explicit constants
-                    self.skip_whitespace();
-                    if self.peek() != Some('{') {
-                        return Err(ParseError::custom(
-                            "\\mathrm must be followed by {content}".to_string(),
-                            Some(span),
-                        ));
-                    }
-                    self.consume(); // consume {
-                    let ch = self.peek();
-                    if ch.is_none() {
-                        return Err(ParseError::unexpected_eof(vec!["letter"], Some(span)));
-                    }
-                    let ch = ch.unwrap();
-                    self.consume(); // consume letter
-                    if self.peek() != Some('}') {
-                        return Err(ParseError::custom(
-                            "\\mathrm{} must contain exactly one character for constant notation"
-                                .to_string(),
-                            Some(span),
-                        ));
-                    }
-                    self.consume(); // consume }
-                    let end = self.position();
-                    match ch {
-                        'e' | 'i' | 'j' | 'k' => {
-                            Ok((LatexToken::ExplicitConstant(ch), Span::new(start, end)))
-                        }
-                        _ => Ok((
-                            LatexToken::Command(format!("mathrm_{}", ch)),
-                            Span::new(start, end),
-                        )),
-                    }
-                }
-                "imath" | "jmath" => Ok((LatexToken::ExplicitConstant('i'), span)),
-                "left" => {
-                    // Handle \left( or \left[ or \left|
-                    self.skip_whitespace();
-                    match self.peek() {
-                        Some('(') => {
-                            self.consume();
-                            let end = self.position();
-                            Ok((LatexToken::LParen, Span::new(start, end)))
-                        }
-                        Some('[') => {
-                            self.consume();
-                            let end = self.position();
-                            Ok((LatexToken::LBracket, Span::new(start, end)))
-                        }
-                        Some('|') => {
-                            self.consume();
-                            let end = self.position();
-                            Ok((LatexToken::Pipe, Span::new(start, end)))
-                        }
-                        _ => Ok((LatexToken::Command("left".to_string()), span)),
-                    }
-                }
-                "right" => {
-                    // Handle \right) or \right] or \right|
-                    self.skip_whitespace();
-                    match self.peek() {
-                        Some(')') => {
-                            self.consume();
-                            let end = self.position();
-                            Ok((LatexToken::RParen, Span::new(start, end)))
-                        }
-                        Some(']') => {
-                            self.consume();
-                            let end = self.position();
-                            Ok((LatexToken::RBracket, Span::new(start, end)))
-                        }
-                        Some('|') => {
-                            self.consume();
-                            let end = self.position();
-                            Ok((LatexToken::Pipe, Span::new(start, end)))
-                        }
-                        _ => Ok((LatexToken::Command("right".to_string()), span)),
-                    }
-                }
-
-                // Quantifiers
-                "forall" => Ok((LatexToken::ForAll, span)),
-                "exists" => Ok((LatexToken::Exists, span)),
-
-                // Logical connectives (handle aliases)
-                "land" => Ok((LatexToken::Land, span)),
-                "lor" | "vee" => Ok((LatexToken::Lor, span)),
-                "lnot" | "neg" => Ok((LatexToken::Lnot, span)),
-                "implies" | "Rightarrow" => Ok((LatexToken::Implies, span)),
-                "iff" | "Leftrightarrow" => Ok((LatexToken::Iff, span)),
-
-                // Set membership
-                "in" => Ok((LatexToken::In, span)),
-                "notin" => Ok((LatexToken::NotIn, span)),
-
-                // Multiple integrals
-                "iint" => Ok((LatexToken::DoubleIntegral, span)),
-                "iiint" => Ok((LatexToken::TripleIntegral, span)),
-                "iiiint" => Ok((LatexToken::QuadIntegral, span)),
-
-                // Closed integrals
-                "oint" => Ok((LatexToken::ClosedIntegral, span)),
-                "oiint" => Ok((LatexToken::ClosedSurface, span)),
-                "oiiint" => Ok((LatexToken::ClosedVolume, span)),
-
-                // Set operations
-                "cup" => Ok((LatexToken::Cup, span)),
-                "cap" => Ok((LatexToken::Cap, span)),
-                "setminus" => Ok((LatexToken::Setminus, span)),
-                "triangle" | "bigtriangleup" => Ok((LatexToken::Triangle, span)),
-
-                // Set relations
-                "subset" => Ok((LatexToken::Subset, span)),
-                "subseteq" => Ok((LatexToken::SubsetEq, span)),
-                "supset" => Ok((LatexToken::Superset, span)),
-                "supseteq" => Ok((LatexToken::SupersetEq, span)),
-
-                // Set notation
-                "emptyset" | "varnothing" => Ok((LatexToken::EmptySet, span)),
-                "mid" => Ok((LatexToken::SetMid, span)),
-
-                // \mathbb{X} - number sets
-                "mathbb" => {
-                    self.skip_whitespace();
-                    if self.peek() != Some('{') {
-                        return Err(ParseError::custom(
-                            "\\mathbb must be followed by {letter}".to_string(),
-                            Some(span),
-                        ));
-                    }
-                    self.consume(); // consume {
-                    let ch = self.peek();
-                    if ch.is_none() {
-                        return Err(ParseError::unexpected_eof(vec!["letter"], Some(span)));
-                    }
-                    let ch = ch.unwrap();
-                    self.consume(); // consume letter
-                    if self.peek() != Some('}') {
-                        return Err(ParseError::custom(
-                            "\\mathbb{} must contain exactly one character".to_string(),
-                            Some(span),
-                        ));
-                    }
-                    self.consume(); // consume }
-                    let end = self.position();
-                    match ch {
-                        'N' => Ok((LatexToken::Naturals, Span::new(start, end))),
-                        'Z' => Ok((LatexToken::Integers, Span::new(start, end))),
-                        'Q' => Ok((LatexToken::Rationals, Span::new(start, end))),
-                        'R' => Ok((LatexToken::Reals, Span::new(start, end))),
-                        'C' => Ok((LatexToken::Complexes, Span::new(start, end))),
-                        'H' => Ok((LatexToken::Quaternions, Span::new(start, end))),
-                        _ => Ok((
-                            LatexToken::Command(format!("mathbb_{}", ch)),
-                            Span::new(start, end),
-                        )),
-                    }
-                }
-
-                // \mathcal{P} - power set
-                "mathcal" => {
-                    self.skip_whitespace();
-                    if self.peek() != Some('{') {
-                        return Ok((LatexToken::Command("mathcal".to_string()), span));
-                    }
-                    self.consume(); // consume {
-                    let ch = self.peek();
-                    if ch.is_none() {
-                        return Err(ParseError::unexpected_eof(vec!["letter"], Some(span)));
-                    }
-                    let ch = ch.unwrap();
-                    self.consume(); // consume letter
-                    if self.peek() != Some('}') {
-                        return Err(ParseError::custom(
-                            "\\mathcal{} must contain exactly one character".to_string(),
-                            Some(span),
-                        ));
-                    }
-                    self.consume(); // consume }
-                    let end = self.position();
-                    match ch {
-                        'P' => Ok((LatexToken::PowerSet, Span::new(start, end))),
-                        _ => Ok((
-                            LatexToken::Command(format!("mathcal_{}", ch)),
-                            Span::new(start, end),
-                        )),
-                    }
-                }
-
-                // Vector notation
-                "mathbf" => Ok((LatexToken::Mathbf, span)),
-                "boldsymbol" => Ok((LatexToken::Boldsymbol, span)),
-                "vec" => Ok((LatexToken::Vec, span)),
-                "overrightarrow" => Ok((LatexToken::Overrightarrow, span)),
-                "hat" => Ok((LatexToken::Hat, span)),
-                "underline" => Ok((LatexToken::Underline, span)),
-
-                // Vector/tensor operations
-                "bullet" => Ok((LatexToken::Bullet, span)),
-                "otimes" => Ok((LatexToken::Otimes, span)),
-                "wedge" => Ok((LatexToken::Wedge, span)),
-
-                // Nabla (gradient, divergence, curl)
-                "nabla" => Ok((LatexToken::Nabla, span)),
-
-                // Relations
-                "sim" => Ok((LatexToken::Sim, span)),
-                "equiv" => Ok((LatexToken::Equiv, span)),
-                "cong" => Ok((LatexToken::Cong, span)),
-                "approx" => Ok((LatexToken::Approx, span)),
-
-                // Composition
-                "circ" => Ok((LatexToken::Circ, span)),
-
-                _ => Ok((LatexToken::Command(cmd), span)),
-            };
+            return self.resolve_command(cmd, span, start);
         }
 
         // Single character tokens
@@ -638,7 +636,6 @@ impl<'a> Tokenizer<'a> {
         let span = Span::new(start, end);
 
         match ch {
-            // Operators
             '+' => Ok((LatexToken::Plus, span)),
             '-' => Ok((LatexToken::Minus, span)),
             '*' => Ok((LatexToken::Star, span)),
@@ -648,8 +645,6 @@ impl<'a> Tokenizer<'a> {
             '=' => Ok((LatexToken::Equals, span)),
             '<' => Ok((LatexToken::Less, span)),
             '>' => Ok((LatexToken::Greater, span)),
-
-            // Delimiters
             '{' => Ok((LatexToken::LBrace, span)),
             '}' => Ok((LatexToken::RBrace, span)),
             '(' => Ok((LatexToken::LParen, span)),
@@ -657,13 +652,9 @@ impl<'a> Tokenizer<'a> {
             '[' => Ok((LatexToken::LBracket, span)),
             ']' => Ok((LatexToken::RBracket, span)),
             '|' => Ok((LatexToken::Pipe, span)),
-
-            // Special
             '&' => Ok((LatexToken::Ampersand, span)),
             ',' => Ok((LatexToken::Comma, span)),
             ':' => Ok((LatexToken::Colon, span)),
-
-            // Numbers and letters
             _ if ch.is_ascii_digit() => {
                 // Back up one character since we already consumed it
                 self.offset -= 1;
@@ -672,7 +663,6 @@ impl<'a> Tokenizer<'a> {
                 Ok((LatexToken::Number(num), num_span))
             }
             _ if ch.is_ascii_alphabetic() => Ok((LatexToken::Letter(ch), span)),
-
             _ => Err(ParseError::custom(
                 format!("unexpected character '{}'", ch),
                 Some(span),
