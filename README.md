@@ -36,7 +36,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mathlex = "0.1.1"
+mathlex = "0.2.0"
 ```
 
 ### Swift
@@ -45,7 +45,7 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ChrisGVE/mathlex.git", from: "0.1.1")
+    .package(url: "https://github.com/ChrisGVE/mathlex.git", from: "0.2.0")
 ]
 ```
 

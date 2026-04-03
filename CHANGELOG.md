@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-04-03
+
 ### Added
 
 - **Vector calculus**: gradient (`\nabla f`), divergence (`\nabla \cdot F`), curl (`\nabla \times F`), Laplacian (`\nabla^2 f`) in both AST and LaTeX parser
@@ -70,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI/CD with release automation
 - Comprehensive unit test suite (700+ tests)
 
-[Unreleased]: https://github.com/ChrisGVE/mathlex/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/ChrisGVE/mathlex/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ChrisGVE/mathlex/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/ChrisGVE/mathlex/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ChrisGVE/mathlex/releases/tag/v0.1.0
