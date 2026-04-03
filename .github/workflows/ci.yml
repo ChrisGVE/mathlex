@@ -36,6 +36,24 @@ jobs:
       - name: Run tests with all features
         run: cargo test --all-features --verbose
 
+  msrv:
+    name: MSRV Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install MSRV toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.70"
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build with MSRV
+        run: cargo build --verbose
+
   clippy:
     name: Clippy
     runs-on: ubuntu-latest

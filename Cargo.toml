@@ -2,6 +2,7 @@
 name = "mathlex"
 version = "0.2.0"
 edition = "2021"
+rust-version = "1.70"
 authors = ["Christian C. Berclaz"]
 license = "MIT"
 description = "Mathematical expression parser for LaTeX and plain text notation, producing a language-agnostic AST"
