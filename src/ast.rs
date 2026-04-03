@@ -88,6 +88,12 @@ use std::fmt;
 /// - **Hash stability**: Identical float values produce identical hashes, including special
 ///   values like NaN, Infinity, and -Infinity.
 ///
+/// ## Parser Behavior
+///
+/// Parsers (`parse` and `parse_latex`) never produce NaN values. Only finite numbers and
+/// infinities appear in parsed ASTs. NaN values can only arise through manual AST
+/// construction via `MathFloat::new(f64::NAN)` or `MathFloat::from(f64::NAN)`.
+///
 /// ## Use Cases
 ///
 /// Use this type when you need to store floating-point values in collections that require
@@ -1546,6 +1552,10 @@ pub enum Expression {
     ///     vec![Expression::Integer(42)],
     /// ]);
     /// ```
+    ///
+    /// **Note:** Parsers always produce rectangular matrices. Manual construction can create
+    /// ragged matrices; use [`Expression::is_valid_matrix()`] or
+    /// [`Expression::matrix_dimensions()`] to validate.
     Matrix(Vec<Vec<Expression>>),
 
     /// Equation.
