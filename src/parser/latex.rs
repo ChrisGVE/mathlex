@@ -526,27 +526,85 @@ impl LatexParser {
         Ok(left)
     }
 
+    /// Matches a similarity/equivalence relation token to its operator.
+    fn match_math_relation(token: &LatexToken) -> Option<RelationOp> {
+        match token {
+            LatexToken::Sim => Some(RelationOp::Similar),
+            LatexToken::Equiv => Some(RelationOp::Equivalent),
+            LatexToken::Cong => Some(RelationOp::Congruent),
+            LatexToken::Approx => Some(RelationOp::Approx),
+            _ => None,
+        }
+    }
+
+    /// Matches an equation/inequality token to an optional InequalityOp (None = Equation).
+    fn match_ineq_relation(token: &LatexToken) -> Option<Option<InequalityOp>> {
+        match token {
+            LatexToken::Equals => Some(None),
+            LatexToken::Less => Some(Some(InequalityOp::Lt)),
+            LatexToken::Greater => Some(Some(InequalityOp::Gt)),
+            LatexToken::Command(cmd) => match cmd.as_str() {
+                "lt" => Some(Some(InequalityOp::Lt)),
+                "gt" => Some(Some(InequalityOp::Gt)),
+                "leq" | "le" => Some(Some(InequalityOp::Le)),
+                "geq" | "ge" => Some(Some(InequalityOp::Ge)),
+                "neq" | "ne" => Some(Some(InequalityOp::Ne)),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// Returns true if the token is any relation operator (used to detect chaining).
+    fn is_relation_token(token: &LatexToken) -> bool {
+        matches!(
+            token,
+            LatexToken::Equals
+                | LatexToken::Less
+                | LatexToken::Greater
+                | LatexToken::Sim
+                | LatexToken::Equiv
+                | LatexToken::Cong
+                | LatexToken::Approx
+        ) || matches!(
+            token,
+            LatexToken::Command(cmd) if matches!(
+                cmd.as_str(),
+                "lt" | "gt" | "leq" | "le" | "geq" | "ge" | "neq" | "ne"
+            )
+        )
+    }
+
+    /// Builds an Equation or Inequality expression from two operands.
+    fn build_equation_or_ineq(
+        rel_op: Option<InequalityOp>,
+        left: Expression,
+        right: Expression,
+    ) -> Expression {
+        match rel_op {
+            None => Expression::Equation {
+                left: Box::new(left),
+                right: Box::new(right),
+            },
+            Some(op) => Expression::Inequality {
+                op,
+                left: Box::new(left),
+                right: Box::new(right),
+            },
+        }
+    }
+
     /// Parses relational expressions (=, <, >, \leq, \geq, \neq, etc.).
     fn parse_relation(&mut self) -> ParseResult<Expression> {
         let left = self.parse_additive()?;
 
-        // Check for relation operator
         if let Some((token, span)) = self.peek() {
             let span = *span;
 
-            // First check for similarity/equivalence/congruence/approximation relations
-            let math_relation = match token {
-                LatexToken::Sim => Some(RelationOp::Similar),
-                LatexToken::Equiv => Some(RelationOp::Equivalent),
-                LatexToken::Cong => Some(RelationOp::Congruent),
-                LatexToken::Approx => Some(RelationOp::Approx),
-                _ => None,
-            };
-
-            if let Some(rel_op) = math_relation {
-                self.next(); // consume relation operator
+            // Check similarity/equivalence/congruence/approximation relations
+            if let Some(rel_op) = Self::match_math_relation(token) {
+                self.next();
                 let right = self.parse_additive()?;
-
                 return Ok(Expression::Relation {
                     op: rel_op,
                     left: Box::new(left),
@@ -554,46 +612,14 @@ impl LatexParser {
                 });
             }
 
-            // Then check for equation/inequality relations
-            let relation = match token {
-                LatexToken::Equals => Some((None, span)), // None indicates equation
-                LatexToken::Less => Some((Some(InequalityOp::Lt), span)),
-                LatexToken::Greater => Some((Some(InequalityOp::Gt), span)),
-                LatexToken::Command(cmd) => match cmd.as_str() {
-                    "lt" => Some((Some(InequalityOp::Lt), span)),
-                    "gt" => Some((Some(InequalityOp::Gt), span)),
-                    "leq" | "le" => Some((Some(InequalityOp::Le), span)),
-                    "geq" | "ge" => Some((Some(InequalityOp::Ge), span)),
-                    "neq" | "ne" => Some((Some(InequalityOp::Ne), span)),
-                    _ => None,
-                },
-                _ => None,
-            };
-
-            if let Some((rel_op, _)) = relation {
-                self.next(); // consume relation operator
+            // Check equation/inequality relations
+            if let Some(rel_op) = Self::match_ineq_relation(token) {
+                self.next();
                 let right = self.parse_additive()?;
 
-                // Check for chained relations and error if found
+                // Reject chained relations
                 if let Some((next_token, next_span)) = self.peek() {
-                    let is_relation = matches!(
-                        next_token,
-                        LatexToken::Equals
-                            | LatexToken::Less
-                            | LatexToken::Greater
-                            | LatexToken::Sim
-                            | LatexToken::Equiv
-                            | LatexToken::Cong
-                            | LatexToken::Approx
-                    ) || matches!(
-                        next_token,
-                        LatexToken::Command(cmd) if matches!(
-                            cmd.as_str(),
-                            "lt" | "gt" | "leq" | "le" | "geq" | "ge" | "neq" | "ne"
-                        )
-                    );
-
-                    if is_relation {
+                    if Self::is_relation_token(next_token) {
                         return Err(ParseError::custom(
                             "chained relations are not supported; use explicit grouping"
                                 .to_string(),
@@ -602,19 +628,10 @@ impl LatexParser {
                     }
                 }
 
-                // Return Equation or Inequality
-                return Ok(match rel_op {
-                    None => Expression::Equation {
-                        left: Box::new(left),
-                        right: Box::new(right),
-                    },
-                    Some(op) => Expression::Inequality {
-                        op,
-                        left: Box::new(left),
-                        right: Box::new(right),
-                    },
-                });
+                return Ok(Self::build_equation_or_ineq(rel_op, left, right));
             }
+
+            let _ = span; // suppress unused warning
         }
 
         Ok(left)
@@ -671,112 +688,119 @@ impl LatexParser {
         Ok(left)
     }
 
+    /// Tries to parse a named product operator (\circ, \bullet, \otimes, \wedge, \times).
+    /// Returns `Ok(new_left)` if a product operator was consumed, `Err(left)` otherwise.
+    fn try_parse_named_product(
+        &mut self,
+        token: &LatexToken,
+        left: Expression,
+    ) -> ParseResult<Result<Expression, Expression>> {
+        match token {
+            LatexToken::Circ => {
+                self.next();
+                let right = self.parse_power()?;
+                Ok(Ok(Expression::Composition {
+                    outer: Box::new(left),
+                    inner: Box::new(right),
+                }))
+            }
+            LatexToken::Bullet => {
+                self.next();
+                let right = self.parse_power()?;
+                Ok(Ok(Expression::DotProduct {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                }))
+            }
+            LatexToken::Otimes => {
+                self.next();
+                let right = self.parse_power()?;
+                Ok(Ok(Expression::OuterProduct {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                }))
+            }
+            LatexToken::Wedge => {
+                self.next();
+                let right = self.parse_power()?;
+                Ok(Ok(Expression::WedgeProduct {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                }))
+            }
+            LatexToken::Cross => {
+                self.next();
+                let right = self.parse_power()?;
+                Ok(Ok(Expression::CrossProduct {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                }))
+            }
+            _ => Ok(Err(left)),
+        }
+    }
+
     /// Parses multiplicative expressions (*, /) and set intersection.
     fn parse_multiplicative(&mut self) -> ParseResult<Expression> {
         let mut left = self.parse_power()?;
 
         loop {
-            if let Some((token, _)) = self.peek() {
-                // Check for set intersection
-                if matches!(token, LatexToken::Cap) {
-                    self.next(); // consume \cap
-                    let right = self.parse_power()?;
-                    left = Expression::SetOperation {
-                        op: SetOp::Intersection,
-                        left: Box::new(left),
-                        right: Box::new(right),
-                    };
-                    continue;
-                }
+            // Clone the token so we drop the immutable borrow before any `&mut self` call.
+            let token = match self.peek() {
+                Some((t, _)) => t.clone(),
+                None => break,
+            };
 
-                // Check for vector product operators and composition
-                match token {
-                    LatexToken::Circ => {
-                        // Function composition: f \circ g
-                        self.next(); // consume \circ
-                        let right = self.parse_power()?;
-                        left = Expression::Composition {
-                            outer: Box::new(left),
-                            inner: Box::new(right),
-                        };
-                        continue;
-                    }
-                    LatexToken::Bullet => {
-                        // Dot product: a \bullet b
-                        self.next(); // consume \bullet
-                        let right = self.parse_power()?;
-                        left = Expression::DotProduct {
-                            left: Box::new(left),
-                            right: Box::new(right),
-                        };
-                        continue;
-                    }
-                    LatexToken::Otimes => {
-                        // Outer product: a \otimes b
-                        self.next(); // consume \otimes
-                        let right = self.parse_power()?;
-                        left = Expression::OuterProduct {
-                            left: Box::new(left),
-                            right: Box::new(right),
-                        };
-                        continue;
-                    }
-                    LatexToken::Wedge => {
-                        // Wedge product: a \wedge b (exterior algebra / differential forms)
-                        self.next(); // consume \wedge
-                        let right = self.parse_power()?;
-                        left = Expression::WedgeProduct {
-                            left: Box::new(left),
-                            right: Box::new(right),
-                        };
-                        continue;
-                    }
-                    _ => {}
-                }
-
-                // Check for Cross (could be cross product or multiplication)
-                // Treat \times as cross product when operands appear to be vectors
-                if matches!(token, LatexToken::Cross) {
-                    self.next(); // consume \times
-                    let right = self.parse_power()?;
-                    left = Expression::CrossProduct {
-                        left: Box::new(left),
-                        right: Box::new(right),
-                    };
-                    continue;
-                }
-
-                // Regular multiplication operators
-                let op = match token {
-                    LatexToken::Star | LatexToken::Cdot => BinaryOp::Mul,
-                    LatexToken::Slash => BinaryOp::Div,
-                    _ => {
-                        // Check for implicit multiplication (e.g., dx means d*x)
-                        if self.should_insert_implicit_mult(&left) {
-                            BinaryOp::Mul
-                        } else {
-                            break;
-                        }
-                    }
-                };
-
-                // Consume explicit operator (but not for implicit multiplication)
-                if matches!(
-                    token,
-                    LatexToken::Star | LatexToken::Cdot | LatexToken::Slash
-                ) {
-                    self.next();
-                }
-
+            // Set intersection
+            if matches!(token, LatexToken::Cap) {
+                self.next();
                 let right = self.parse_power()?;
-                left = Expression::Binary {
-                    op,
+                left = Expression::SetOperation {
+                    op: SetOp::Intersection,
                     left: Box::new(left),
                     right: Box::new(right),
                 };
-            } else {
-                break;
+                continue;
             }
+
+            // Named product operators (\circ, \bullet, \otimes, \wedge, \times)
+            match self.try_parse_named_product(&token, left)? {
+                Ok(new_left) => {
+                    left = new_left;
+                    continue;
+                }
+                Err(returned) => {
+                    left = returned;
+                }
+            }
+
+            // Regular scalar multiplication (token was already cloned above)
+            let op = match &token {
+                LatexToken::Star | LatexToken::Cdot => BinaryOp::Mul,
+                LatexToken::Slash => BinaryOp::Div,
+                _ => {
+                    if self.should_insert_implicit_mult(&left) {
+                        BinaryOp::Mul
+                    } else {
+                        break;
+                    }
+                }
+            };
+
+            // Consume the explicit operator (not for implicit multiplication)
+            if matches!(
+                token,
+                LatexToken::Star | LatexToken::Cdot | LatexToken::Slash
+            ) {
+                self.next();
+            }
+
+            let right = self.parse_power()?;
+            left = Expression::Binary {
+                op,
+                left: Box::new(left),
+                right: Box::new(right),
+            };
         }
 
         Ok(left)
@@ -892,226 +916,239 @@ impl LatexParser {
         self.parse_primary()
     }
 
+    /// Parses a letter token, handling differential detection and e/i constant resolution.
+    fn parse_letter_token(&mut self, ch: char, _span: Span) -> ParseResult<Expression> {
+        // Detect `d<var>` as a differential outside integral/fraction context
+        if ch == 'd' && !self.in_integral_context && !self.in_fraction_context {
+            if let Some((LatexToken::Letter(var_ch), _)) = self.peek_ahead(1) {
+                let var_ch = *var_ch;
+                self.next(); // consume 'd'
+                self.next(); // consume variable letter
+                return Ok(Expression::Differential {
+                    var: var_ch.to_string(),
+                });
+            }
+        }
+        self.next();
+        if ch == 'e' || ch == 'i' {
+            Ok(self.resolve_letter(ch, false))
+        } else {
+            Ok(Expression::Variable(ch.to_string()))
+        }
+    }
+
+    /// Parses a number-set token (\mathbb{N/Z/Q/R/C/H}).
+    fn parse_number_set_token(&mut self, token: &LatexToken) -> Option<Expression> {
+        use crate::ast::NumberSet;
+        let set = match token {
+            LatexToken::Naturals => NumberSet::Natural,
+            LatexToken::Integers => NumberSet::Integer,
+            LatexToken::Rationals => NumberSet::Rational,
+            LatexToken::Reals => NumberSet::Real,
+            LatexToken::Complexes => NumberSet::Complex,
+            LatexToken::Quaternions => NumberSet::Quaternion,
+            _ => return None,
+        };
+        self.next();
+        Some(Expression::NumberSetExpr(set))
+    }
+
+    /// Parses vector notation, nabla, multiple/closed integrals, and matrix environments.
+    /// Returns `None` when the token does not match any of those forms.
+    fn parse_vector_integral_token(
+        &mut self,
+        token: &LatexToken,
+        span: Span,
+    ) -> ParseResult<Option<Expression>> {
+        let expr = match token {
+            LatexToken::Nabla => {
+                self.next();
+                self.parse_nabla()?
+            }
+            LatexToken::Mathbf | LatexToken::Boldsymbol => {
+                self.next();
+                self.parse_marked_vector(VectorNotation::Bold)?
+            }
+            LatexToken::Vec | LatexToken::Overrightarrow => {
+                self.next();
+                self.parse_marked_vector(VectorNotation::Arrow)?
+            }
+            LatexToken::Hat => {
+                self.next();
+                self.parse_marked_vector(VectorNotation::Hat)?
+            }
+            LatexToken::Underline => {
+                self.next();
+                self.parse_marked_vector(VectorNotation::Underline)?
+            }
+            LatexToken::DoubleIntegral => {
+                self.next();
+                self.parse_multiple_integral(2)?
+            }
+            LatexToken::TripleIntegral => {
+                self.next();
+                self.parse_multiple_integral(3)?
+            }
+            LatexToken::QuadIntegral => {
+                self.next();
+                self.parse_multiple_integral(4)?
+            }
+            LatexToken::ClosedIntegral => {
+                self.next();
+                self.parse_closed_integral(1)?
+            }
+            LatexToken::ClosedSurface => {
+                self.next();
+                self.parse_closed_integral(2)?
+            }
+            LatexToken::ClosedVolume => {
+                self.next();
+                self.parse_closed_integral(3)?
+            }
+            LatexToken::BeginEnv(env_name) => {
+                let env_name = env_name.clone();
+                self.next();
+                self.parse_matrix_environment(&env_name)?
+            }
+            _ => return Ok(None),
+        };
+        let _ = span; // span available for future error reporting
+        Ok(Some(expr))
+    }
+
+    /// Parses set/logic atoms, quantifiers, power-set, number sets, vectors, and integrals.
+    fn parse_primary_extended(
+        &mut self,
+        token: &LatexToken,
+        span: Span,
+    ) -> ParseResult<Expression> {
+        if let Some(expr) = self.parse_number_set_token(token) {
+            return Ok(expr);
+        }
+
+        if let Some(expr) = self.parse_vector_integral_token(token, span)? {
+            return Ok(expr);
+        }
+
+        match token {
+            LatexToken::PowerSet => {
+                self.next();
+                let set = if self.check(&LatexToken::LParen) {
+                    self.next();
+                    let expr = self.parse_expression()?;
+                    self.consume(LatexToken::RParen)?;
+                    expr
+                } else if self.check(&LatexToken::LBrace) {
+                    self.braced(|p| p.parse_expression())?
+                } else {
+                    self.parse_power()?
+                };
+                Ok(Expression::PowerSet { set: Box::new(set) })
+            }
+            LatexToken::EmptySet => {
+                self.next();
+                Ok(Expression::EmptySet)
+            }
+            LatexToken::Lnot => {
+                self.next();
+                let operand = self.parse_power()?;
+                Ok(Expression::Logical {
+                    op: crate::ast::LogicalOp::Not,
+                    operands: vec![operand],
+                })
+            }
+            LatexToken::ForAll => {
+                self.next();
+                self.parse_forall()
+            }
+            LatexToken::Exists => {
+                self.next();
+                self.parse_exists()
+            }
+            _ => Err(ParseError::unexpected_token(
+                vec!["expression"],
+                format!("{:?}", token),
+                Some(span),
+            )),
+        }
+    }
+
     /// Parses primary expressions (atoms, commands, parenthesized expressions).
     fn parse_primary(&mut self) -> ParseResult<Expression> {
-        match self.peek() {
-            Some((token, span)) => {
-                let span = *span;
-                match token {
-                    LatexToken::Number(num_str) => {
-                        let num_str = num_str.clone();
-                        self.next(); // consume
-                        self.parse_number(&num_str, span)
-                    }
-                    LatexToken::Letter(ch) => {
-                        let ch = *ch;
+        // Clone both token and span upfront so the immutable borrow on `self` ends
+        // before any `&mut self` call below.
+        let (token, span) = match self.peek() {
+            Some((t, s)) => (t.clone(), *s),
+            None => {
+                return Err(ParseError::unexpected_eof(
+                    vec!["expression"],
+                    Some(self.current_span()),
+                ))
+            }
+        };
 
-                        // Check for differential: d followed by variable
-                        // But NOT in integral or fraction context
-                        if ch == 'd' && !self.in_integral_context && !self.in_fraction_context {
-                            // Peek ahead to see if next token is a letter
-                            if let Some((LatexToken::Letter(var_ch), _)) = self.peek_ahead(1) {
-                                let var_ch = *var_ch;
-                                self.next(); // consume 'd'
-                                self.next(); // consume variable
-                                return Ok(Expression::Differential {
-                                    var: var_ch.to_string(),
-                                });
-                            }
-                        }
-
-                        self.next(); // consume
-                                     // Use context-aware resolution for e and i
-                        if ch == 'e' || ch == 'i' {
-                            Ok(self.resolve_letter(ch, false))
-                        } else {
-                            Ok(Expression::Variable(ch.to_string()))
-                        }
-                    }
-                    LatexToken::ExplicitConstant(ch) => {
-                        let ch = *ch;
-                        self.next(); // consume
-                                     // Explicit constants from \mathrm{e}, \mathrm{i}, \imath, \jmath
-                        Ok(self.resolve_letter(ch, true))
-                    }
-                    LatexToken::Command(cmd) => {
-                        let cmd = cmd.clone();
-                        self.next(); // consume
-                        self.parse_command(&cmd, span)
-                    }
-                    LatexToken::LParen => {
-                        self.next(); // consume (
-                        let expr = self.parse_expression()?;
-                        self.consume(LatexToken::RParen)?;
-                        Ok(expr)
-                    }
-                    LatexToken::LBrace => self.braced(|parser| parser.parse_expression()),
-                    LatexToken::Pipe => {
-                        // Absolute value: |expr|
-                        self.next(); // consume |
-                        let expr = self.parse_expression()?;
-                        self.consume(LatexToken::Pipe)?;
-                        Ok(Expression::Function {
-                            name: "abs".to_string(),
-                            args: vec![expr],
-                        })
-                    }
-                    LatexToken::Minus => {
-                        // Unary minus
-                        self.next(); // consume -
-                        let operand = self.parse_power()?;
-                        // Fold -∞ into NegInfinity
-                        if matches!(operand, Expression::Constant(MathConstant::Infinity)) {
-                            Ok(Expression::Constant(MathConstant::NegInfinity))
-                        } else {
-                            Ok(Expression::Unary {
-                                op: crate::ast::UnaryOp::Neg,
-                                operand: Box::new(operand),
-                            })
-                        }
-                    }
-                    LatexToken::Plus => {
-                        // Unary plus
-                        self.next(); // consume +
-                        let operand = self.parse_power()?;
-                        Ok(Expression::Unary {
-                            op: crate::ast::UnaryOp::Pos,
-                            operand: Box::new(operand),
-                        })
-                    }
-                    LatexToken::Infty => {
-                        self.next(); // consume
-                        Ok(Expression::Constant(MathConstant::Infinity))
-                    }
-                    LatexToken::BeginEnv(env_name) => {
-                        let env_name = env_name.clone();
-                        self.next(); // consume
-                        self.parse_matrix_environment(&env_name)
-                    }
-                    // Vector notation: \mathbf{v}, \vec{a}, etc.
-                    LatexToken::Mathbf | LatexToken::Boldsymbol => {
-                        self.next(); // consume token
-                        self.parse_marked_vector(VectorNotation::Bold)
-                    }
-                    LatexToken::Vec | LatexToken::Overrightarrow => {
-                        self.next(); // consume token
-                        self.parse_marked_vector(VectorNotation::Arrow)
-                    }
-                    LatexToken::Hat => {
-                        self.next(); // consume token
-                        self.parse_marked_vector(VectorNotation::Hat)
-                    }
-                    LatexToken::Underline => {
-                        self.next(); // consume token
-                        self.parse_marked_vector(VectorNotation::Underline)
-                    }
-                    // Nabla (gradient, divergence, curl)
-                    LatexToken::Nabla => {
-                        self.next(); // consume \nabla
-                        self.parse_nabla()
-                    }
-                    // Multiple integrals: \iint, \iiint, \iiiint
-                    LatexToken::DoubleIntegral => {
-                        self.next();
-                        self.parse_multiple_integral(2)
-                    }
-                    LatexToken::TripleIntegral => {
-                        self.next();
-                        self.parse_multiple_integral(3)
-                    }
-                    LatexToken::QuadIntegral => {
-                        self.next();
-                        self.parse_multiple_integral(4)
-                    }
-                    // Closed integrals: \oint, \oiint, \oiiint
-                    LatexToken::ClosedIntegral => {
-                        self.next();
-                        self.parse_closed_integral(1)
-                    }
-                    LatexToken::ClosedSurface => {
-                        self.next();
-                        self.parse_closed_integral(2)
-                    }
-                    LatexToken::ClosedVolume => {
-                        self.next();
-                        self.parse_closed_integral(3)
-                    }
-                    // Quantifiers
-                    LatexToken::ForAll => {
-                        self.next();
-                        self.parse_forall()
-                    }
-                    LatexToken::Exists => {
-                        self.next();
-                        self.parse_exists()
-                    }
-                    // Logical negation
-                    LatexToken::Lnot => {
-                        self.next();
-                        let operand = self.parse_power()?;
-                        Ok(Expression::Logical {
-                            op: crate::ast::LogicalOp::Not,
-                            operands: vec![operand],
-                        })
-                    }
-                    // Empty set: \emptyset, \varnothing
-                    LatexToken::EmptySet => {
-                        self.next();
-                        Ok(Expression::EmptySet)
-                    }
-                    // Power set: \mathcal{P}
-                    LatexToken::PowerSet => {
-                        self.next();
-                        // Power set is typically followed by a set argument in braces or parens
-                        let set = if self.check(&LatexToken::LParen) {
-                            self.next();
-                            let expr = self.parse_expression()?;
-                            self.consume(LatexToken::RParen)?;
-                            expr
-                        } else if self.check(&LatexToken::LBrace) {
-                            self.braced(|p| p.parse_expression())?
-                        } else {
-                            // Just parse the next atom
-                            self.parse_power()?
-                        };
-                        Ok(Expression::PowerSet { set: Box::new(set) })
-                    }
-                    // Number sets: \mathbb{N}, \mathbb{Z}, \mathbb{Q}, \mathbb{R}, \mathbb{C}, \mathbb{H}
-                    LatexToken::Naturals => {
-                        self.next();
-                        Ok(Expression::NumberSetExpr(crate::ast::NumberSet::Natural))
-                    }
-                    LatexToken::Integers => {
-                        self.next();
-                        Ok(Expression::NumberSetExpr(crate::ast::NumberSet::Integer))
-                    }
-                    LatexToken::Rationals => {
-                        self.next();
-                        Ok(Expression::NumberSetExpr(crate::ast::NumberSet::Rational))
-                    }
-                    LatexToken::Reals => {
-                        self.next();
-                        Ok(Expression::NumberSetExpr(crate::ast::NumberSet::Real))
-                    }
-                    LatexToken::Complexes => {
-                        self.next();
-                        Ok(Expression::NumberSetExpr(crate::ast::NumberSet::Complex))
-                    }
-                    LatexToken::Quaternions => {
-                        self.next();
-                        Ok(Expression::NumberSetExpr(crate::ast::NumberSet::Quaternion))
-                    }
-                    _ => Err(ParseError::unexpected_token(
-                        vec!["expression"],
-                        format!("{:?}", token),
-                        Some(span),
-                    )),
+        match token {
+            LatexToken::Number(ref num_str) => {
+                let num_str = num_str.clone();
+                self.next();
+                self.parse_number(&num_str, span)
+            }
+            LatexToken::Letter(ch) => self.parse_letter_token(ch, span),
+            LatexToken::ExplicitConstant(ch) => {
+                self.next();
+                Ok(self.resolve_letter(ch, true))
+            }
+            LatexToken::Command(ref cmd) => {
+                let cmd = cmd.clone();
+                self.next();
+                self.parse_command(&cmd, span)
+            }
+            LatexToken::LParen => {
+                self.next();
+                let expr = self.parse_expression()?;
+                self.consume(LatexToken::RParen)?;
+                Ok(expr)
+            }
+            LatexToken::LBrace => self.braced(|parser| parser.parse_expression()),
+            LatexToken::Pipe => {
+                self.next();
+                let expr = self.parse_expression()?;
+                self.consume(LatexToken::Pipe)?;
+                Ok(Expression::Function {
+                    name: "abs".to_string(),
+                    args: vec![expr],
+                })
+            }
+            LatexToken::Minus => {
+                self.next();
+                let operand = self.parse_power()?;
+                if matches!(operand, Expression::Constant(MathConstant::Infinity)) {
+                    Ok(Expression::Constant(MathConstant::NegInfinity))
+                } else {
+                    Ok(Expression::Unary {
+                        op: crate::ast::UnaryOp::Neg,
+                        operand: Box::new(operand),
+                    })
                 }
             }
-            None => Err(ParseError::unexpected_eof(
-                vec!["expression"],
-                Some(self.current_span()),
-            )),
+            LatexToken::Plus => {
+                self.next();
+                let operand = self.parse_power()?;
+                Ok(Expression::Unary {
+                    op: crate::ast::UnaryOp::Pos,
+                    operand: Box::new(operand),
+                })
+            }
+            LatexToken::Infty => {
+                self.next();
+                Ok(Expression::Constant(MathConstant::Infinity))
+            }
+            // All remaining tokens are handled by the extended helper.
+            // Pass the already-cloned token to avoid re-borrowing self.
+            ref t => {
+                let t = t.clone();
+                self.parse_primary_extended(&t, span)
+            }
         }
     }
 
@@ -1132,38 +1169,88 @@ impl LatexParser {
         }
     }
 
-    /// Parses a LaTeX command.
+    /// Parses \frac{num}{denom}, promoting to a derivative when the pattern matches.
+    fn parse_frac_command(&mut self) -> ParseResult<Expression> {
+        self.in_fraction_context = true;
+        let numerator = self.braced(|p| p.parse_expression())?;
+        let denominator = self.braced(|p| p.parse_expression())?;
+        self.in_fraction_context = false;
+
+        if let Some(deriv) = self.try_parse_derivative(numerator.clone(), denominator.clone())? {
+            return Ok(deriv);
+        }
+
+        Ok(Expression::Binary {
+            op: BinaryOp::Div,
+            left: Box::new(numerator),
+            right: Box::new(denominator),
+        })
+    }
+
+    /// Parses \log (with optional base subscript) or \ln.
+    fn parse_log_command(&mut self, is_log: bool) -> ParseResult<Expression> {
+        if is_log && self.check(&LatexToken::Underscore) {
+            self.next(); // consume _
+            let base = self.parse_braced_or_atom()?;
+            let arg = self.parse_function_arg()?;
+            return Ok(Expression::Function {
+                name: "log".to_string(),
+                args: vec![arg, base],
+            });
+        }
+        let arg = self.parse_function_arg()?;
+        Ok(Expression::Function {
+            name: if is_log { "log" } else { "ln" }.to_string(),
+            args: vec![arg],
+        })
+    }
+
+    /// Parses \lfloor expr \rfloor or \lceil expr \rceil.
+    fn parse_floor_ceil_command(&mut self, is_floor: bool) -> ParseResult<Expression> {
+        let expr = self.parse_expression()?;
+        let (close_cmd, fn_name, err_msg) = if is_floor {
+            ("rfloor", "floor", "expected \\rfloor after \\lfloor")
+        } else {
+            ("rceil", "ceil", "expected \\rceil after \\lceil")
+        };
+        if let Some((LatexToken::Command(c), _)) = self.peek() {
+            if c == close_cmd {
+                self.next();
+                return Ok(Expression::Function {
+                    name: fn_name.to_string(),
+                    args: vec![expr],
+                });
+            }
+        }
+        Err(ParseError::custom(
+            err_msg.to_string(),
+            Some(self.current_span()),
+        ))
+    }
+
+    /// Parses \delta (Kronecker) or \varepsilon / \epsilon (Levi-Civita).
+    /// Falls back to a plain variable when no tensor indices follow.
+    fn parse_tensor_symbol_command(&mut self, cmd: &str) -> ParseResult<Expression> {
+        if self.looks_like_tensor_index() {
+            let indices = self.parse_tensor_indices()?;
+            if !indices.is_empty() {
+                return Ok(if cmd == "delta" {
+                    Expression::KroneckerDelta { indices }
+                } else {
+                    Expression::LeviCivita { indices }
+                });
+            }
+        }
+        Ok(Expression::Variable(cmd.to_string()))
+    }
+
+    /// Dispatches a LaTeX command to the appropriate sub-parser.
     fn parse_command(&mut self, cmd: &str, span: Span) -> ParseResult<Expression> {
         match cmd {
-            // Fractions: \frac{num}{denom}
-            // Also handles derivatives: \frac{d}{dx} or \frac{\partial}{\partial x}
-            "frac" => {
-                // Parse numerator with fraction context
-                self.in_fraction_context = true;
-                let numerator = self.braced(|p| p.parse_expression())?;
-                let denominator = self.braced(|p| p.parse_expression())?;
-                self.in_fraction_context = false;
+            "frac" => self.parse_frac_command(),
 
-                // Try to parse as derivative
-                if let Some(derivative) =
-                    self.try_parse_derivative(numerator.clone(), denominator.clone())?
-                {
-                    return Ok(derivative);
-                }
-
-                // Otherwise, it's a regular fraction
-                Ok(Expression::Binary {
-                    op: BinaryOp::Div,
-                    left: Box::new(numerator),
-                    right: Box::new(denominator),
-                })
-            }
-
-            // Square root: \sqrt{x} or \sqrt[n]{x}
             "sqrt" => {
-                // Check for optional [n] parameter
                 if self.check(&LatexToken::LBracket) {
-                    // nth root: \sqrt[n]{x}
                     let n = self.bracketed(|p| p.parse_expression())?;
                     let x = self.braced(|p| p.parse_expression())?;
                     Ok(Expression::Function {
@@ -1171,7 +1258,6 @@ impl LatexParser {
                         args: vec![x, n],
                     })
                 } else {
-                    // square root: \sqrt{x}
                     let x = self.braced(|p| p.parse_expression())?;
                     Ok(Expression::Function {
                         name: "sqrt".to_string(),
@@ -1180,46 +1266,13 @@ impl LatexParser {
                 }
             }
 
-            // Kronecker delta: \delta^i_j or \delta_{ij}
-            "delta" => {
-                // Check if followed by tensor indices (letters, not numbers)
-                if self.looks_like_tensor_index() {
-                    let indices = self.parse_tensor_indices()?;
-                    if !indices.is_empty() {
-                        Ok(Expression::KroneckerDelta { indices })
-                    } else {
-                        // No indices parsed, treat as variable
-                        Ok(Expression::Variable("delta".to_string()))
-                    }
-                } else {
-                    // No tensor indices, treat as Greek letter variable
-                    Ok(Expression::Variable("delta".to_string()))
-                }
-            }
+            "delta" | "varepsilon" | "epsilon" => self.parse_tensor_symbol_command(cmd),
 
-            // Levi-Civita symbol: \varepsilon_{ijk} or \epsilon_{ijk}
-            "varepsilon" | "epsilon" => {
-                // Check if followed by tensor indices (letters, not numbers)
-                if self.looks_like_tensor_index() {
-                    let indices = self.parse_tensor_indices()?;
-                    if !indices.is_empty() {
-                        Ok(Expression::LeviCivita { indices })
-                    } else {
-                        // No indices parsed, treat as variable
-                        Ok(Expression::Variable(cmd.to_string()))
-                    }
-                } else {
-                    // No tensor indices, treat as Greek letter variable
-                    Ok(Expression::Variable(cmd.to_string()))
-                }
-            }
-
-            // Greek letters -> Variables
+            // Greek letters → variables (\pi is a constant)
             "alpha" | "beta" | "gamma" | "zeta" | "eta" | "theta" | "iota" | "kappa" | "lambda"
             | "mu" | "nu" | "xi" | "omicron" | "pi" | "rho" | "sigma" | "tau" | "upsilon"
             | "phi" | "chi" | "psi" | "omega" | "Gamma" | "Delta" | "Theta" | "Lambda" | "Xi"
             | "Pi" | "Sigma" | "Upsilon" | "Phi" | "Psi" | "Omega" => {
-                // Special case: \pi is a constant
                 if cmd == "pi" {
                     Ok(Expression::Constant(MathConstant::Pi))
                 } else {
@@ -1227,12 +1280,12 @@ impl LatexParser {
                 }
             }
 
-            // Partial differential operator (used in derivatives)
             "partial" => Ok(Expression::Variable("partial".to_string())),
 
-            // Trigonometric functions
+            // Single-argument functions
             "sin" | "cos" | "tan" | "sec" | "csc" | "cot" | "arcsin" | "arccos" | "arctan"
-            | "sinh" | "cosh" | "tanh" => {
+            | "sinh" | "cosh" | "tanh" | "exp" | "det" | "min" | "max" | "gcd" | "lcm" | "abs"
+            | "floor" | "ceil" | "sgn" => {
                 let arg = self.parse_function_arg()?;
                 Ok(Expression::Function {
                     name: cmd.to_string(),
@@ -1240,96 +1293,11 @@ impl LatexParser {
                 })
             }
 
-            // Logarithms
-            "ln" => {
-                let arg = self.parse_function_arg()?;
-                Ok(Expression::Function {
-                    name: "ln".to_string(),
-                    args: vec![arg],
-                })
-            }
-            "log" => {
-                // Check for subscript base: \log_b{x} or \log_b(x)
-                if self.check(&LatexToken::Underscore) {
-                    self.next(); // consume _
-                    let base = self.parse_braced_or_atom()?;
-                    let arg = self.parse_function_arg()?;
-                    Ok(Expression::Function {
-                        name: "log".to_string(),
-                        args: vec![arg, base],
-                    })
-                } else {
-                    let arg = self.parse_function_arg()?;
-                    Ok(Expression::Function {
-                        name: "log".to_string(),
-                        args: vec![arg],
-                    })
-                }
-            }
+            "ln" => self.parse_log_command(false),
+            "log" => self.parse_log_command(true),
+            "lfloor" => self.parse_floor_ceil_command(true),
+            "lceil" => self.parse_floor_ceil_command(false),
 
-            // Exponential
-            "exp" => {
-                let arg = self.parse_function_arg()?;
-                Ok(Expression::Function {
-                    name: "exp".to_string(),
-                    args: vec![arg],
-                })
-            }
-
-            // Determinant
-            "det" => {
-                let arg = self.parse_function_arg()?;
-                Ok(Expression::Function {
-                    name: "det".to_string(),
-                    args: vec![arg],
-                })
-            }
-            // Other common functions
-            "min" | "max" | "gcd" | "lcm" | "abs" | "floor" | "ceil" | "sgn" => {
-                let arg = self.parse_function_arg()?;
-                Ok(Expression::Function {
-                    name: cmd.to_string(),
-                    args: vec![arg],
-                })
-            }
-
-            // Floor and ceiling with explicit delimiters
-            "lfloor" => {
-                let expr = self.parse_expression()?;
-                // Expect \rfloor
-                if let Some((LatexToken::Command(cmd), _)) = self.peek() {
-                    if cmd == "rfloor" {
-                        self.next(); // consume \rfloor
-                        return Ok(Expression::Function {
-                            name: "floor".to_string(),
-                            args: vec![expr],
-                        });
-                    }
-                }
-                Err(ParseError::custom(
-                    "expected \\rfloor after \\lfloor".to_string(),
-                    Some(self.current_span()),
-                ))
-            }
-            "lceil" => {
-                let expr = self.parse_expression()?;
-                // Expect \rceil
-                if let Some((LatexToken::Command(cmd), _)) = self.peek() {
-                    if cmd == "rceil" {
-                        self.next(); // consume \rceil
-                        return Ok(Expression::Function {
-                            name: "ceil".to_string(),
-                            args: vec![expr],
-                        });
-                    }
-                }
-                Err(ParseError::custom(
-                    "expected \\rceil after \\lceil".to_string(),
-                    Some(self.current_span()),
-                ))
-            }
-
-            // Calculus commands
             "int" => self.parse_integral(),
             "lim" => self.parse_limit(),
             "sum" => self.parse_sum(),
@@ -1584,6 +1552,71 @@ impl LatexParser {
         }
     }
 
+    /// Extracts (is_partial, order) from a derivative numerator expression.
+    /// Returns None if the expression is not a valid derivative numerator.
+    fn match_derivative_numerator(expr: &Expression) -> Option<(bool, u32)> {
+        match expr {
+            Expression::Variable(s) if s == "d" => Some((false, 1)),
+            Expression::Variable(s) if s == "partial" => Some((true, 1)),
+            Expression::Binary {
+                op: BinaryOp::Pow,
+                left,
+                right,
+            } => {
+                let is_partial = match &**left {
+                    Expression::Variable(s) if s == "d" => false,
+                    Expression::Variable(s) if s == "partial" => true,
+                    _ => return None,
+                };
+                let order = match &**right {
+                    Expression::Integer(n) if *n > 0 => *n as u32,
+                    _ => return None,
+                };
+                Some((is_partial, order))
+            }
+            _ => None,
+        }
+    }
+
+    /// Extracts (is_partial, var, order) from a derivative denominator expression.
+    /// Returns None if the expression is not a valid derivative denominator.
+    fn match_derivative_denominator(expr: &Expression) -> Option<(bool, String, u32)> {
+        let Expression::Binary {
+            op: BinaryOp::Mul,
+            left,
+            right,
+        } = expr
+        else {
+            return None;
+        };
+
+        let is_partial = match &**left {
+            Expression::Variable(s) if s == "d" => false,
+            Expression::Variable(s) if s == "partial" => true,
+            _ => return None,
+        };
+
+        match &**right {
+            Expression::Variable(v) => Some((is_partial, v.clone(), 1)),
+            Expression::Binary {
+                op: BinaryOp::Pow,
+                left: var_expr,
+                right: order_expr,
+            } => {
+                let var = match &**var_expr {
+                    Expression::Variable(v) => v.clone(),
+                    _ => return None,
+                };
+                let order = match &**order_expr {
+                    Expression::Integer(n) if *n > 0 => *n as u32,
+                    _ => return None,
+                };
+                Some((is_partial, var, order))
+            }
+            _ => None,
+        }
+    }
+
     /// Tries to parse a \frac as a derivative.
     /// Returns Some(derivative_expr) if it matches the pattern, None otherwise.
     fn try_parse_derivative(
@@ -1591,90 +1624,23 @@ impl LatexParser {
         numerator: Expression,
         denominator: Expression,
     ) -> ParseResult<Option<Expression>> {
-        // Check numerator pattern: d, d^n, \partial, or \partial^n
-        let (is_partial, num_order) = match &numerator {
-            Expression::Variable(s) if s == "d" => (false, 1),
-            Expression::Variable(s) if s == "partial" => (true, 1),
-            Expression::Binary {
-                op: BinaryOp::Pow,
-                left,
-                right,
-            } => {
-                // Check if left is 'd' or 'partial'
-                let is_partial = match &**left {
-                    Expression::Variable(s) if s == "d" => false,
-                    Expression::Variable(s) if s == "partial" => true,
-                    _ => return Ok(None),
-                };
-
-                // Check if right is an integer (order)
-                let order = match &**right {
-                    Expression::Integer(n) if *n > 0 => *n as u32,
-                    _ => return Ok(None),
-                };
-
-                (is_partial, order)
-            }
-            _ => return Ok(None),
+        let Some((is_partial, num_order)) = Self::match_derivative_numerator(&numerator) else {
+            return Ok(None);
         };
 
-        // Check denominator pattern: d var, d var^n, \partial var, or \partial var^n
-        let (denom_is_partial, var, denom_order) = match &denominator {
-            Expression::Binary {
-                op: BinaryOp::Mul,
-                left,
-                right,
-            } => {
-                let is_partial = match &**left {
-                    Expression::Variable(s) if s == "d" => false,
-                    Expression::Variable(s) if s == "partial" => true,
-                    _ => return Ok(None),
-                };
-
-                // Check if right is a power expression or a simple variable
-                match &**right {
-                    Expression::Variable(v) => {
-                        // Simple case: d x or \partial x
-                        (is_partial, v.clone(), 1)
-                    }
-                    Expression::Binary {
-                        op: BinaryOp::Pow,
-                        left: var_expr,
-                        right: order_expr,
-                    } => {
-                        // With power: d x^2 or \partial x^2
-                        let var = match &**var_expr {
-                            Expression::Variable(v) => v.clone(),
-                            _ => return Ok(None),
-                        };
-
-                        let order = match &**order_expr {
-                            Expression::Integer(n) if *n > 0 => *n as u32,
-                            _ => return Ok(None),
-                        };
-
-                        (is_partial, var, order)
-                    }
-                    _ => return Ok(None),
-                }
-            }
-            _ => return Ok(None),
+        let Some((denom_is_partial, var, denom_order)) =
+            Self::match_derivative_denominator(&denominator)
+        else {
+            return Ok(None);
         };
 
-        // Verify numerator and denominator types match
-        if is_partial != denom_is_partial {
+        // Numerator and denominator must use the same operator (d vs \partial)
+        if is_partial != denom_is_partial || num_order != denom_order {
             return Ok(None);
         }
 
-        // Verify orders match
-        if num_order != denom_order {
-            return Ok(None);
-        }
-
-        // Parse the expression being differentiated
         let expr = self.parse_power()?;
 
-        // Create appropriate derivative expression
         let derivative = if is_partial {
             Expression::PartialDerivative {
                 expr: Box::new(expr),
@@ -2276,30 +2242,17 @@ impl LatexParser {
         }
     }
 
-    /// Parses a matrix environment (\begin{matrix}...\end{matrix} and variants).
-    fn parse_matrix_environment(&mut self, env_name: &str) -> ParseResult<Expression> {
-        // Validate environment name
-        match env_name {
-            "matrix" | "bmatrix" | "pmatrix" | "vmatrix" | "Bmatrix" | "Vmatrix" => {}
-            _ => {
-                return Err(ParseError::invalid_latex_command(
-                    format!("\\begin{{{}}}", env_name),
-                    Some(self.current_span()),
-                ));
-            }
-        }
-
+    /// Parses the row/column content of a matrix environment until `\end{env_name}`.
+    fn parse_matrix_rows(&mut self, env_name: &str) -> ParseResult<Vec<Vec<Expression>>> {
         let mut rows: Vec<Vec<Expression>> = Vec::new();
         let mut current_row: Vec<Expression> = Vec::new();
 
-        // Parse matrix content
         loop {
             // Check for end of environment
             if let Some((LatexToken::EndEnv(end_name), _)) = self.peek() {
                 let end_name = end_name.clone();
-                self.next(); // consume EndEnv
+                self.next();
 
-                // Validate matching environment name
                 if end_name != env_name {
                     return Err(ParseError::custom(
                         format!(
@@ -2310,31 +2263,25 @@ impl LatexParser {
                     ));
                 }
 
-                // Add last row if not empty
                 if !current_row.is_empty() {
                     rows.push(current_row);
                 }
                 break;
             }
 
-            // Parse expression
-            let expr = self.parse_expression()?;
-            current_row.push(expr);
+            current_row.push(self.parse_expression()?);
 
-            // Check what comes next
             match self.peek() {
                 Some((LatexToken::Ampersand, _)) => {
-                    self.next(); // consume &
-                                 // Continue parsing current row
+                    self.next(); // consume & — continue current row
                 }
                 Some((LatexToken::DoubleBackslash, _)) => {
-                    self.next(); // consume \\
-                                 // End current row and start new one
+                    self.next(); // consume \\ — end row
                     rows.push(current_row);
                     current_row = Vec::new();
                 }
                 Some((LatexToken::EndEnv(_), _)) => {
-                    // Will be handled in next iteration
+                    // Handled at the top of the next iteration
                 }
                 Some((token, span)) => {
                     return Err(ParseError::unexpected_token(
@@ -2352,29 +2299,50 @@ impl LatexParser {
             }
         }
 
-        // Validate all rows have the same number of columns
-        if !rows.is_empty() {
-            let first_col_count = rows[0].len();
-            for (i, row) in rows.iter().enumerate() {
-                if row.len() != first_col_count {
-                    return Err(ParseError::custom(
-                        format!(
-                            "inconsistent matrix row lengths: row 0 has {} columns, row {} has {} columns",
-                            first_col_count, i, row.len()
-                        ),
-                        Some(self.current_span()),
-                    ));
-                }
+        Ok(rows)
+    }
+
+    /// Validates that all rows of a matrix have the same number of columns.
+    fn validate_matrix_rows(rows: &[Vec<Expression>], span: crate::error::Span) -> ParseResult<()> {
+        if rows.is_empty() {
+            return Ok(());
+        }
+        let first_col_count = rows[0].len();
+        for (i, row) in rows.iter().enumerate() {
+            if row.len() != first_col_count {
+                return Err(ParseError::custom(
+                    format!(
+                        "inconsistent matrix row lengths: row 0 has {} columns, row {} has {} columns",
+                        first_col_count, i, row.len()
+                    ),
+                    Some(span),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Parses a matrix environment (\begin{matrix}...\end{matrix} and variants).
+    fn parse_matrix_environment(&mut self, env_name: &str) -> ParseResult<Expression> {
+        match env_name {
+            "matrix" | "bmatrix" | "pmatrix" | "vmatrix" | "Bmatrix" | "Vmatrix" => {}
+            _ => {
+                return Err(ParseError::invalid_latex_command(
+                    format!("\\begin{{{}}}", env_name),
+                    Some(self.current_span()),
+                ));
             }
         }
 
-        // Convert single-column matrices to vectors
+        let rows = self.parse_matrix_rows(env_name)?;
+        let span = self.current_span();
+        Self::validate_matrix_rows(&rows, span)?;
+
+        // Single-column matrix → column vector
         if !rows.is_empty() && rows[0].len() == 1 {
-            // All rows have exactly 1 column - this is a column vector
             let elements: Vec<Expression> = rows.into_iter().map(|mut row| row.remove(0)).collect();
             Ok(Expression::Vector(elements))
         } else {
-            // Regular matrix
             Ok(Expression::Matrix(rows))
         }
     }
