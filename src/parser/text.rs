@@ -32,7 +32,7 @@ use crate::ast::{
     BinaryOp, Expression, InequalityOp, LogicalOp, MathConstant, MathFloat, SetOp, SetRelation,
     UnaryOp,
 };
-use crate::error::{ParseError, ParseResult, Span};
+use crate::error::{ParseError, ParseOutput, ParseResult, Span};
 use crate::parser::tokenizer::{tokenize, SpannedToken, Token};
 use crate::ParserConfig;
 
@@ -82,8 +82,34 @@ pub fn parse(input: &str) -> ParseResult<Expression> {
 /// ```
 pub fn parse_with_config(input: &str, config: &ParserConfig) -> ParseResult<Expression> {
     let tokens = tokenize(input)?;
-    let parser = TextParser::new(tokens, config.clone());
-    parser.parse()
+    let parser = TextParser::new(tokens, config.clone(), false);
+    parser.parse_strict()
+}
+
+/// Parses a plain text mathematical expression in lenient mode.
+///
+/// Instead of stopping at the first error, collects all errors and
+/// returns a partial AST where possible.
+pub fn parse_lenient(input: &str) -> ParseOutput {
+    parse_lenient_with_config(input, &ParserConfig::default())
+}
+
+/// Parses a plain text mathematical expression in lenient mode with config.
+///
+/// Instead of stopping at the first error, collects all errors and
+/// returns a partial AST where possible.
+pub fn parse_lenient_with_config(input: &str, config: &ParserConfig) -> ParseOutput {
+    let tokens = match tokenize(input) {
+        Ok(tokens) => tokens,
+        Err(err) => {
+            return ParseOutput {
+                expression: None,
+                errors: vec![err],
+            }
+        }
+    };
+    let parser = TextParser::new(tokens, config.clone(), true);
+    parser.parse_lenient()
 }
 
 /// Internal parser state for text expressions.
@@ -94,15 +120,18 @@ struct TextParser {
     pos: usize,
     /// Parser configuration
     config: ParserConfig,
+    /// Errors collected during lenient parsing
+    collected_errors: Vec<ParseError>,
 }
 
 impl TextParser {
     /// Creates a new parser from a token stream.
-    fn new(tokens: Vec<SpannedToken>, config: ParserConfig) -> Self {
+    fn new(tokens: Vec<SpannedToken>, config: ParserConfig, _lenient: bool) -> Self {
         Self {
             tokens,
             pos: 0,
             config,
+            collected_errors: Vec::new(),
         }
     }
 
@@ -185,8 +214,31 @@ impl TextParser {
         }
     }
 
-    /// Main entry point for parsing.
-    fn parse(mut self) -> ParseResult<Expression> {
+    /// Returns true if the token is a synchronization point for error recovery.
+    fn is_sync_token(token: &Token) -> bool {
+        matches!(
+            token,
+            Token::RParen
+                | Token::Plus
+                | Token::Minus
+                | Token::Equals
+                | Token::Semicolon
+                | Token::Comma
+        )
+    }
+
+    /// Advances past tokens until a synchronization point is found.
+    fn synchronize(&mut self) {
+        while let Some(token) = self.peek() {
+            if Self::is_sync_token(&token.value) {
+                return;
+            }
+            self.next();
+        }
+    }
+
+    /// Strict entry point: fails on first error.
+    fn parse_strict(mut self) -> ParseResult<Expression> {
         let expr = self.parse_expression()?;
 
         // Ensure we consumed all tokens
@@ -200,6 +252,56 @@ impl TextParser {
         }
 
         Ok(expr)
+    }
+
+    /// Lenient entry point: collects errors and returns partial AST.
+    fn parse_lenient(mut self) -> ParseOutput {
+        let mut parts: Vec<Expression> = Vec::new();
+
+        while self.peek().is_some() {
+            match self.parse_expression() {
+                Ok(expr) => {
+                    parts.push(expr);
+                    // If there are remaining tokens, record and recover
+                    if self.peek().is_some() {
+                        let token = self.peek().unwrap();
+                        self.collected_errors.push(ParseError::unexpected_token(
+                            vec!["end of input or operator"],
+                            format!("{}", token.value),
+                            Some(token.span),
+                        ));
+                        self.synchronize();
+                        // Skip the sync token itself if it's a closing paren
+                        if let Some(t) = self.peek() {
+                            if matches!(t.value, Token::RParen) {
+                                self.next();
+                            }
+                        }
+                    }
+                }
+                Err(err) => {
+                    self.collected_errors.push(err);
+                    self.synchronize();
+                    // Skip the sync token if it's a closing delimiter
+                    if let Some(t) = self.peek() {
+                        if matches!(t.value, Token::RParen) {
+                            self.next();
+                        }
+                    }
+                }
+            }
+        }
+
+        let expression = match parts.len() {
+            0 => None,
+            1 => Some(parts.remove(0)),
+            _ => Some(parts.remove(0)),
+        };
+
+        ParseOutput {
+            expression,
+            errors: self.collected_errors,
+        }
     }
 
     /// Parses an expression (entry point for recursive descent).

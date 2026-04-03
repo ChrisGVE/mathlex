@@ -77,7 +77,7 @@ use crate::ast::{
     BinaryOp, Direction, Expression, IndexType, InequalityOp, IntegralBounds, LogicalOp,
     MathConstant, MathFloat, RelationOp, SetOp, SetRelation, TensorIndex, VectorNotation,
 };
-use crate::error::{ParseError, ParseResult, Span};
+use crate::error::{ParseError, ParseOutput, ParseResult, Span};
 use crate::parser::latex_tokenizer::{tokenize_latex, LatexToken};
 use crate::parser::Spanned;
 
@@ -107,8 +107,43 @@ use crate::parser::Spanned;
 /// ```
 pub fn parse_latex(input: &str) -> ParseResult<Expression> {
     let tokens = tokenize_latex(input)?;
-    let parser = LatexParser::new(tokens);
-    parser.parse()
+    let parser = LatexParser::new(tokens, false);
+    parser.parse_strict()
+}
+
+/// Parses a LaTeX mathematical expression in lenient (error-recovering) mode.
+///
+/// Instead of stopping at the first error, this function collects all errors
+/// and returns a partial AST where possible.
+///
+/// # Arguments
+///
+/// * `input` - The LaTeX string to parse
+///
+/// # Returns
+///
+/// A [`ParseOutput`] containing the partial AST and all errors found.
+///
+/// # Examples
+///
+/// ```
+/// use mathlex::parser::parse_latex_lenient;
+///
+/// let output = parse_latex_lenient(r"\frac{1}{} + x");
+/// assert!(output.has_errors());
+/// ```
+pub fn parse_latex_lenient(input: &str) -> ParseOutput {
+    let tokens = match tokenize_latex(input) {
+        Ok(tokens) => tokens,
+        Err(err) => {
+            return ParseOutput {
+                expression: None,
+                errors: vec![err],
+            }
+        }
+    };
+    let parser = LatexParser::new(tokens, true);
+    parser.parse_lenient()
 }
 
 /// Internal parser state for LaTeX expressions.
@@ -125,17 +160,20 @@ struct LatexParser {
     /// Flag indicating we're parsing inside a fraction where
     /// 'dx' should not be parsed as a Differential (to allow d/dx derivative notation)
     in_fraction_context: bool,
+    /// Errors collected during lenient parsing
+    collected_errors: Vec<ParseError>,
 }
 
 impl LatexParser {
     /// Creates a new parser from a token stream.
-    fn new(tokens: Vec<Spanned<LatexToken>>) -> Self {
+    fn new(tokens: Vec<Spanned<LatexToken>>, _lenient: bool) -> Self {
         Self {
             tokens,
             pos: 0,
             bound_scopes: Vec::new(),
             in_integral_context: false,
             in_fraction_context: false,
+            collected_errors: Vec::new(),
         }
     }
 
@@ -249,8 +287,34 @@ impl LatexParser {
         }
     }
 
-    /// Main entry point for parsing.
-    fn parse(mut self) -> ParseResult<Expression> {
+    /// Returns true if the token is a synchronization point for error recovery.
+    fn is_sync_token(token: &LatexToken) -> bool {
+        matches!(
+            token,
+            LatexToken::RBrace
+                | LatexToken::Plus
+                | LatexToken::Minus
+                | LatexToken::Equals
+                | LatexToken::Eof
+        ) || matches!(token, LatexToken::Command(cmd) if matches!(
+            cmd.as_str(),
+            "frac" | "sqrt" | "sum" | "prod" | "int" | "iint" | "iiint" | "oint" | "lim"
+        ))
+    }
+
+    /// Advances past tokens until a synchronization point is found.
+    /// Used in lenient mode to recover from errors.
+    fn synchronize(&mut self) {
+        while let Some((token, _)) = self.peek() {
+            if Self::is_sync_token(token) {
+                return;
+            }
+            self.next();
+        }
+    }
+
+    /// Strict entry point: fails on first error.
+    fn parse_strict(mut self) -> ParseResult<Expression> {
         let expr = self.parse_expression()?;
 
         // Ensure we consumed all non-EOF tokens
@@ -265,6 +329,58 @@ impl LatexParser {
         }
 
         Ok(expr)
+    }
+
+    /// Lenient entry point: collects errors and returns partial AST.
+    fn parse_lenient(mut self) -> ParseOutput {
+        let mut parts: Vec<Expression> = Vec::new();
+
+        while self.peek().is_some() && !matches!(self.peek(), Some((LatexToken::Eof, _))) {
+            match self.parse_expression() {
+                Ok(expr) => {
+                    parts.push(expr);
+                    // If there are remaining non-EOF tokens that aren't consumed,
+                    // try to continue parsing
+                    if let Some((token, _)) = self.peek() {
+                        if !matches!(token, LatexToken::Eof) {
+                            // Record the unconsumed token as an error but keep going
+                            let span = self.current_span();
+                            self.collected_errors.push(ParseError::unexpected_token(
+                                vec!["end of input or operator"],
+                                format!("{:?}", token),
+                                Some(span),
+                            ));
+                            self.synchronize();
+                        }
+                    }
+                }
+                Err(err) => {
+                    self.collected_errors.push(err);
+                    self.synchronize();
+                    // Skip the sync token itself if it's not EOF
+                    if let Some((token, _)) = self.peek() {
+                        if !matches!(token, LatexToken::Eof) && matches!(token, LatexToken::RBrace)
+                        {
+                            self.next();
+                        }
+                    }
+                }
+            }
+        }
+
+        let expression = match parts.len() {
+            0 => None,
+            1 => Some(parts.remove(0)),
+            _ => {
+                // Multiple successfully-parsed segments: return the first
+                Some(parts.remove(0))
+            }
+        };
+
+        ParseOutput {
+            expression,
+            errors: self.collected_errors,
+        }
     }
 
     /// Parses an expression (entry point for recursive descent).

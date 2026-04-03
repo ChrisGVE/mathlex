@@ -294,12 +294,14 @@ pub use ast::{
     UnaryOp, VectorNotation,
 };
 pub use context::{parse_system, ExpressionContext};
-pub use error::{ParseError, ParseErrorKind, ParseResult, Position, Span};
+pub use error::{ParseError, ParseErrorKind, ParseOutput, ParseResult, Position, Span};
 pub use latex::ToLatex;
 pub use metadata::{ContextSource, ExpressionMetadata, MathType};
 
 // Re-export parser functions
-pub use parser::{parse, parse_latex};
+pub use parser::{
+    parse, parse_latex, parse_latex_lenient, parse_lenient, parse_lenient_with_config,
+};
 
 /// Number system context for parsing.
 ///
