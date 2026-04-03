@@ -667,64 +667,8 @@ impl TextParser {
         })?;
 
         match &token.value {
-            Token::Integer(n) => {
-                let value = *n;
-                self.next();
-                Ok(Expression::Integer(value))
-            }
-            Token::Float(f) => {
-                let value = *f;
-                self.next();
-                Ok(Expression::Float(MathFloat::from(value)))
-            }
-            Token::Identifier(name) => {
-                let mut name = name.clone();
-                self.next();
-
-                // Check for subscript (followed by '_')
-                if self.check(&Token::Underscore) {
-                    self.next(); // consume '_'
-
-                    // Parse subscript: single char/number or identifier
-                    let subscript = if let Some(token) = self.peek() {
-                        match &token.value {
-                            Token::Integer(n) => {
-                                let sub = n.to_string();
-                                self.next();
-                                sub
-                            }
-                            Token::Identifier(id) => {
-                                let sub = id.clone();
-                                self.next();
-                                sub
-                            }
-                            _ => {
-                                return Err(ParseError::unexpected_token(
-                                    vec!["number", "identifier"],
-                                    format!("{}", token.value),
-                                    Some(token.span),
-                                ));
-                            }
-                        }
-                    } else {
-                        return Err(ParseError::unexpected_eof(
-                            vec!["subscript"],
-                            Some(self.current_span()),
-                        ));
-                    };
-
-                    // Combine identifier with subscript
-                    name = format!("{}_{}", name, subscript);
-                }
-
-                // Check if it's a function call (followed by '(')
-                if self.check(&Token::LParen) {
-                    self.parse_function_args(name)
-                } else {
-                    // It's a variable or constant
-                    Ok(self.identifier_to_expression(name))
-                }
-            }
+            Token::Integer(_) | Token::Float(_) => self.parse_number_token(),
+            Token::Identifier(_) => self.parse_identifier_token(),
             Token::Pi => {
                 self.next();
                 Ok(Expression::Constant(MathConstant::Pi))
@@ -733,53 +677,14 @@ impl TextParser {
                 self.next();
                 Ok(Expression::Constant(MathConstant::Infinity))
             }
-            Token::Sqrt => {
-                self.next();
-                // Parse √x or √(expr)
-                let arg = if self.check(&Token::LParen) {
-                    self.next(); // consume (
-                    let expr = self.parse_expression()?;
-                    self.consume(Token::RParen)?;
-                    expr
-                } else {
-                    // Parse a single primary expression (number, variable, or function call)
-                    self.parse_primary()?
-                };
-                Ok(Expression::Function {
-                    name: "sqrt".to_string(),
-                    args: vec![arg],
-                })
-            }
-            Token::Dot => {
-                self.next();
-                self.parse_binary_vector_op("dot")
-            }
-            Token::Cross => {
-                self.next();
-                self.parse_binary_vector_op("cross")
-            }
-            Token::Grad => {
-                self.next();
-                self.parse_unary_vector_calculus("grad")
-            }
-            Token::Div => {
-                self.next();
-                self.parse_unary_vector_calculus("div")
-            }
-            Token::Curl => {
-                self.next();
-                self.parse_unary_vector_calculus("curl")
-            }
-            Token::Laplacian => {
-                self.next();
-                self.parse_unary_vector_calculus("laplacian")
-            }
-            Token::LParen => {
-                self.next(); // consume (
-                let expr = self.parse_expression()?;
-                self.consume(Token::RParen)?;
-                Ok(expr)
-            }
+            Token::Sqrt => self.parse_sqrt_token(),
+            Token::Dot
+            | Token::Cross
+            | Token::Grad
+            | Token::Div
+            | Token::Curl
+            | Token::Laplacian => self.parse_vector_token(),
+            Token::LParen => self.parse_paren_group(),
             _ => {
                 let token = self.next().unwrap();
                 Err(ParseError::unexpected_token(
@@ -789,6 +694,110 @@ impl TextParser {
                 ))
             }
         }
+    }
+
+    /// Parses a number literal token (integer or float).
+    fn parse_number_token(&mut self) -> ParseResult<Expression> {
+        let token = self.next().expect("caller checked token exists");
+        match token.value {
+            Token::Integer(n) => Ok(Expression::Integer(n)),
+            Token::Float(f) => Ok(Expression::Float(MathFloat::from(f))),
+            _ => unreachable!("caller guarantees Integer or Float token"),
+        }
+    }
+
+    /// Parses an identifier token, handling subscripts and function calls.
+    fn parse_identifier_token(&mut self) -> ParseResult<Expression> {
+        let name_raw = match &self.peek().expect("caller checked token exists").value {
+            Token::Identifier(n) => n.clone(),
+            _ => unreachable!("caller guarantees Identifier token"),
+        };
+        self.next();
+        let name = self.parse_subscript(name_raw)?;
+
+        if self.check(&Token::LParen) {
+            self.parse_function_args(name)
+        } else {
+            Ok(self.identifier_to_expression(name))
+        }
+    }
+
+    /// Parses an optional subscript suffix `_<number|identifier>`, returning
+    /// the combined name.
+    fn parse_subscript(&mut self, base: String) -> ParseResult<String> {
+        if !self.check(&Token::Underscore) {
+            return Ok(base);
+        }
+        self.next(); // consume '_'
+
+        let subscript = if let Some(token) = self.peek() {
+            match &token.value {
+                Token::Integer(n) => {
+                    let sub = n.to_string();
+                    self.next();
+                    sub
+                }
+                Token::Identifier(id) => {
+                    let sub = id.clone();
+                    self.next();
+                    sub
+                }
+                _ => {
+                    return Err(ParseError::unexpected_token(
+                        vec!["number", "identifier"],
+                        format!("{}", token.value),
+                        Some(token.span),
+                    ));
+                }
+            }
+        } else {
+            return Err(ParseError::unexpected_eof(
+                vec!["subscript"],
+                Some(self.current_span()),
+            ));
+        };
+
+        Ok(format!("{}_{}", base, subscript))
+    }
+
+    /// Parses a `sqrt` token: `sqrt(expr)` or `sqrt primary`.
+    fn parse_sqrt_token(&mut self) -> ParseResult<Expression> {
+        self.next(); // consume 'sqrt'
+        let arg = if self.check(&Token::LParen) {
+            self.next(); // consume (
+            let expr = self.parse_expression()?;
+            self.consume(Token::RParen)?;
+            expr
+        } else {
+            // Parse a single primary expression (number, variable, or function call)
+            self.parse_primary()?
+        };
+        Ok(Expression::Function {
+            name: "sqrt".to_string(),
+            args: vec![arg],
+        })
+    }
+
+    /// Parses a vector calculus or product token (dot, cross, grad, div, curl, laplacian).
+    fn parse_vector_token(&mut self) -> ParseResult<Expression> {
+        let token = self.next().expect("caller checked token exists");
+        match token.value {
+            Token::Dot => self.parse_binary_vector_op("dot"),
+            Token::Cross => self.parse_binary_vector_op("cross"),
+            Token::Grad => self.parse_unary_vector_calculus("grad"),
+            Token::Div => self.parse_unary_vector_calculus("div"),
+            Token::Curl => self.parse_unary_vector_calculus("curl"),
+            Token::Laplacian => self.parse_unary_vector_calculus("laplacian"),
+            _ => unreachable!("caller guarantees vector token"),
+        }
+    }
+
+    /// Parses a parenthesized expression `( expr )`.
+    fn parse_paren_group(&mut self) -> ParseResult<Expression> {
+        self.next(); // consume (
+        let expr = self.parse_expression()?;
+        self.consume(Token::RParen)?;
+        Ok(expr)
     }
 
     /// Parses function arguments.
