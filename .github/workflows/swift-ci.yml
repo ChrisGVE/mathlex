@@ -28,6 +28,11 @@ jobs:
       - name: Build Rust library with FFI
         run: cargo build --release --features ffi
 
+      - name: Update generated Swift bridge files
+        run: |
+          cp generated/SwiftBridgeCore.h Sources/MathLexBridge/include/
+          cp generated/mathlex/mathlex.h Sources/MathLexBridge/include/
+
       - name: Build Swift package
         run: swift build
 

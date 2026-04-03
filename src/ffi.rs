@@ -30,6 +30,9 @@ mod ffi {
         #[swift_bridge(swift_name = "findFunctions")]
         fn expression_find_functions(expr: &Expression) -> Vec<String>;
 
+        #[swift_bridge(swift_name = "findConstants")]
+        fn expression_find_constants(expr: &Expression) -> Vec<String>;
+
         #[swift_bridge(swift_name = "depth")]
         fn expression_depth(expr: &Expression) -> usize;
 
@@ -88,6 +91,17 @@ pub fn expression_find_variables(expr: &Expression) -> Vec<String> {
 #[cfg(feature = "ffi")]
 pub fn expression_find_functions(expr: &Expression) -> Vec<String> {
     expr.find_functions().into_iter().collect()
+}
+
+/// FFI wrapper for finding constants.
+///
+/// Returns constant names as strings for FFI compatibility.
+#[cfg(feature = "ffi")]
+pub fn expression_find_constants(expr: &Expression) -> Vec<String> {
+    expr.find_constants()
+        .into_iter()
+        .map(|c| format!("{}", c))
+        .collect()
 }
 
 /// FFI wrapper for calculating depth.

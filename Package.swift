@@ -4,38 +4,53 @@
 import PackageDescription
 
 let package = Package(
-    name: "MathLex",
-    platforms: [
-        .iOS(.v15),
-        .macOS(.v12),
-    ],
-    products: [
-        .library(
-            name: "MathLex",
-            targets: ["MathLex"]
-        ),
-    ],
-    targets: [
-        // MathLexRust contains the generated swift-bridge bindings
-        // This will be populated by the build script from the XCFramework
-        .target(
-            name: "MathLexRust",
-            dependencies: [],
-            path: "Sources/MathLexRust"
-        ),
+  name: "MathLex",
+  platforms: [
+    .iOS(.v15),
+    .macOS(.v12),
+  ],
+  products: [
+    .library(
+      name: "MathLex",
+      targets: ["MathLex"]
+    )
+  ],
+  targets: [
+    // C headers for the swift-bridge FFI symbols
+    .target(
+      name: "MathLexBridge",
+      dependencies: [],
+      path: "Sources/MathLexBridge",
+      publicHeadersPath: "include"
+    ),
 
-        // MathLex is the Swift wrapper providing idiomatic Swift API
-        .target(
-            name: "MathLex",
-            dependencies: ["MathLexRust"],
-            path: "Sources/MathLex"
-        ),
+    // Generated swift-bridge Swift bindings
+    .target(
+      name: "MathLexRust",
+      dependencies: ["MathLexBridge"],
+      path: "Sources/MathLexRust",
+      exclude: ["README.md"],
+      linkerSettings: [
+        .unsafeFlags([
+          "-L", "target/release",
+          "-lmathlex",
+        ])
+      ]
+    ),
 
-        // Tests
-        .testTarget(
-            name: "MathLexTests",
-            dependencies: ["MathLex"],
-            path: "swift/Tests/MathLexTests"
-        ),
-    ]
+    // Swift wrapper providing idiomatic Swift API
+    .target(
+      name: "MathLex",
+      dependencies: ["MathLexRust"],
+      path: "Sources/MathLex",
+      exclude: ["MathLex.docc"]
+    ),
+
+    // Tests
+    .testTarget(
+      name: "MathLexTests",
+      dependencies: ["MathLex"],
+      path: "swift/Tests/MathLexTests"
+    ),
+  ]
 )
