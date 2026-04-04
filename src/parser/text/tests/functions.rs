@@ -1,0 +1,337 @@
+//! Comprehensive function tests.
+
+use super::*;
+
+mod comprehensive_functions {
+    use super::*;
+
+    #[test]
+    fn test_trig_functions() {
+        let expr = parse("sin(x)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "sin");
+                assert_eq!(args.len(), 1);
+            }
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("cos(2*pi)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "cos");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Binary { .. }));
+            }
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("tan(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => {
+                assert_eq!(name, "tan");
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_inverse_trig_functions() {
+        let expr = parse("asin(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "asin"),
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("acos(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "acos"),
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("atan(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "atan"),
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("atan2(y, x)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "atan2");
+                assert_eq!(args.len(), 2);
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_hyperbolic_functions() {
+        let expr = parse("sinh(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "sinh"),
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("cosh(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "cosh"),
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("tanh(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "tanh"),
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_logarithmic_functions() {
+        let expr = parse("log(2, 8)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "log");
+                assert_eq!(args.len(), 2);
+            }
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("ln(x)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "ln");
+                assert_eq!(args.len(), 1);
+            }
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("exp(-x)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "exp");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Unary { .. }));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_other_functions() {
+        let expr = parse("sqrt(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "sqrt"),
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("abs(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "abs"),
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("floor(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "floor"),
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("ceil(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "ceil"),
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("sgn(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "sgn"),
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_multi_argument_functions() {
+        let expr = parse("max(a, b)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "max");
+                assert_eq!(args.len(), 2);
+            }
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("min(a, b, c)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "min");
+                assert_eq!(args.len(), 3);
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_deeply_nested_functions() {
+        let expr = parse("sin(cos(x))").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "sin");
+                assert_eq!(args.len(), 1);
+                match &args[0] {
+                    Expression::Function { name, args } => {
+                        assert_eq!(name, "cos");
+                        assert_eq!(args.len(), 1);
+                    }
+                    _ => panic!("Expected nested function"),
+                }
+            }
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("max(min(a, b), c)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "max");
+                assert_eq!(args.len(), 2);
+                match &args[0] {
+                    Expression::Function { name, .. } => assert_eq!(name, "min"),
+                    _ => panic!("Expected nested function"),
+                }
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_functions_with_complex_expressions() {
+        let expr = parse("sin(x + y)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "sin");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(
+                    args[0],
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("log(2, x^2 + 1)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "log");
+                assert_eq!(args.len(), 2);
+                assert!(matches!(args[0], Expression::Integer(2)));
+                assert!(matches!(
+                    args[1],
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("sqrt(x^2 + y^2)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "sqrt");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(
+                    args[0],
+                    Expression::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_custom_function_names() {
+        let expr = parse("myFunc(x)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "myFunc");
+                assert_eq!(args.len(), 1);
+            }
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("customFunction(a, b, c)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "customFunction");
+                assert_eq!(args.len(), 3);
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_function_in_complex_expression() {
+        let expr = parse("2 * sin(x) + cos(y)").unwrap();
+        match expr {
+            Expression::Binary {
+                op: BinaryOp::Add,
+                left,
+                right,
+            } => {
+                match *left {
+                    Expression::Binary {
+                        op: BinaryOp::Mul, ..
+                    } => {}
+                    _ => panic!("Expected multiplication on left"),
+                }
+                match *right {
+                    Expression::Function { name, .. } => assert_eq!(name, "cos"),
+                    _ => panic!("Expected function on right"),
+                }
+            }
+            _ => panic!("Expected binary addition"),
+        }
+
+        let expr = parse("pow(x, 2)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "pow");
+                assert_eq!(args.len(), 2);
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_nested_parentheses() {
+        let expr = parse("((2 + 3) * (4 + 5))").unwrap();
+        assert!(matches!(expr, Expression::Binary { .. }));
+    }
+
+    #[test]
+    fn test_multiple_unary_operators() {
+        let expr = parse("--5").unwrap();
+        match expr {
+            Expression::Unary {
+                op: UnaryOp::Neg,
+                operand,
+            } => {
+                assert!(matches!(
+                    *operand,
+                    Expression::Unary {
+                        op: UnaryOp::Neg,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected negation"),
+        }
+    }
+}
