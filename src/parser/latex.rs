@@ -462,3 +462,7 @@ mod tests;
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_log_base.rs"]
 mod log_base_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_floor_ceil.rs"]
+mod floor_ceil_tests;
