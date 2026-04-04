@@ -470,3 +470,7 @@ mod floor_ceil_tests;
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_abs_sgn.rs"]
 mod abs_sgn_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_det.rs"]
+mod det_tests;
