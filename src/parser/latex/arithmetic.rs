@@ -224,16 +224,59 @@ impl LatexParser {
         }
     }
 
+    /// Returns true when the token stream after `^` indicates a transpose:
+    /// - bare `T` letter: `^T`
+    /// - braced `{T}`: `^{T}`
+    /// - `\top` command: `^\top`
+    fn is_transpose_exponent(&self) -> bool {
+        match self.peek() {
+            Some((LatexToken::Letter('T'), _)) => true,
+            Some((LatexToken::Command(cmd), _)) if cmd == "top" => true,
+            Some((LatexToken::LBrace, _)) => {
+                // peek inside: {T}
+                matches!(self.peek_ahead(1), Some((LatexToken::Letter('T'), _)))
+                    && matches!(self.peek_ahead(2), Some((LatexToken::RBrace, _)))
+            }
+            _ => false,
+        }
+    }
+
+    /// Consumes the transpose exponent token(s) after `^` has been consumed.
+    fn consume_transpose_exponent(&mut self) {
+        match self.peek() {
+            Some((LatexToken::Letter('T'), _)) | Some((LatexToken::Command(_), _)) => {
+                self.next();
+            }
+            Some((LatexToken::LBrace, _)) => {
+                self.next(); // {
+                self.next(); // T
+                self.next(); // }
+            }
+            _ => {}
+        }
+    }
+
     /// Parses power expressions (^) and subscripts (_).
     ///
     /// Note: When the base is Euler's number `e` (Constant(E)), the expression
     /// `e^x` is normalized to `exp(x)` for consistency with `\exp{x}`.
+    /// When the exponent is `T` or `\top`, the expression is parsed as a transpose.
     pub(super) fn parse_power(&mut self) -> ParseResult<Expression> {
         let mut base = self.parse_postfix()?;
 
         // Handle superscript (power)
         if self.check(&LatexToken::Caret) {
             self.next(); // consume ^
+
+            // Check for transpose before consuming the exponent
+            if self.is_transpose_exponent() {
+                self.consume_transpose_exponent();
+                return Ok(Expression::Unary {
+                    op: crate::ast::UnaryOp::Transpose,
+                    operand: Box::new(base),
+                });
+            }
+
             let exponent = self.parse_braced_or_atom()?;
 
             // Normalize e^{...} to exp(...)

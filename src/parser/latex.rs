@@ -474,3 +474,7 @@ mod abs_sgn_tests;
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_det.rs"]
 mod det_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_transpose.rs"]
+mod transpose_tests;
