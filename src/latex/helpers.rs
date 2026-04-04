@@ -140,6 +140,17 @@ pub(super) fn to_latex_function(name: &str, args: &[Expression]) -> String {
             _ => format!(r"\operatorname{{{}}}", name),
         };
     }
+    // log with base: args[0] = argument, args[1] = base → \log_{base}{arg}
+    if name == "log" && args.len() == 2 {
+        return format!(r"\log_{{{}}}{{{}}}", args[1].to_latex(), args[0].to_latex());
+    }
+    // floor/ceil with delimiters
+    if name == "floor" && args.len() == 1 {
+        return format!(r"\lfloor {} \rfloor", args[0].to_latex());
+    }
+    if name == "ceil" && args.len() == 1 {
+        return format!(r"\lceil {} \rceil", args[0].to_latex());
+    }
     let func_prefix = if KNOWN_FUNCTIONS.contains(&name) {
         format!(r"\{}", name)
     } else {

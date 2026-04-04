@@ -458,3 +458,7 @@ mod differential_forms_tests;
 #[path = "latex/tests/latex_tests_inline.rs"]
 #[allow(clippy::approx_constant)]
 mod tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_log_base.rs"]
+mod log_base_tests;
