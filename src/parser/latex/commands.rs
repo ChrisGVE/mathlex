@@ -149,6 +149,7 @@ impl LatexParser {
             "log" => self.parse_log_command(true),
             "lfloor" => self.parse_floor_ceil_command(true),
             "lceil" => self.parse_floor_ceil_command(false),
+            "operatorname" => self.parse_operatorname_command(span),
 
             "int" => self.parse_integral(),
             "lim" => self.parse_limit(),
@@ -157,6 +158,50 @@ impl LatexParser {
 
             _ => Err(ParseError::invalid_latex_command(cmd, Some(span))),
         }
+    }
+
+    /// Parses `\operatorname{name}` as a named function call.
+    ///
+    /// Reads the function name from the braced argument, then parses the
+    /// function argument (braced, parenthesized, or unbraced primary).
+    pub(super) fn parse_operatorname_command(&mut self, span: Span) -> ParseResult<Expression> {
+        // Read the operator name from {name}
+        self.consume(LatexToken::LBrace)?;
+        let mut name = String::new();
+        while let Some((tok, _)) = self.peek() {
+            match tok {
+                LatexToken::RBrace => break,
+                LatexToken::Eof => {
+                    return Err(ParseError::unexpected_eof(
+                        vec!["operator name"],
+                        Some(span),
+                    ));
+                }
+                LatexToken::Letter(ch) => {
+                    let ch = *ch;
+                    self.next();
+                    name.push(ch);
+                }
+                _ => {
+                    return Err(ParseError::custom(
+                        r"\operatorname{} must contain a plain name".to_string(),
+                        Some(span),
+                    ));
+                }
+            }
+        }
+        self.consume(LatexToken::RBrace)?;
+        if name.is_empty() {
+            return Err(ParseError::custom(
+                r"\operatorname{} name must not be empty".to_string(),
+                Some(span),
+            ));
+        }
+        let arg = self.parse_function_arg()?;
+        Ok(Expression::Function {
+            name,
+            args: vec![arg],
+        })
     }
 
     /// Parses a function argument (either braced or a primary expression).
