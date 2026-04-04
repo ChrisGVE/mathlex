@@ -200,120 +200,50 @@ impl<'a> Tokenizer<'a> {
         (token, span)
     }
 
+    /// Scans a two-character operator: if `follow` matches the next char, return `long_tok`,
+    /// otherwise return `short_tok`.
+    fn scan_two_char_op(
+        &mut self,
+        start: Position,
+        follow: char,
+        short_tok: Token,
+        long_tok: Token,
+    ) -> SpannedToken {
+        self.consume();
+        if self.peek() == Some(follow) {
+            self.consume();
+            SpannedToken::new(long_tok, Span::new(start, self.position()))
+        } else {
+            SpannedToken::new(short_tok, Span::new(start, self.position()))
+        }
+    }
+
+    /// Scans a single unicode character as a token.
+    fn scan_unicode_token(&mut self, start: Position, tok: Token) -> SpannedToken {
+        self.consume();
+        SpannedToken::new(tok, Span::new(start, self.position()))
+    }
+
     /// Scans multi-character operators and Unicode symbol tokens.
-    ///
-    /// Returns `Ok(Some(token))` for multi-char/Unicode tokens, `Ok(None)` for
-    /// single-char tokens that should be handled by the caller.
     fn scan_multi_char_op(
         &mut self,
         ch: char,
         start: Position,
     ) -> ParseResult<Option<SpannedToken>> {
-        match ch {
-            '!' => {
-                self.consume();
-                if self.peek() == Some('=') {
-                    self.consume();
-                    let end = self.position();
-                    return Ok(Some(SpannedToken::new(
-                        Token::NotEquals,
-                        Span::new(start, end),
-                    )));
-                }
-                Ok(Some(SpannedToken::new(
-                    Token::Bang,
-                    Span::new(start, self.position()),
-                )))
-            }
-            '<' => {
-                self.consume();
-                if self.peek() == Some('=') {
-                    self.consume();
-                    let end = self.position();
-                    return Ok(Some(SpannedToken::new(
-                        Token::LessEq,
-                        Span::new(start, end),
-                    )));
-                }
-                Ok(Some(SpannedToken::new(
-                    Token::Less,
-                    Span::new(start, self.position()),
-                )))
-            }
-            '>' => {
-                self.consume();
-                if self.peek() == Some('=') {
-                    self.consume();
-                    let end = self.position();
-                    return Ok(Some(SpannedToken::new(
-                        Token::GreaterEq,
-                        Span::new(start, end),
-                    )));
-                }
-                Ok(Some(SpannedToken::new(
-                    Token::Greater,
-                    Span::new(start, self.position()),
-                )))
-            }
-            '*' => {
-                self.consume();
-                if self.peek() == Some('*') {
-                    self.consume();
-                    let end = self.position();
-                    return Ok(Some(SpannedToken::new(
-                        Token::DoubleStar,
-                        Span::new(start, end),
-                    )));
-                }
-                Ok(Some(SpannedToken::new(
-                    Token::Star,
-                    Span::new(start, self.position()),
-                )))
-            }
-            '≤' => {
-                self.consume();
-                Ok(Some(SpannedToken::new(
-                    Token::LessEq,
-                    Span::new(start, self.position()),
-                )))
-            }
-            '≥' => {
-                self.consume();
-                Ok(Some(SpannedToken::new(
-                    Token::GreaterEq,
-                    Span::new(start, self.position()),
-                )))
-            }
-            '≠' => {
-                self.consume();
-                Ok(Some(SpannedToken::new(
-                    Token::NotEquals,
-                    Span::new(start, self.position()),
-                )))
-            }
-            'π' => {
-                self.consume();
-                Ok(Some(SpannedToken::new(
-                    Token::Pi,
-                    Span::new(start, self.position()),
-                )))
-            }
-            '∞' => {
-                self.consume();
-                Ok(Some(SpannedToken::new(
-                    Token::Infinity,
-                    Span::new(start, self.position()),
-                )))
-            }
-            '√' => {
-                self.consume();
-                Ok(Some(SpannedToken::new(
-                    Token::Sqrt,
-                    Span::new(start, self.position()),
-                )))
-            }
-            _ => Ok(None),
-        }
+        let token = match ch {
+            '!' => self.scan_two_char_op(start, '=', Token::Bang, Token::NotEquals),
+            '<' => self.scan_two_char_op(start, '=', Token::Less, Token::LessEq),
+            '>' => self.scan_two_char_op(start, '=', Token::Greater, Token::GreaterEq),
+            '*' => self.scan_two_char_op(start, '*', Token::Star, Token::DoubleStar),
+            '≤' => self.scan_unicode_token(start, Token::LessEq),
+            '≥' => self.scan_unicode_token(start, Token::GreaterEq),
+            '≠' => self.scan_unicode_token(start, Token::NotEquals),
+            'π' => self.scan_unicode_token(start, Token::Pi),
+            '∞' => self.scan_unicode_token(start, Token::Infinity),
+            '√' => self.scan_unicode_token(start, Token::Sqrt),
+            _ => return Ok(None),
+        };
+        Ok(Some(token))
     }
 
     /// Scans the next token.

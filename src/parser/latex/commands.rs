@@ -318,89 +318,51 @@ impl LatexParser {
         Ok(indices)
     }
 
+    /// Parses a single tensor index name (letter or command).
+    fn parse_single_tensor_index(&mut self, index_type: IndexType) -> ParseResult<TensorIndex> {
+        match self.peek() {
+            Some((LatexToken::Letter(ch), _)) => {
+                let ch = *ch;
+                self.next();
+                Ok(TensorIndex {
+                    name: ch.to_string(),
+                    index_type,
+                })
+            }
+            Some((LatexToken::Command(cmd), _)) => {
+                let cmd = cmd.clone();
+                self.next();
+                Ok(TensorIndex {
+                    name: cmd,
+                    index_type,
+                })
+            }
+            Some((_, span)) => Err(ParseError::custom(
+                "expected letter in tensor index".to_string(),
+                Some(*span),
+            )),
+            None => Err(ParseError::unexpected_eof(
+                vec!["tensor index"],
+                Some(self.current_span()),
+            )),
+        }
+    }
+
     /// Parses a group of indices (either braced or single character).
-    /// Returns a vector of TensorIndex all with the specified index type.
     pub(super) fn parse_index_group(
         &mut self,
         index_type: IndexType,
     ) -> ParseResult<Vec<TensorIndex>> {
         let mut indices = Vec::new();
-
         if self.check(&LatexToken::LBrace) {
-            // Braced group: ^{ij} or _{kl}
-            self.next(); // consume {
-
-            // Parse letters inside braces until we hit }
+            self.next();
             while !self.check(&LatexToken::RBrace) && !self.check(&LatexToken::Eof) {
-                match self.peek() {
-                    Some((LatexToken::Letter(ch), _)) => {
-                        let ch = *ch;
-                        self.next();
-                        indices.push(TensorIndex {
-                            name: ch.to_string(),
-                            index_type,
-                        });
-                    }
-                    Some((LatexToken::Command(cmd), _)) => {
-                        // Handle Greek letter indices like μ, ν
-                        let cmd = cmd.clone();
-                        self.next();
-                        indices.push(TensorIndex {
-                            name: cmd,
-                            index_type,
-                        });
-                    }
-                    Some((_, span)) => {
-                        return Err(ParseError::custom(
-                            "expected letter in tensor index".to_string(),
-                            Some(*span),
-                        ));
-                    }
-                    None => {
-                        return Err(ParseError::unexpected_eof(
-                            vec!["tensor index"],
-                            Some(self.current_span()),
-                        ));
-                    }
-                }
+                indices.push(self.parse_single_tensor_index(index_type)?);
             }
-
             self.consume(LatexToken::RBrace)?;
         } else {
-            // Single character: ^i or _j
-            match self.peek() {
-                Some((LatexToken::Letter(ch), _)) => {
-                    let ch = *ch;
-                    self.next();
-                    indices.push(TensorIndex {
-                        name: ch.to_string(),
-                        index_type,
-                    });
-                }
-                Some((LatexToken::Command(cmd), _)) => {
-                    // Greek letter index
-                    let cmd = cmd.clone();
-                    self.next();
-                    indices.push(TensorIndex {
-                        name: cmd,
-                        index_type,
-                    });
-                }
-                Some((_, span)) => {
-                    return Err(ParseError::custom(
-                        "expected letter in tensor index".to_string(),
-                        Some(*span),
-                    ));
-                }
-                None => {
-                    return Err(ParseError::unexpected_eof(
-                        vec!["tensor index"],
-                        Some(self.current_span()),
-                    ));
-                }
-            }
+            indices.push(self.parse_single_tensor_index(index_type)?);
         }
-
         Ok(indices)
     }
 }
