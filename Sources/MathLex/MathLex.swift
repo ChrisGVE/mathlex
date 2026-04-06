@@ -210,6 +210,58 @@ public struct MathExpression {
     MathLexRust.toLatex(inner).toString()
   }
 
+  /// A compact JSON representation of the AST.
+  ///
+  /// Serializes the full Abstract Syntax Tree to a single-line JSON string.
+  /// This is the recommended format for passing the AST across language boundaries
+  /// for evaluation or further processing.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let expr = try MathExpression.parse("x + 1")
+  /// let json = try expr.toJSON()
+  /// // {"Binary":{"op":"Add","left":{"Variable":"x"},"right":{"Integer":1}}}
+  /// ```
+  ///
+  /// - Returns: A compact JSON string representing the AST
+  /// - Throws: `MathLexError.internalError` if serialization fails
+  public func toJSON() throws -> String {
+    do {
+      return try MathLexRust.toJSON(inner).toString()
+    } catch let error as RustString {
+      throw MathLexError.internalError(error.toString())
+    }
+  }
+
+  /// A pretty-printed JSON representation of the AST.
+  ///
+  /// Serializes the full Abstract Syntax Tree to an indented, multi-line JSON
+  /// string. Useful for debugging and human inspection of the parsed structure.
+  ///
+  /// ## Example
+  ///
+  /// ```swift
+  /// let expr = try MathExpression.parse("x + 1")
+  /// let json = try expr.toJSONPretty()
+  /// // {
+  /// //   "Binary": {
+  /// //     "op": "Add",
+  /// //     ...
+  /// //   }
+  /// // }
+  /// ```
+  ///
+  /// - Returns: An indented JSON string representing the AST
+  /// - Throws: `MathLexError.internalError` if serialization fails
+  public func toJSONPretty() throws -> String {
+    do {
+      return try MathLexRust.toJSONPretty(inner).toString()
+    } catch let error as RustString {
+      throw MathLexError.internalError(error.toString())
+    }
+  }
+
   // MARK: - Querying
 
   /// All unique variable names used in the expression

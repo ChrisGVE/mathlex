@@ -38,6 +38,12 @@ mod ffi {
 
         #[swift_bridge(swift_name = "nodeCount")]
         fn expression_node_count(expr: &Expression) -> usize;
+
+        #[swift_bridge(swift_name = "toJSON")]
+        fn expression_to_json(expr: &Expression) -> Result<String, String>;
+
+        #[swift_bridge(swift_name = "toJSONPretty")]
+        fn expression_to_json_pretty(expr: &Expression) -> Result<String, String>;
     }
 }
 
@@ -119,6 +125,40 @@ pub fn expression_depth(expr: &Expression) -> usize {
 #[cfg(feature = "ffi")]
 pub fn expression_node_count(expr: &Expression) -> usize {
     expr.node_count()
+}
+
+/// FFI wrapper for serializing an expression to compact JSON.
+///
+/// Returns the JSON string on success, or an error string if serialization fails
+/// or the `serde` feature is not enabled.
+#[cfg(feature = "ffi")]
+pub fn expression_to_json(expr: &Expression) -> Result<String, String> {
+    #[cfg(feature = "serde")]
+    {
+        serde_json::to_string(expr).map_err(|e| e.to_string())
+    }
+    #[cfg(not(feature = "serde"))]
+    {
+        let _ = expr;
+        Err("serde feature is not enabled".to_string())
+    }
+}
+
+/// FFI wrapper for serializing an expression to pretty-printed JSON.
+///
+/// Returns the indented JSON string on success, or an error string if
+/// serialization fails or the `serde` feature is not enabled.
+#[cfg(feature = "ffi")]
+pub fn expression_to_json_pretty(expr: &Expression) -> Result<String, String> {
+    #[cfg(feature = "serde")]
+    {
+        serde_json::to_string_pretty(expr).map_err(|e| e.to_string())
+    }
+    #[cfg(not(feature = "serde"))]
+    {
+        let _ = expr;
+        Err("serde feature is not enabled".to_string())
+    }
 }
 
 /// FFI wrapper for parsing semicolon-delimited equation systems (plain text).
@@ -206,5 +246,136 @@ mod tests {
     fn test_expression_node_count() {
         let expr = parse_text("2 + 3").unwrap();
         assert!(expression_node_count(&expr) >= 3);
+    }
+}
+
+#[cfg(all(test, feature = "ffi", feature = "serde"))]
+mod json_tests {
+    use super::*;
+
+    #[test]
+    fn test_json_integer() {
+        let expr = parse_text("42").unwrap();
+        let json = expression_to_json(&expr).unwrap();
+        assert_eq!(json, r#"{"Integer":42}"#);
+    }
+
+    #[test]
+    fn test_json_float() {
+        let expr = parse_text("3.14").unwrap();
+        let json = expression_to_json(&expr).unwrap();
+        assert!(
+            json.contains("Float"),
+            "expected Float variant, got: {json}"
+        );
+    }
+
+    #[test]
+    fn test_json_variable() {
+        let expr = parse_text("x").unwrap();
+        let json = expression_to_json(&expr).unwrap();
+        assert_eq!(json, r#"{"Variable":"x"}"#);
+    }
+
+    #[test]
+    fn test_json_constant_pi() {
+        let expr = parse_text("pi").unwrap();
+        let json = expression_to_json(&expr).unwrap();
+        assert!(
+            json.contains("Constant"),
+            "expected Constant variant, got: {json}"
+        );
+        assert!(json.contains("Pi"), "expected Pi, got: {json}");
+    }
+
+    #[test]
+    fn test_json_binary_add() {
+        let expr = parse_text("x + y").unwrap();
+        let json = expression_to_json(&expr).unwrap();
+        assert!(
+            json.contains("Binary"),
+            "expected Binary variant, got: {json}"
+        );
+        assert!(json.contains("Add"), "expected Add op, got: {json}");
+    }
+
+    #[test]
+    fn test_json_unary_neg() {
+        let expr = parse_text("-x").unwrap();
+        let json = expression_to_json(&expr).unwrap();
+        assert!(
+            json.contains("Neg") || json.contains("Unary"),
+            "expected negation, got: {json}"
+        );
+    }
+
+    #[test]
+    fn test_json_function_call() {
+        let expr = parse_text("sin(x)").unwrap();
+        let json = expression_to_json(&expr).unwrap();
+        assert!(
+            json.contains("Function"),
+            "expected Function variant, got: {json}"
+        );
+        assert!(json.contains("sin"), "expected sin, got: {json}");
+    }
+
+    #[test]
+    fn test_json_nested_expression() {
+        let expr = parse_text("sin(x)^2 + cos(x)^2").unwrap();
+        let json = expression_to_json(&expr).unwrap();
+        assert!(
+            json.contains("sin"),
+            "expected sin in nested expr, got: {json}"
+        );
+        assert!(
+            json.contains("cos"),
+            "expected cos in nested expr, got: {json}"
+        );
+    }
+
+    #[test]
+    fn test_json_pretty_is_multiline() {
+        let expr = parse_text("x + y").unwrap();
+        let pretty = expression_to_json_pretty(&expr).unwrap();
+        assert!(pretty.contains('\n'), "pretty JSON should be multi-line");
+    }
+
+    #[test]
+    fn test_json_pretty_contains_same_data() {
+        let expr = parse_text("x + y").unwrap();
+        let compact = expression_to_json(&expr).unwrap();
+        let pretty = expression_to_json_pretty(&expr).unwrap();
+        // Both should parse to the same structure by comparing deserialized values
+        let compact_val: serde_json::Value = serde_json::from_str(&compact).unwrap();
+        let pretty_val: serde_json::Value = serde_json::from_str(&pretty).unwrap();
+        assert_eq!(compact_val, pretty_val);
+    }
+
+    #[test]
+    fn test_json_round_trip() {
+        use crate::Expression;
+        let expr = parse_text("2 * x + 3").unwrap();
+        let json = expression_to_json(&expr).unwrap();
+        let restored: Expression = serde_json::from_str(&json).unwrap();
+        assert_eq!(expr, restored);
+    }
+
+    #[test]
+    fn test_json_round_trip_function() {
+        use crate::Expression;
+        let expr = parse_text("sin(x)").unwrap();
+        let json = expression_to_json(&expr).unwrap();
+        let restored: Expression = serde_json::from_str(&json).unwrap();
+        assert_eq!(expr, restored);
+    }
+
+    #[test]
+    fn test_json_round_trip_nested() {
+        use crate::Expression;
+        let expr = parse_text("sin(x)^2 + cos(x)^2").unwrap();
+        let json = expression_to_json(&expr).unwrap();
+        let restored: Expression = serde_json::from_str(&json).unwrap();
+        assert_eq!(expr, restored);
     }
 }

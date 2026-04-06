@@ -46,6 +46,26 @@ public func depth(_ expr: ExpressionRef) -> UInt {
 public func nodeCount(_ expr: ExpressionRef) -> UInt {
   __swift_bridge__$expression_node_count(expr.ptr)
 }
+public func toJSON(_ expr: ExpressionRef) throws -> RustString {
+  try {
+    let val = __swift_bridge__$expression_to_json(expr.ptr)
+    if val.is_ok {
+      return RustString(ptr: val.ok_or_err!)
+    } else {
+      throw RustString(ptr: val.ok_or_err!)
+    }
+  }()
+}
+public func toJSONPretty(_ expr: ExpressionRef) throws -> RustString {
+  try {
+    let val = __swift_bridge__$expression_to_json_pretty(expr.ptr)
+    if val.is_ok {
+      return RustString(ptr: val.ok_or_err!)
+    } else {
+      throw RustString(ptr: val.ok_or_err!)
+    }
+  }()
+}
 
 public class Expression: ExpressionRefMut {
   var isOwned: Bool = true

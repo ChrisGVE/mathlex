@@ -201,6 +201,7 @@ impl TextParser {
             "e" => Expression::Constant(MathConstant::E),
             "i" => Expression::Constant(MathConstant::I),
             "inf" => Expression::Constant(MathConstant::Infinity),
+            "nan" | "NaN" => Expression::Constant(MathConstant::NaN),
             _ => Expression::Variable(name),
         }
     }
