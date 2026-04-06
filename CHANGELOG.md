@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-06
+
 ### Added
 
 - **Equation system parsing**: `parse_equation_system()` and `parse_latex_equation_system()` for parsing semicolon-delimited equations into `Vec<Expression>`
