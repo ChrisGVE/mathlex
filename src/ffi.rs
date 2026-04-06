@@ -44,6 +44,11 @@ mod ffi {
 #[cfg(feature = "ffi")]
 use crate::{parse, parser::parse_latex as parse_latex_internal, Expression};
 
+#[cfg(feature = "ffi")]
+use crate::parser::{
+    latex::parse_latex_equation_system, text::parse_equation_system as parse_text_equation_system,
+};
+
 /// FFI wrapper for parsing plain text expressions.
 ///
 /// Converts ParseError into a String for FFI compatibility.
@@ -114,6 +119,21 @@ pub fn expression_depth(expr: &Expression) -> usize {
 #[cfg(feature = "ffi")]
 pub fn expression_node_count(expr: &Expression) -> usize {
     expr.node_count()
+}
+
+/// FFI wrapper for parsing semicolon-delimited equation systems (plain text).
+///
+/// Returns a JSON-serialized array of expressions for FFI compatibility,
+/// since swift-bridge does not support `Vec<OpaqueRustType>` directly.
+#[cfg(feature = "ffi")]
+pub fn parse_equation_system_ffi(input: &str) -> Result<Vec<Expression>, String> {
+    parse_text_equation_system(input).map_err(|e| e.to_string())
+}
+
+/// FFI wrapper for parsing semicolon-delimited equation systems (LaTeX).
+#[cfg(feature = "ffi")]
+pub fn parse_latex_equation_system_ffi(input: &str) -> Result<Vec<Expression>, String> {
+    parse_latex_equation_system(input).map_err(|e| e.to_string())
 }
 
 #[cfg(all(test, feature = "ffi"))]
