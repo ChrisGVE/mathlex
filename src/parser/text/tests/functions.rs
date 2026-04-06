@@ -37,21 +37,41 @@ mod comprehensive_functions {
 
     #[test]
     fn test_inverse_trig_functions() {
+        // Aliases are normalized to canonical names.
         let expr = parse("asin(x)").unwrap();
         match expr {
-            Expression::Function { name, .. } => assert_eq!(name, "asin"),
+            Expression::Function { name, .. } => assert_eq!(name, "arcsin"),
             _ => panic!("Expected function"),
         }
 
         let expr = parse("acos(x)").unwrap();
         match expr {
-            Expression::Function { name, .. } => assert_eq!(name, "acos"),
+            Expression::Function { name, .. } => assert_eq!(name, "arccos"),
             _ => panic!("Expected function"),
         }
 
         let expr = parse("atan(x)").unwrap();
         match expr {
-            Expression::Function { name, .. } => assert_eq!(name, "atan"),
+            Expression::Function { name, .. } => assert_eq!(name, "arctan"),
+            _ => panic!("Expected function"),
+        }
+
+        // Canonical names still work unchanged.
+        let expr = parse("arcsin(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "arcsin"),
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("arccos(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "arccos"),
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("arctan(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "arctan"),
             _ => panic!("Expected function"),
         }
 
@@ -60,6 +80,83 @@ mod comprehensive_functions {
             Expression::Function { name, args } => {
                 assert_eq!(name, "atan2");
                 assert_eq!(args.len(), 2);
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_function_name_aliases() {
+        // sign -> sgn
+        let expr = parse("sign(x)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "sgn");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Variable(ref v) if v == "x"));
+            }
+            _ => panic!("Expected function"),
+        }
+
+        // log2 -> lg
+        let expr = parse("log2(x)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "lg");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Variable(ref v) if v == "x"));
+            }
+            _ => panic!("Expected function"),
+        }
+
+        // sgn canonical name still works
+        let expr = parse("sgn(x)").unwrap();
+        match expr {
+            Expression::Function { name, .. } => assert_eq!(name, "sgn"),
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_additional_math_functions() {
+        let expr = parse("cbrt(x)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "cbrt");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Variable(ref v) if v == "x"));
+            }
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("round(x)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "round");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Variable(ref v) if v == "x"));
+            }
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("pow(x, y)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "pow");
+                assert_eq!(args.len(), 2);
+                assert!(matches!(args[0], Expression::Variable(ref v) if v == "x"));
+                assert!(matches!(args[1], Expression::Variable(ref v) if v == "y"));
+            }
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("atan2(y, x)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "atan2");
+                assert_eq!(args.len(), 2);
+                assert!(matches!(args[0], Expression::Variable(ref v) if v == "y"));
+                assert!(matches!(args[1], Expression::Variable(ref v) if v == "x"));
             }
             _ => panic!("Expected function"),
         }
@@ -333,5 +430,32 @@ mod comprehensive_functions {
             }
             _ => panic!("Expected negation"),
         }
+    }
+
+    #[test]
+    fn test_log_two_args() {
+        let expr = parse("log(x, 2)").unwrap();
+        assert_eq!(
+            expr,
+            Expression::Function {
+                name: "log".to_string(),
+                args: vec![
+                    Expression::Variable("x".to_string()),
+                    Expression::Integer(2)
+                ],
+            }
+        );
+    }
+
+    #[test]
+    fn test_log_numeric_args() {
+        let expr = parse("log(8, 2)").unwrap();
+        assert_eq!(
+            expr,
+            Expression::Function {
+                name: "log".to_string(),
+                args: vec![Expression::Integer(8), Expression::Integer(2)],
+            }
+        );
     }
 }
