@@ -14,6 +14,8 @@ pub enum LatexToken {
     Letter(char),
     /// Explicit constant from \mathrm{e}, \mathrm{i}, \imath, \jmath
     ExplicitConstant(char),
+    /// NaN constant from \text{NaN}, \text{nan}, or \mathrm{NaN}
+    NaNConstant,
 
     // Operators
     /// Plus operator (+)

@@ -6,6 +6,69 @@ use super::scanner::Tokenizer;
 use super::token_types::LatexToken;
 
 impl<'a> Tokenizer<'a> {
+    /// Scans a braced word, returning its string content.
+    ///
+    /// Expects the next character to be `{`, reads letters until `}`, and
+    /// returns the accumulated word.  Errors if the brace or closing brace is
+    /// absent, or if a non-letter character is found inside.
+    fn scan_braced_word(&mut self, cmd_span: Span, cmd_name: &str) -> ParseResult<(String, Span)> {
+        let token_start = self.position();
+        self.skip_whitespace();
+        if self.peek() != Some('{') {
+            return Err(ParseError::custom(
+                format!("\\{} must be followed by {{content}}", cmd_name),
+                Some(cmd_span),
+            ));
+        }
+        self.consume(); // consume {
+        let mut word = String::new();
+        loop {
+            match self.peek() {
+                None => {
+                    return Err(ParseError::unexpected_eof(
+                        vec!["letter or }"],
+                        Some(cmd_span),
+                    ));
+                }
+                Some('}') => {
+                    self.consume(); // consume }
+                    break;
+                }
+                Some(ch) if ch.is_ascii_alphabetic() => {
+                    word.push(ch);
+                    self.consume();
+                }
+                Some(ch) => {
+                    return Err(ParseError::custom(
+                        format!(
+                            "\\{} content must contain only letters, got '{}'",
+                            cmd_name, ch
+                        ),
+                        Some(cmd_span),
+                    ));
+                }
+            }
+        }
+        let end = self.position();
+        Ok((word, Span::new(token_start, end)))
+    }
+
+    /// Parses `\text{word}` and returns a `NaNConstant` token when the word is
+    /// `NaN` or `nan`, or a generic `Command` token otherwise.
+    pub(super) fn scan_text(
+        &mut self,
+        cmd_span: Span,
+        token_start: crate::error::Position,
+    ) -> ParseResult<(LatexToken, Span)> {
+        let (word, word_span) = self.scan_braced_word(cmd_span, "text")?;
+        let end = word_span.end;
+        let token = match word.as_str() {
+            "NaN" | "nan" => LatexToken::NaNConstant,
+            _ => LatexToken::Command(format!("text_{}", word)),
+        };
+        Ok((token, Span::new(token_start, end)))
+    }
+
     /// Parses `\mathrm{X}` and returns an explicit constant or fallback command.
     pub(super) fn scan_mathrm(
         &mut self,
@@ -20,9 +83,58 @@ impl<'a> Tokenizer<'a> {
             ));
         }
         self.consume(); // consume {
-        let ch = self
+
+        // Peek ahead to detect multi-character words (e.g. "NaN") vs single chars.
+        let first_ch = self
             .peek()
             .ok_or_else(|| ParseError::unexpected_eof(vec!["letter"], Some(cmd_span)))?;
+
+        // Check whether the content is a multi-character word.
+        let second_ch = self.peek_ahead(1);
+        if second_ch.is_some() && second_ch != Some('}') {
+            // Multi-character content — read the full word.
+            let (word, word_span) = {
+                let mut w = String::new();
+                loop {
+                    match self.peek() {
+                        Some('}') | None => break,
+                        Some(ch) if ch.is_ascii_alphabetic() => {
+                            w.push(ch);
+                            self.consume();
+                        }
+                        Some(ch) => {
+                            return Err(ParseError::custom(
+                                format!(
+                                    "\\mathrm{{}} content must contain only letters, got '{}'",
+                                    ch
+                                ),
+                                Some(cmd_span),
+                            ));
+                        }
+                    }
+                }
+                let end = self.position();
+                (w, end)
+            };
+            if self.peek() != Some('}') {
+                return Err(ParseError::custom(
+                    "\\mathrm{} missing closing brace".to_string(),
+                    Some(cmd_span),
+                ));
+            }
+            self.consume(); // consume }
+            let end = self.position();
+            return match word.as_str() {
+                "NaN" | "nan" => Ok((LatexToken::NaNConstant, Span::new(token_start, end))),
+                _ => Ok((
+                    LatexToken::Command(format!("mathrm_{}", word)),
+                    Span::new(token_start, word_span),
+                )),
+            };
+        }
+
+        // Single-character content (original behaviour).
+        let ch = first_ch;
         self.consume(); // consume letter
         if self.peek() != Some('}') {
             return Err(ParseError::custom(
@@ -189,6 +301,7 @@ impl<'a> Tokenizer<'a> {
             "cdot" => Ok((LatexToken::Cdot, cmd_span)),
             "times" => Ok((LatexToken::Cross, cmd_span)),
             "mathrm" => self.scan_mathrm(cmd_span, token_start),
+            "text" => self.scan_text(cmd_span, token_start),
             "imath" | "jmath" => Ok((LatexToken::ExplicitConstant('i'), cmd_span)),
             "left" => self.scan_left_delimiter(cmd_span, token_start),
             "right" => self.scan_right_delimiter(cmd_span, token_start),

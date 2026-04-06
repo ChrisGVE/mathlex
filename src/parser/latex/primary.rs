@@ -230,6 +230,10 @@ impl LatexParser {
                 self.next();
                 Ok(Expression::Constant(MathConstant::Infinity))
             }
+            LatexToken::NaNConstant => {
+                self.next();
+                Ok(Expression::Constant(MathConstant::NaN))
+            }
             // All remaining tokens are handled by the extended helper.
             // Pass the already-cloned token to avoid re-borrowing self.
             ref t => {
