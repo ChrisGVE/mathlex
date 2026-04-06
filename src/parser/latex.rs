@@ -119,6 +119,33 @@ pub fn parse_latex(input: &str) -> ParseResult<Expression> {
     parser.parse_strict()
 }
 
+/// Parses a semicolon-delimited string of LaTeX equations into a vector of expressions.
+///
+/// Each segment separated by `;` is parsed as an independent LaTeX expression.
+/// Empty segments (e.g., from trailing semicolons) are ignored.
+///
+/// # Errors
+///
+/// Returns a [`ParseError`] from the first segment that fails to parse.
+///
+/// # Examples
+///
+/// ```
+/// use mathlex::parser::parse_latex_equation_system;
+/// use mathlex::Expression;
+///
+/// let exprs = parse_latex_equation_system(r"x = 1; \frac{y}{2} = 3").unwrap();
+/// assert_eq!(exprs.len(), 2);
+/// ```
+pub fn parse_latex_equation_system(input: &str) -> ParseResult<Vec<Expression>> {
+    input
+        .split(';')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(parse_latex)
+        .collect()
+}
+
 /// Parses a LaTeX mathematical expression in lenient (error-recovering) mode.
 ///
 /// Instead of stopping at the first error, this function collects all errors
@@ -478,3 +505,7 @@ mod det_tests;
 #[cfg(test)]
 #[path = "latex/tests/latex_tests_transpose.rs"]
 mod transpose_tests;
+
+#[cfg(test)]
+#[path = "latex/tests/latex_tests_equation_system.rs"]
+mod equation_system_tests;

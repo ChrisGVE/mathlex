@@ -4,6 +4,7 @@ use super::*;
 
 mod basic;
 mod domain;
+mod equation_system;
 mod extended;
 mod extended_fns;
 mod functions;

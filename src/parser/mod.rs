@@ -16,9 +16,11 @@ pub mod text;
 pub mod tokenizer;
 
 // Re-export key types
-pub use latex::{parse_latex, parse_latex_lenient};
+pub use latex::{parse_latex, parse_latex_equation_system, parse_latex_lenient};
 pub use latex_tokenizer::{tokenize_latex, LatexToken};
-pub use text::{parse, parse_lenient, parse_lenient_with_config, parse_with_config};
+pub use text::{
+    parse, parse_equation_system, parse_lenient, parse_lenient_with_config, parse_with_config,
+};
 pub use tokenizer::tokenize;
 
 /// A spanned token - combines a token with its source location.

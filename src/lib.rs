@@ -300,7 +300,8 @@ pub use metadata::{ContextSource, ExpressionMetadata, MathType};
 
 // Re-export parser functions
 pub use parser::{
-    parse, parse_latex, parse_latex_lenient, parse_lenient, parse_lenient_with_config,
+    parse, parse_equation_system, parse_latex, parse_latex_equation_system, parse_latex_lenient,
+    parse_lenient, parse_lenient_with_config,
 };
 
 /// Number system context for parsing.

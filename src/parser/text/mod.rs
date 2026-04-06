@@ -84,6 +84,59 @@ pub fn parse_lenient(input: &str) -> ParseOutput {
     parse_lenient_with_config(input, &ParserConfig::default())
 }
 
+/// Parses a semicolon-delimited string of equations into a vector of expressions.
+///
+/// Each segment separated by `;` is parsed as an independent expression.
+/// Empty segments (e.g., from trailing semicolons) are ignored.
+///
+/// # Errors
+///
+/// Returns a [`ParseError`] from the first segment that fails to parse.
+///
+/// # Examples
+///
+/// ```
+/// use mathlex::parser::text::parse_equation_system;
+/// use mathlex::Expression;
+///
+/// let exprs = parse_equation_system("x + y = 5; 2*x - y = 1").unwrap();
+/// assert_eq!(exprs.len(), 2);
+/// ```
+pub fn parse_equation_system(input: &str) -> ParseResult<Vec<Expression>> {
+    parse_equation_system_with_config(input, &ParserConfig::default())
+}
+
+/// Parses a semicolon-delimited string of equations with custom configuration.
+///
+/// Each segment separated by `;` is parsed as an independent expression using
+/// the supplied [`ParserConfig`]. Empty segments are ignored.
+///
+/// # Errors
+///
+/// Returns a [`ParseError`] from the first segment that fails to parse.
+///
+/// # Examples
+///
+/// ```
+/// use mathlex::parser::text::parse_equation_system_with_config;
+/// use mathlex::{Expression, ParserConfig};
+///
+/// let config = ParserConfig::default();
+/// let exprs = parse_equation_system_with_config("x = 1; y = 2", &config).unwrap();
+/// assert_eq!(exprs.len(), 2);
+/// ```
+pub fn parse_equation_system_with_config(
+    input: &str,
+    config: &ParserConfig,
+) -> ParseResult<Vec<Expression>> {
+    input
+        .split(';')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|part| parse_with_config(part, config))
+        .collect()
+}
+
 /// Parses a plain text mathematical expression in lenient mode with config.
 ///
 /// Instead of stopping at the first error, collects all errors and
