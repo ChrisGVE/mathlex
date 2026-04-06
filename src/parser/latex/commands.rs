@@ -137,13 +137,16 @@ impl LatexParser {
             // Single-argument functions
             "sin" | "cos" | "tan" | "sec" | "csc" | "cot" | "arcsin" | "arccos" | "arctan"
             | "sinh" | "cosh" | "tanh" | "exp" | "det" | "min" | "max" | "gcd" | "lcm" | "abs"
-            | "floor" | "ceil" | "sgn" => {
+            | "floor" | "ceil" | "sgn" | "trunc" | "rad" | "deg" => {
                 let arg = self.parse_function_arg()?;
                 Ok(Expression::Function {
                     name: cmd.to_string(),
                     args: vec![arg],
                 })
             }
+
+            // Three-argument functions: clamp(x, lo, hi) and lerp(a, b, t)
+            "clamp" | "lerp" => self.parse_three_arg_function(cmd),
 
             "ln" => self.parse_log_command(false),
             "log" => self.parse_log_command(true),
@@ -201,6 +204,24 @@ impl LatexParser {
         Ok(Expression::Function {
             name,
             args: vec![arg],
+        })
+    }
+
+    /// Parses a parenthesized three-argument function: `\name(a, b, c)`.
+    ///
+    /// Used for `\clamp` and `\lerp`, which require exactly three comma-separated
+    /// arguments enclosed in parentheses.
+    pub(super) fn parse_three_arg_function(&mut self, name: &str) -> ParseResult<Expression> {
+        self.consume(LatexToken::LParen)?;
+        let first = self.parse_expression()?;
+        self.consume(LatexToken::Comma)?;
+        let second = self.parse_expression()?;
+        self.consume(LatexToken::Comma)?;
+        let third = self.parse_expression()?;
+        self.consume(LatexToken::RParen)?;
+        Ok(Expression::Function {
+            name: name.to_string(),
+            args: vec![first, second, third],
         })
     }
 
