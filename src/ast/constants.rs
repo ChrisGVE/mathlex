@@ -105,6 +105,9 @@ impl fmt::Display for MathFloat {
 /// - **`NegInfinity`**: Produced by parsers when unary minus is applied to infinity.
 ///   Both `-∞` / `-inf` (plain text) and `-\infty` (LaTeX) parse directly as
 ///   `Constant(NegInfinity)`.
+/// - **`NaN`**: Not-a-Number. Parsed from `nan` or `NaN` (plain text) or
+///   `\text{NaN}`, `\text{nan}`, `\mathrm{NaN}` (LaTeX). Represents an
+///   indeterminate or undefined numeric result.
 ///
 /// ## Quaternion Context
 ///
@@ -132,6 +135,11 @@ impl fmt::Display for MathFloat {
 /// // Note: NegInfinity is for programmatic use
 /// let neg_inf = MathConstant::NegInfinity;
 /// assert_ne!(neg_inf, MathConstant::Infinity);
+///
+/// // NaN is distinct from all other constants
+/// let nan = MathConstant::NaN;
+/// assert_ne!(nan, MathConstant::Infinity);
+/// assert_ne!(nan, MathConstant::NegInfinity);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -159,4 +167,10 @@ pub enum MathConstant {
 
     /// Negative infinity (-∞)
     NegInfinity,
+
+    /// Not-a-Number (NaN): an indeterminate or undefined numeric value.
+    ///
+    /// Parsed from `nan` or `NaN` (plain text), and from `\text{NaN}`,
+    /// `\text{nan}`, or `\mathrm{NaN}` (LaTeX).
+    NaN,
 }

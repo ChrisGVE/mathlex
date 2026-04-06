@@ -11,6 +11,7 @@ impl ToLatex for MathConstant {
             MathConstant::K => r"\mathbf{k}".to_string(),
             MathConstant::Infinity => r"\infty".to_string(),
             MathConstant::NegInfinity => r"-\infty".to_string(),
+            MathConstant::NaN => r"\text{NaN}".to_string(),
         }
     }
 }

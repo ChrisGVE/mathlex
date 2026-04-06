@@ -15,6 +15,7 @@ impl fmt::Display for MathConstant {
             MathConstant::K => write!(f, "k"),
             MathConstant::Infinity => write!(f, "inf"),
             MathConstant::NegInfinity => write!(f, "-inf"),
+            MathConstant::NaN => write!(f, "NaN"),
         }
     }
 }
