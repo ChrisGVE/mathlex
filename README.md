@@ -4,7 +4,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/ChrisGVE/mathlex)](https://github.com/ChrisGVE/mathlex/releases)
 [![CI](https://github.com/ChrisGVE/mathlex/actions/workflows/ci.yml/badge.svg)](https://github.com/ChrisGVE/mathlex/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/mathlex.svg)](https://crates.io/crates/mathlex)
-[![Rust Version](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
+[![Rust Version](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org)
 [![docs.rs](https://docs.rs/mathlex/badge.svg)](https://docs.rs/mathlex)
 [![Swift Package Index](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FChrisGVE%2Fmathlex%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/ChrisGVE/mathlex)
 [![Swift Platform](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FChrisGVE%2Fmathlex%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/ChrisGVE/mathlex)

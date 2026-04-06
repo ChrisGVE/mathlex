@@ -231,7 +231,7 @@ fn test_lenient_latex_multiple_errors() {
     let output = mathlex::parse_latex_lenient(r"\frac{}{} + \frac{}{}");
     assert!(output.has_errors());
     // Should collect multiple errors (one per empty brace group)
-    assert!(output.errors.len() >= 1);
+    assert!(!output.errors.is_empty());
 }
 
 #[test]
