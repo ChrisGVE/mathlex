@@ -4,6 +4,14 @@
 //! to parse mathematical expressions and interact with the AST.
 //!
 //! The bridge is only compiled when the `ffi` feature is enabled.
+//!
+//! ## JSON serialization
+//!
+//! When both the `ffi` and `serde` features are enabled, [`expression_to_json`]
+//! and [`expression_to_json_pretty`] serialize any `Expression` to a JSON string
+//! following the schema documented in `docs/json-ast-schema.md`. Swift consumers
+//! can decode this JSON into `Decodable` types for evaluation or further
+//! processing without needing direct access to the opaque Rust type.
 
 #[cfg(feature = "ffi")]
 #[allow(clippy::unnecessary_cast)]
