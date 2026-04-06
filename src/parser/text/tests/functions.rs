@@ -458,4 +458,148 @@ mod comprehensive_functions {
             }
         );
     }
+
+    // NumericSwift functions: trunc, clamp, lerp, rad, deg
+
+    #[test]
+    fn test_trunc() {
+        let expr = parse("trunc(x)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "trunc");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Variable(ref v) if v == "x"));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_trunc_nested() {
+        // trunc(sin(x))
+        let expr = parse("trunc(sin(x))").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "trunc");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Function { ref name, .. } if name == "sin"));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_clamp() {
+        let expr = parse("clamp(x, 0, 1)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "clamp");
+                assert_eq!(args.len(), 3);
+                assert!(matches!(args[0], Expression::Variable(ref v) if v == "x"));
+                assert!(matches!(args[1], Expression::Integer(0)));
+                assert!(matches!(args[2], Expression::Integer(1)));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_clamp_complex_first_arg() {
+        // clamp(x^2, -1, 1)
+        let expr = parse("clamp(x^2, -1, 1)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "clamp");
+                assert_eq!(args.len(), 3);
+                assert!(matches!(
+                    args[0],
+                    Expression::Binary {
+                        op: BinaryOp::Pow,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_lerp() {
+        let expr = parse("lerp(a, b, t)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "lerp");
+                assert_eq!(args.len(), 3);
+                assert!(matches!(args[0], Expression::Variable(ref v) if v == "a"));
+                assert!(matches!(args[1], Expression::Variable(ref v) if v == "b"));
+                assert!(matches!(args[2], Expression::Variable(ref v) if v == "t"));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_lerp_numeric_bounds() {
+        let expr = parse("lerp(0, 1, t)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "lerp");
+                assert_eq!(args.len(), 3);
+                assert!(matches!(args[0], Expression::Integer(0)));
+                assert!(matches!(args[1], Expression::Integer(1)));
+                assert!(matches!(args[2], Expression::Variable(ref v) if v == "t"));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_rad() {
+        let expr = parse("rad(x)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "rad");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Variable(ref v) if v == "x"));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_deg() {
+        let expr = parse("deg(x)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "deg");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Variable(ref v) if v == "x"));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_rad_deg_with_pi() {
+        // rad(180) and deg(pi)
+        let expr = parse("rad(180)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "rad");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Integer(180)));
+            }
+            _ => panic!("Expected function"),
+        }
+
+        let expr = parse("deg(pi)").unwrap();
+        match expr {
+            Expression::Function { name, args } => {
+                assert_eq!(name, "deg");
+                assert_eq!(args.len(), 1);
+                assert!(matches!(args[0], Expression::Constant(MathConstant::Pi)));
+            }
+            _ => panic!("Expected function"),
+        }
+    }
 }

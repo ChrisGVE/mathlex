@@ -597,3 +597,142 @@ fn test_det_braced() {
         _ => panic!("Expected function call"),
     }
 }
+
+// NumericSwift functions: trunc, rad, deg, clamp, lerp
+
+#[test]
+fn test_trunc_braced() {
+    let expr = parse_latex(r"\trunc{x}").unwrap();
+    match expr {
+        Expression::Function { name, args } => {
+            assert_eq!(name, "trunc");
+            assert_eq!(args.len(), 1);
+            assert_eq!(args[0], Expression::Variable("x".to_string()));
+        }
+        _ => panic!("Expected function call"),
+    }
+}
+
+#[test]
+fn test_trunc_paren() {
+    let expr = parse_latex(r"\trunc(x)").unwrap();
+    match expr {
+        Expression::Function { name, args } => {
+            assert_eq!(name, "trunc");
+            assert_eq!(args.len(), 1);
+            assert_eq!(args[0], Expression::Variable("x".to_string()));
+        }
+        _ => panic!("Expected function call"),
+    }
+}
+
+#[test]
+fn test_trunc_nested_sin() {
+    // \trunc{\sin{x}}
+    let expr = parse_latex(r"\trunc{\sin{x}}").unwrap();
+    match expr {
+        Expression::Function { name, args } => {
+            assert_eq!(name, "trunc");
+            assert_eq!(args.len(), 1);
+            match &args[0] {
+                Expression::Function { name: inner, .. } => assert_eq!(inner, "sin"),
+                _ => panic!("Expected nested sin"),
+            }
+        }
+        _ => panic!("Expected function call"),
+    }
+}
+
+#[test]
+fn test_rad_braced() {
+    let expr = parse_latex(r"\rad{x}").unwrap();
+    match expr {
+        Expression::Function { name, args } => {
+            assert_eq!(name, "rad");
+            assert_eq!(args.len(), 1);
+            assert_eq!(args[0], Expression::Variable("x".to_string()));
+        }
+        _ => panic!("Expected function call"),
+    }
+}
+
+#[test]
+fn test_deg_braced() {
+    let expr = parse_latex(r"\deg{x}").unwrap();
+    match expr {
+        Expression::Function { name, args } => {
+            assert_eq!(name, "deg");
+            assert_eq!(args.len(), 1);
+            assert_eq!(args[0], Expression::Variable("x".to_string()));
+        }
+        _ => panic!("Expected function call"),
+    }
+}
+
+#[test]
+fn test_clamp_paren() {
+    // \clamp(x, 0, 1)
+    let expr = parse_latex(r"\clamp(x, 0, 1)").unwrap();
+    match expr {
+        Expression::Function { name, args } => {
+            assert_eq!(name, "clamp");
+            assert_eq!(args.len(), 3);
+            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[1], Expression::Integer(0));
+            assert_eq!(args[2], Expression::Integer(1));
+        }
+        _ => panic!("Expected function call"),
+    }
+}
+
+#[test]
+fn test_clamp_complex_arg() {
+    // \clamp(x^2, -1, 1)
+    let expr = parse_latex(r"\clamp(x^2, -1, 1)").unwrap();
+    match expr {
+        Expression::Function { name, args } => {
+            assert_eq!(name, "clamp");
+            assert_eq!(args.len(), 3);
+            assert!(matches!(
+                args[0],
+                Expression::Binary {
+                    op: BinaryOp::Pow,
+                    ..
+                }
+            ));
+        }
+        _ => panic!("Expected function call"),
+    }
+}
+
+#[test]
+fn test_lerp_paren() {
+    // \lerp(a, b, t)
+    let expr = parse_latex(r"\lerp(a, b, t)").unwrap();
+    match expr {
+        Expression::Function { name, args } => {
+            assert_eq!(name, "lerp");
+            assert_eq!(args.len(), 3);
+            assert_eq!(args[0], Expression::Variable("a".to_string()));
+            assert_eq!(args[1], Expression::Variable("b".to_string()));
+            assert_eq!(args[2], Expression::Variable("t".to_string()));
+        }
+        _ => panic!("Expected function call"),
+    }
+}
+
+#[test]
+fn test_lerp_numeric_bounds() {
+    // \lerp(0, 1, t)
+    let expr = parse_latex(r"\lerp(0, 1, t)").unwrap();
+    match expr {
+        Expression::Function { name, args } => {
+            assert_eq!(name, "lerp");
+            assert_eq!(args.len(), 3);
+            assert_eq!(args[0], Expression::Integer(0));
+            assert_eq!(args[1], Expression::Integer(1));
+            assert_eq!(args[2], Expression::Variable("t".to_string()));
+        }
+        _ => panic!("Expected function call"),
+    }
+}
