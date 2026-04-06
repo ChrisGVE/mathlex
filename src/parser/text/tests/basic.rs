@@ -485,3 +485,48 @@ fn test_unmatched_parenthesis() {
 fn test_extra_closing_parenthesis() {
     assert!(parse("2 + 3)").is_err());
 }
+
+// =============================================================================
+// NaN constant (plain text parser)
+// =============================================================================
+
+#[test]
+fn test_parse_nan_lowercase() {
+    // "nan" should parse as Constant(NaN)
+    let expr = parse("nan").unwrap();
+    assert_eq!(expr, Expression::Constant(MathConstant::NaN));
+}
+
+#[test]
+fn test_parse_nan_mixed_case() {
+    // "NaN" should parse as Constant(NaN)
+    let expr = parse("NaN").unwrap();
+    assert_eq!(expr, Expression::Constant(MathConstant::NaN));
+}
+
+#[test]
+fn test_nan_not_a_variable() {
+    // "nan" must be a constant, not a Variable node
+    let expr = parse("nan").unwrap();
+    assert!(!matches!(expr, Expression::Variable(_)));
+}
+
+#[test]
+fn test_nan_in_expression() {
+    // x + nan should produce Binary with NaN on right
+    let expr = parse("x + nan").unwrap();
+    match expr {
+        Expression::Binary { op, left, right } => {
+            assert_eq!(op, BinaryOp::Add);
+            assert_eq!(*left, Expression::Variable("x".to_string()));
+            assert_eq!(*right, Expression::Constant(MathConstant::NaN));
+        }
+        _ => panic!("Expected binary expression"),
+    }
+}
+
+#[test]
+fn test_nan_display() {
+    let expr = Expression::Constant(MathConstant::NaN);
+    assert_eq!(format!("{}", expr), "NaN");
+}

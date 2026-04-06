@@ -438,3 +438,93 @@ fn test_tokenize_jmath() {
     let tokens = tokenize_latex(r"\jmath").unwrap();
     assert!(matches!(tokens[0].0, LatexToken::ExplicitConstant('i')));
 }
+
+// =============================================================================
+// NaN constant
+// =============================================================================
+
+#[test]
+fn test_text_nan_uppercase() {
+    // \text{NaN} should parse as Constant(NaN)
+    let expr = parse_latex(r"\text{NaN}").unwrap();
+    assert_eq!(expr, Expression::Constant(MathConstant::NaN));
+}
+
+#[test]
+fn test_text_nan_lowercase() {
+    // \text{nan} should parse as Constant(NaN)
+    let expr = parse_latex(r"\text{nan}").unwrap();
+    assert_eq!(expr, Expression::Constant(MathConstant::NaN));
+}
+
+#[test]
+fn test_mathrm_nan_uppercase() {
+    // \mathrm{NaN} should parse as Constant(NaN)
+    let expr = parse_latex(r"\mathrm{NaN}").unwrap();
+    assert_eq!(expr, Expression::Constant(MathConstant::NaN));
+}
+
+#[test]
+fn test_mathrm_nan_lowercase() {
+    // \mathrm{nan} should parse as Constant(NaN)
+    let expr = parse_latex(r"\mathrm{nan}").unwrap();
+    assert_eq!(expr, Expression::Constant(MathConstant::NaN));
+}
+
+#[test]
+fn test_nan_in_expression() {
+    // x + \text{NaN} should produce a binary with NaN on the right
+    let expr = parse_latex(r"x + \text{NaN}").unwrap();
+    match expr {
+        Expression::Binary { op, left, right } => {
+            assert_eq!(op, BinaryOp::Add);
+            assert_eq!(*left, Expression::Variable("x".to_string()));
+            assert_eq!(*right, Expression::Constant(MathConstant::NaN));
+        }
+        _ => panic!("Expected binary expression"),
+    }
+}
+
+#[test]
+fn test_tokenize_text_nan() {
+    use crate::parser::latex_tokenizer::{tokenize_latex, LatexToken};
+    let tokens = tokenize_latex(r"\text{NaN}").unwrap();
+    assert!(matches!(tokens[0].0, LatexToken::NaNConstant));
+}
+
+#[test]
+fn test_tokenize_text_nan_lowercase() {
+    use crate::parser::latex_tokenizer::{tokenize_latex, LatexToken};
+    let tokens = tokenize_latex(r"\text{nan}").unwrap();
+    assert!(matches!(tokens[0].0, LatexToken::NaNConstant));
+}
+
+#[test]
+fn test_tokenize_mathrm_nan() {
+    use crate::parser::latex_tokenizer::{tokenize_latex, LatexToken};
+    let tokens = tokenize_latex(r"\mathrm{NaN}").unwrap();
+    assert!(matches!(tokens[0].0, LatexToken::NaNConstant));
+}
+
+#[test]
+fn test_nan_to_latex_roundtrip() {
+    use crate::latex::ToLatex;
+    let expr = Expression::Constant(MathConstant::NaN);
+    let latex = expr.to_latex();
+    assert_eq!(latex, r"\text{NaN}");
+    // Re-parse the LaTeX output — must round-trip.
+    let reparsed = parse_latex(&latex).unwrap();
+    assert_eq!(reparsed, expr);
+}
+
+#[test]
+fn test_nan_display() {
+    let expr = Expression::Constant(MathConstant::NaN);
+    assert_eq!(format!("{}", expr), "NaN");
+}
+
+#[test]
+fn test_nan_ne_infinity() {
+    assert_ne!(MathConstant::NaN, MathConstant::Infinity);
+    assert_ne!(MathConstant::NaN, MathConstant::NegInfinity);
+}
