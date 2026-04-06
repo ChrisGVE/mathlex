@@ -19,6 +19,7 @@ impl LatexParser {
                 MathConstant::Pi => "pi".to_string(),
                 MathConstant::Infinity => "inf".to_string(),
                 MathConstant::NegInfinity => "neginf".to_string(),
+                MathConstant::NaN => "nan".to_string(),
             }),
             Expression::Binary { op, left, right } => {
                 let left_str = self.expression_to_subscript_string(left)?;
