@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Equation system parsing**: `parse_equation_system()` and `parse_latex_equation_system()` for parsing semicolon-delimited equations into `Vec<Expression>`
+- **Function name aliases**: plain text parser recognizes `asin`/`acos`/`atan` as `arcsin`/`arccos`/`arctan`, `sign` as `sgn`, `log2` as `lg`
+- **Additional functions**: `atan2`, `cbrt`, `round`, `pow` parse as named functions; added to known-functions list for typo suggestions
+- **Tree traversal**: `Expression::map()` for bottom-up tree transformation
+- **Tree reduction**: `Expression::fold()` for generic tree accumulation
+- **Variable lookup**: `Expression::contains_variable()` with early-exit semantics
+- **FFI**: equation system parsing wrappers for Swift bindings
+- **Serde**: comprehensive round-trip tests for all Expression variants
+
+### Documentation
+
+- Added guidance for extending `Equation` with tracking IDs
+- Added guidance for attaching variable metadata (dimensions, units)
+- Updated utility module documentation to list all available methods
+
 ## [0.2.0] - 2026-04-03
 
 ### Added
