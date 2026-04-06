@@ -6,7 +6,7 @@
 const KNOWN_FUNCTIONS: &[&str] = &[
     "sin", "cos", "tan", "csc", "sec", "cot", "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh",
     "log", "ln", "exp", "sqrt", "abs", "floor", "ceil", "round", "sign", "min", "max", "gcd",
-    "lcm",
+    "lcm", "atan2", "cbrt", "pow", "sgn", "lg", "asin", "acos", "atan", "log2",
 ];
 
 /// Computes the Levenshtein distance between two strings.
