@@ -176,6 +176,169 @@ fn cv_logic_sets_and_rest(expr: &Expression, vars: &mut HashSet<String>) {
     }
 }
 
+// ── contains_variable helpers ────────────────────────────────────────────────
+
+pub(super) fn cv_contains(expr: &Expression, name: &str) -> bool {
+    match expr {
+        Expression::Integer(_) | Expression::Float(_) | Expression::Constant(_) => false,
+        Expression::Variable(n) => n == name,
+        Expression::Rational {
+            numerator,
+            denominator,
+        } => cv_contains(numerator, name) || cv_contains(denominator, name),
+        Expression::Complex { real, imaginary } => {
+            cv_contains(real, name) || cv_contains(imaginary, name)
+        }
+        Expression::Quaternion { real, i, j, k } => {
+            cv_contains(real, name)
+                || cv_contains(i, name)
+                || cv_contains(j, name)
+                || cv_contains(k, name)
+        }
+        Expression::Binary { left, right, .. }
+        | Expression::Equation { left, right }
+        | Expression::Inequality { left, right, .. } => {
+            cv_contains(left, name) || cv_contains(right, name)
+        }
+        Expression::Unary { operand, .. } => cv_contains(operand, name),
+        Expression::Function { args, .. } => args.iter().any(|a| cv_contains(a, name)),
+        _ => cv_contains_calculus_and_rest(expr, name),
+    }
+}
+
+fn cv_contains_calculus_and_rest(expr: &Expression, name: &str) -> bool {
+    match expr {
+        Expression::Derivative { expr: e, var, .. }
+        | Expression::PartialDerivative { expr: e, var, .. } => var == name || cv_contains(e, name),
+        Expression::Integral {
+            integrand,
+            var,
+            bounds,
+        } => {
+            var == name
+                || cv_contains(integrand, name)
+                || bounds.as_ref().map_or(false, |b| {
+                    cv_contains(&b.lower, name) || cv_contains(&b.upper, name)
+                })
+        }
+        Expression::MultipleIntegral {
+            integrand,
+            vars,
+            bounds,
+            ..
+        } => {
+            vars.iter().any(|v| v == name)
+                || cv_contains(integrand, name)
+                || bounds.as_ref().map_or(false, |b| {
+                    b.bounds
+                        .iter()
+                        .any(|ib| cv_contains(&ib.lower, name) || cv_contains(&ib.upper, name))
+                })
+        }
+        Expression::ClosedIntegral { integrand, var, .. } => {
+            var == name || cv_contains(integrand, name)
+        }
+        Expression::Limit {
+            expr: e, var, to, ..
+        } => var == name || cv_contains(e, name) || cv_contains(to, name),
+        Expression::Sum {
+            index,
+            lower,
+            upper,
+            body,
+        }
+        | Expression::Product {
+            index,
+            lower,
+            upper,
+            body,
+        } => {
+            index == name
+                || cv_contains(lower, name)
+                || cv_contains(upper, name)
+                || cv_contains(body, name)
+        }
+        Expression::Vector(elems) => elems.iter().any(|e| cv_contains(e, name)),
+        Expression::Matrix(rows) => rows
+            .iter()
+            .flat_map(|r| r.iter())
+            .any(|e| cv_contains(e, name)),
+        _ => cv_contains_logic_sets_and_rest(expr, name),
+    }
+}
+
+fn cv_contains_logic_sets_and_rest(expr: &Expression, name: &str) -> bool {
+    match expr {
+        Expression::ForAll {
+            variable,
+            domain,
+            body,
+        }
+        | Expression::Exists {
+            variable,
+            domain,
+            body,
+            ..
+        } => {
+            variable == name
+                || domain.as_ref().map_or(false, |d| cv_contains(d, name))
+                || cv_contains(body, name)
+        }
+        Expression::Logical { operands, .. } => operands.iter().any(|o| cv_contains(o, name)),
+        Expression::MarkedVector { .. }
+        | Expression::NumberSetExpr(_)
+        | Expression::EmptySet
+        | Expression::Nabla => false,
+        Expression::DotProduct { left, right }
+        | Expression::CrossProduct { left, right }
+        | Expression::OuterProduct { left, right }
+        | Expression::SetOperation { left, right, .. }
+        | Expression::WedgeProduct { left, right } => {
+            cv_contains(left, name) || cv_contains(right, name)
+        }
+        Expression::Gradient { expr } | Expression::Laplacian { expr } => cv_contains(expr, name),
+        Expression::Divergence { field } | Expression::Curl { field } => cv_contains(field, name),
+        Expression::Determinant { matrix }
+        | Expression::Trace { matrix }
+        | Expression::Rank { matrix }
+        | Expression::ConjugateTranspose { matrix }
+        | Expression::MatrixInverse { matrix } => cv_contains(matrix, name),
+        _ => cv_contains_sets_tensors(expr, name),
+    }
+}
+
+fn cv_contains_sets_tensors(expr: &Expression, name: &str) -> bool {
+    match expr {
+        Expression::SetRelationExpr { element, set, .. } => {
+            cv_contains(element, name) || cv_contains(set, name)
+        }
+        Expression::SetBuilder {
+            variable,
+            domain,
+            predicate,
+        } => {
+            variable == name
+                || domain.as_ref().map_or(false, |d| cv_contains(d, name))
+                || cv_contains(predicate, name)
+        }
+        Expression::PowerSet { set } => cv_contains(set, name),
+        Expression::Tensor { indices, .. }
+        | Expression::KroneckerDelta { indices }
+        | Expression::LeviCivita { indices } => indices.iter().any(|idx| idx.name == name),
+        Expression::Differential { var } => var == name,
+        Expression::FunctionSignature {
+            domain, codomain, ..
+        } => cv_contains(domain, name) || cv_contains(codomain, name),
+        Expression::Composition { outer, inner } => {
+            cv_contains(outer, name) || cv_contains(inner, name)
+        }
+        Expression::Relation { left, right, .. } => {
+            cv_contains(left, name) || cv_contains(right, name)
+        }
+        _ => false,
+    }
+}
+
 fn cv_sets_tensors_theory(expr: &Expression, vars: &mut HashSet<String>) {
     match expr {
         Expression::SetRelationExpr { element, set, .. } => {

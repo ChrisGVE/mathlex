@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 use super::collect_consts::cc_core;
 use super::collect_fns::cf_core;
-use super::collect_vars::cv_core;
+use super::collect_vars::{cv_contains, cv_core};
 
 impl Expression {
     /// Finds all unique variable names in the expression.
@@ -113,5 +113,31 @@ impl Expression {
 
     pub(crate) fn collect_constants(&self, constants: &mut HashSet<MathConstant>) {
         cc_core(self, constants);
+    }
+
+    /// Returns `true` if this expression contains a variable with the given name.
+    ///
+    /// Uses short-circuit evaluation: returns as soon as the variable is found,
+    /// making it more efficient than `find_variables().contains(name)` for
+    /// membership queries.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mathlex::ast::{Expression, BinaryOp};
+    ///
+    /// // x + y
+    /// let expr = Expression::Binary {
+    ///     op: BinaryOp::Add,
+    ///     left: Box::new(Expression::Variable("x".to_string())),
+    ///     right: Box::new(Expression::Variable("y".to_string())),
+    /// };
+    ///
+    /// assert!(expr.contains_variable("x"));
+    /// assert!(expr.contains_variable("y"));
+    /// assert!(!expr.contains_variable("z"));
+    /// ```
+    pub fn contains_variable(&self, name: &str) -> bool {
+        cv_contains(self, name)
     }
 }

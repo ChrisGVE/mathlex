@@ -2,4 +2,6 @@
 #![allow(clippy::approx_constant)]
 
 mod collect;
+mod fold;
+mod map;
 mod metrics;

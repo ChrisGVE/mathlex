@@ -374,3 +374,66 @@ fn test_find_constants_in_limit() {
     assert_eq!(consts.len(), 1);
     assert!(consts.contains(&MathConstant::Infinity));
 }
+
+// Tests for contains_variable
+
+#[test]
+fn test_contains_variable_present() {
+    let expr = Expression::Variable("x".to_string());
+    assert!(expr.contains_variable("x"));
+}
+
+#[test]
+fn test_contains_variable_absent() {
+    let expr = Expression::Variable("x".to_string());
+    assert!(!expr.contains_variable("y"));
+}
+
+#[test]
+fn test_contains_variable_in_binary() {
+    let expr = Expression::Binary {
+        op: BinaryOp::Add,
+        left: Box::new(Expression::Variable("x".to_string())),
+        right: Box::new(Expression::Integer(1)),
+    };
+    assert!(expr.contains_variable("x"));
+    assert!(!expr.contains_variable("y"));
+}
+
+#[test]
+fn test_contains_variable_deeply_nested() {
+    let expr = Expression::Binary {
+        op: BinaryOp::Mul,
+        left: Box::new(Expression::Binary {
+            op: BinaryOp::Add,
+            left: Box::new(Expression::Integer(1)),
+            right: Box::new(Expression::Integer(2)),
+        }),
+        right: Box::new(Expression::Function {
+            name: "sin".to_string(),
+            args: vec![Expression::Variable("x".to_string())],
+        }),
+    };
+    assert!(expr.contains_variable("x"));
+    assert!(!expr.contains_variable("y"));
+}
+
+#[test]
+fn test_contains_variable_in_derivative() {
+    let expr = Expression::Derivative {
+        expr: Box::new(Expression::Variable("f".to_string())),
+        var: "x".to_string(),
+        order: 1,
+    };
+    assert!(expr.contains_variable("x"));
+    assert!(expr.contains_variable("f"));
+    assert!(!expr.contains_variable("y"));
+}
+
+#[test]
+fn test_contains_variable_leaf_types() {
+    assert!(!Expression::Integer(42).contains_variable("x"));
+    assert!(!Expression::Constant(MathConstant::Pi).contains_variable("x"));
+    assert!(!Expression::EmptySet.contains_variable("x"));
+    assert!(!Expression::Nabla.contains_variable("x"));
+}

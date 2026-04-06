@@ -39,6 +39,8 @@ mod collect_fns;
 mod collect_vars;
 
 mod collect;
+mod fold;
+mod map;
 mod metrics;
 mod substitute;
 mod validation;
