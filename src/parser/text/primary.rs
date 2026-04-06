@@ -2,6 +2,21 @@
 
 use super::*;
 
+/// Normalizes function name aliases to their canonical mathlex names.
+///
+/// Maps common alternative spellings used by thales and other consumers to the
+/// canonical names recognized throughout the mathlex AST.
+fn normalize_function_name(name: &str) -> &str {
+    match name {
+        "asin" => "arcsin",
+        "acos" => "arccos",
+        "atan" => "arctan",
+        "sign" => "sgn",
+        "log2" => "lg",
+        _ => name,
+    }
+}
+
 impl TextParser {
     pub(super) fn parse_primary(&mut self) -> ParseResult<Expression> {
         let token = self.peek().ok_or_else(|| {
@@ -148,7 +163,10 @@ impl TextParser {
             args.push(self.parse_expression()?);
         }
         self.consume(Token::RParen)?;
-        Ok(Expression::Function { name, args })
+        Ok(Expression::Function {
+            name: normalize_function_name(&name).to_string(),
+            args,
+        })
     }
 
     pub(super) fn parse_binary_vector_op(&mut self, op_name: &str) -> ParseResult<Expression> {
