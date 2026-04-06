@@ -6,10 +6,12 @@
 //!
 //! ## Key Features
 //!
-//! - **Variable Discovery**: Find all variables in an expression
-//! - **Function Discovery**: Find all function calls in an expression
-//! - **Constant Discovery**: Find all mathematical constants used
-//! - **Tree Metrics**: Calculate depth and node count
+//! - **Variable Discovery**: `find_variables()`, `contains_variable()`
+//! - **Function Discovery**: `find_functions()`
+//! - **Constant Discovery**: `find_constants()`
+//! - **Tree Traversal**: `map()`, `fold()`
+//! - **Substitution**: `substitute()`, `substitute_all()`
+//! - **Tree Metrics**: `depth()`, `node_count()`
 //!
 //! ## Examples
 //!

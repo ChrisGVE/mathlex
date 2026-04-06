@@ -1,4 +1,4 @@
-//! Token enum, Spanned<T>, and SpannedToken type alias.
+//! Token enum, `Spanned<T>`, and SpannedToken type alias.
 
 use crate::error::Span;
 

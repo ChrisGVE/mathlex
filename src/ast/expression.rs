@@ -232,6 +232,20 @@ pub enum Expression {
     ///
     /// Represents a symbolic variable name.
     ///
+    /// # Extending with Metadata
+    ///
+    /// Libraries that need additional variable information (type, dimension, units)
+    /// should maintain a separate metadata map:
+    ///
+    /// ```ignore
+    /// let metadata: HashMap<String, VariableMetadata> = HashMap::new();
+    /// for var in expr.find_variables() {
+    ///     if let Some(meta) = metadata.get(&var) {
+    ///         // Use metadata for dimensional analysis, etc.
+    ///     }
+    /// }
+    /// ```
+    ///
     /// # Examples
     /// - `x`
     /// - `theta`
@@ -838,6 +852,20 @@ pub enum Expression {
     /// Equation.
     ///
     /// Represents an equality between two expressions.
+    ///
+    /// # Tracking Equations
+    ///
+    /// This type does not include an identifier field. Libraries that need to
+    /// track equations through processing pipelines (e.g., for substitution or
+    /// elimination) should wrap this in their own struct or maintain a separate
+    /// mapping:
+    ///
+    /// ```ignore
+    /// struct TrackedEquation {
+    ///     id: String,
+    ///     equation: mathlex::Expression,
+    /// }
+    /// ```
     ///
     /// # Examples
     /// - `x = 5`
