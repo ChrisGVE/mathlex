@@ -25,8 +25,8 @@ jobs:
       - name: Cache Cargo dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Build Rust library with FFI
-        run: cargo build --release --features ffi
+      - name: Build Rust library with FFI and serde
+        run: cargo build --release --features "ffi,serde"
 
       - name: Update generated Swift bridge files
         run: |
