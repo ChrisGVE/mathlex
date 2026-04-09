@@ -319,3 +319,113 @@ mod latex_to_text {
         assert_cross_latex_to_text(r"\frac{a^{2} + b^{2}}{c^{2} + d^{2}}");
     }
 }
+
+// ============================================================================
+// Text → LaTeX: Calculus and Advanced
+// ============================================================================
+
+mod text_to_latex_advanced {
+    use super::*;
+
+    #[test]
+    fn partial_derivatives() {
+        assert_cross_text_to_latex("partial(f, x)");
+        assert_cross_text_to_latex("partial(f, x, 2)");
+    }
+
+    #[test]
+    fn higher_order_derivatives() {
+        assert_cross_text_to_latex("diff(y, x, 2)");
+        assert_cross_text_to_latex("diff(y, x, 3)");
+        assert_cross_text_to_latex("d2y/dx2");
+    }
+
+    #[test]
+    fn vector_calculus() {
+        assert_cross_text_to_latex("grad(f)");
+    }
+
+    #[test]
+    fn logical_operators() {
+        assert_cross_text_to_latex("x and y");
+        assert_cross_text_to_latex("x or y");
+        assert_cross_text_to_latex("not x");
+        assert_cross_text_to_latex("x implies y");
+        assert_cross_text_to_latex("x iff y");
+    }
+
+    #[test]
+    fn set_operations() {
+        assert_cross_text_to_latex("x union y");
+        assert_cross_text_to_latex("x intersect y");
+    }
+
+    #[test]
+    fn derivative_in_equation() {
+        assert_cross_text_to_latex("diff(y, x) = x * y");
+        assert_cross_text_to_latex("dy/dx = x + 1");
+    }
+
+    #[test]
+    fn nested_functions_in_arithmetic() {
+        assert_cross_text_to_latex("sin(x) ^ 2 + cos(x) ^ 2");
+        assert_cross_text_to_latex("ln(x + 1) / sqrt(x)");
+    }
+}
+
+// ============================================================================
+// LaTeX → Text: Calculus and Advanced
+// ============================================================================
+
+mod latex_to_text_advanced {
+    use super::*;
+
+    // Note: LaTeX derivatives/partials Display as d/dx(f) and ∂/∂x(f) which
+    // the text parser cannot re-parse (the d(expr)/dx operator form is not yet
+    // supported — see thales task #16). These are documented known limitations.
+    // The text→LaTeX direction works (diff(y,x) → \frac{d}{dx}y → parse_latex OK).
+
+    #[test]
+    fn gradient() {
+        assert_cross_latex_to_text(r"\nabla f");
+    }
+
+    #[test]
+    fn logical_operators() {
+        assert_cross_latex_to_text(r"x \land y");
+        assert_cross_latex_to_text(r"x \lor y");
+        assert_cross_latex_to_text(r"\lnot x");
+        assert_cross_latex_to_text(r"x \implies y");
+        assert_cross_latex_to_text(r"x \iff y");
+    }
+
+    #[test]
+    fn set_operations() {
+        assert_cross_latex_to_text(r"x \cup y");
+        assert_cross_latex_to_text(r"x \cap y");
+    }
+
+    #[test]
+    fn nested_functions() {
+        assert_cross_latex_to_text(r"\ln\left(x + 1\right)");
+        assert_cross_latex_to_text(r"\sqrt{x^{2} + y^{2}}");
+    }
+}
+
+// ============================================================================
+// Known Cross-Parser Limitations (documented, not tested as assertions)
+// ============================================================================
+//
+// The following expressions do NOT cross round-trip. Documented here for
+// reference and to track future parity improvements.
+//
+// 1. Factorial: n! — LaTeX parser does not support '!' postfix operator
+// 2. e^x normalization: text 'e' is Constant(E), LaTeX normalizes e^x to exp(x)
+// 3. Prime notation: y' has empty var — no LaTeX equivalent for implicit var
+// 4. Integrals: LaTeX \int produces Expression::Integral, no text equivalent yet
+// 5. Sums/Products: LaTeX \sum/\prod have no text equivalent yet
+// 6. Limits: LaTeX \lim has no text equivalent yet
+// 7. Vectors/Matrices: LaTeX \begin{pmatrix} has no text equivalent
+// 8. Subscripts: LaTeX x_{i+1} supports expression subscripts, text only simple
+// 9. Greek letters: text 'alpha' is Variable("alpha"), LaTeX \alpha is Variable("alpha")
+//    (this actually works, but rendering differs)
