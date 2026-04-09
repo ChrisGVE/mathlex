@@ -1,4 +1,5 @@
-use super::trait_def::{needs_parens, ToLatex, KNOWN_FUNCTIONS};
+use super::trait_def::{ToLatex, KNOWN_FUNCTIONS};
+use crate::ast::precedence::needs_parens;
 use crate::ast::Expression;
 
 const GREEK_LETTERS: &[&str] = &[

@@ -77,6 +77,7 @@ mod constants;
 mod expression;
 mod linear_algebra;
 mod operators;
+pub(crate) mod precedence;
 mod sets;
 
 pub use bounds::{IntegralBounds, MultipleBounds};
