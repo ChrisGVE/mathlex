@@ -177,6 +177,10 @@ impl TextParser {
         self.tokens.get(self.pos)
     }
 
+    fn peek_ahead(&self, offset: usize) -> Option<&SpannedToken> {
+        self.tokens.get(self.pos + offset)
+    }
+
     fn next(&mut self) -> Option<SpannedToken> {
         let token = self.tokens.get(self.pos).cloned();
         if token.is_some() {

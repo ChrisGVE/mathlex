@@ -3,6 +3,7 @@
 use super::*;
 
 mod basic;
+mod derivatives;
 mod domain;
 mod equation_system;
 mod extended;

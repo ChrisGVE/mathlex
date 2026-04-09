@@ -291,6 +291,7 @@ impl<'a> Tokenizer<'a> {
             ';' => Token::Semicolon,
             '=' => Token::Equals,
             '_' => Token::Underscore,
+            '\'' => Token::Apostrophe,
             _ => {
                 return Err(ParseError::unexpected_token(
                     vec!["valid token".to_string()],
