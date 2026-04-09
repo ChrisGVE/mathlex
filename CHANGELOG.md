@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-04-09
+
+### Added
+
+- **Plain text derivative parsing**: Leibniz notation (`dy/dx`, `d2y/dx2`, `d3y/dx3`), prime notation (`y'`, `y''`, `y'''`), and functional notation (`diff(expr, var)`, `diff(expr, var, order)`) all produce `Expression::Derivative`
+- **Plain text partial derivative parsing**: functional notation `partial(f, x)`, `partial(f, x, 2)` for higher-order, and `partial(f, x, y)` for mixed partials producing nested `Expression::PartialDerivative`
+- **Apostrophe token**: tokenizer recognizes `'` for prime derivative notation
+
 ## [0.3.1] - 2026-04-06
 
 ### Added
