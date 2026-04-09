@@ -130,10 +130,16 @@ do {
 - Vector products: `\cdot` (dot), `\times` (cross)
 
 ### Calculus (Representation Only)
-- Derivatives:
-  - Standard notation: `\frac{d}{dx}f`, `\frac{\partial}{\partial x}f` (operator followed by expression)
-  - With explicit multiplication: `\frac{d}{d*x}f`, `\frac{\partial}{\partial*x}f` (when variable needs marker)
+- Derivatives (LaTeX):
+  - Standard notation: `\frac{d}{dx}f`, `\frac{\partial}{\partial x}f`
   - Higher order: `\frac{d^2}{dx^2}f`, `\frac{\partial^2}{\partial x^2}f`
+- Derivatives (plain text):
+  - Leibniz: `dy/dx`, `d2y/dx2`, `d3y/dx3`
+  - Prime: `y'`, `y''`, `y'''`
+  - Functional: `diff(y, x)`, `diff(y, x, 2)`
+- Partial derivatives (plain text):
+  - `partial(f, x)`, `partial(f, x, 2)` (second order)
+  - `partial(f, x, y)` (mixed partial ∂²f/∂x∂y)
 - Integrals: `\int`, `\int_a^b`
 - Multiple integrals: `\iint` (double), `\iiint` (triple)
 - Closed integrals: `\oint` (line), `\oiint` (surface)
@@ -143,10 +149,10 @@ do {
 - Subscripts: Supports expression subscripts like `x_{i+1}`, `a_{n-1}` (flattened to variable names)
 
 ### Vector Calculus
-- Gradient: `\nabla f`
-- Divergence: `\nabla \cdot \mathbf{F}`
-- Curl: `\nabla \times \mathbf{F}`
-- Laplacian: `\nabla^2 f`
+- Gradient: `\nabla f` (LaTeX), `grad(f)`, `nabla(f)`, `∇f` (plain text)
+- Divergence: `\nabla \cdot \mathbf{F}` (LaTeX), `div(f)` (plain text)
+- Curl: `\nabla \times \mathbf{F}` (LaTeX), `curl(f)` (plain text)
+- Laplacian: `\nabla^2 f` (LaTeX), `laplacian(f)` (plain text)
 - Vector notation styles:
   - Bold: `\mathbf{v}`
   - Arrow: `\vec{v}`
