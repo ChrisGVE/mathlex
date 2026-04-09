@@ -371,6 +371,32 @@ mod text_to_latex_advanced {
         assert_cross_text_to_latex("sin(x) ^ 2 + cos(x) ^ 2");
         assert_cross_text_to_latex("ln(x + 1) / sqrt(x)");
     }
+
+    #[test]
+    fn integrals() {
+        assert_cross_text_to_latex("integrate(x, x)");
+        assert_cross_text_to_latex("integrate(sin(x), x, 0, pi)");
+    }
+
+    #[test]
+    fn sums() {
+        assert_cross_text_to_latex("sum(k, k, 1, n)");
+    }
+
+    #[test]
+    fn products() {
+        assert_cross_text_to_latex("product(k, k, 1, n)");
+    }
+
+    #[test]
+    fn limits() {
+        assert_cross_text_to_latex("limit(f, x, 0)");
+    }
+
+    #[test]
+    fn operator_form_derivative() {
+        assert_cross_text_to_latex("d(x^2)/dx");
+    }
 }
 
 // ============================================================================
@@ -380,10 +406,9 @@ mod text_to_latex_advanced {
 mod latex_to_text_advanced {
     use super::*;
 
-    // Note: LaTeX derivatives/partials Display as d/dx(f) and ∂/∂x(f) which
-    // the text parser cannot re-parse (the d(expr)/dx operator form is not yet
-    // supported — see thales task #16). These are documented known limitations.
-    // The text→LaTeX direction works (diff(y,x) → \frac{d}{dx}y → parse_latex OK).
+    // Note: LaTeX derivative Display outputs d/dx(f), which text parser reads
+    // as d / dx(f) (division). The d(f)/dx form IS supported but Display doesn't
+    // produce it. This is a Display format issue, not a parser gap.
 
     #[test]
     fn gradient() {
