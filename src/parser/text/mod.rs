@@ -117,15 +117,7 @@ pub fn parse_equation_system(input: &str) -> ParseResult<Vec<Expression>> {
 ///
 /// # Examples
 ///
-/// ```
-/// use mathlex::parser::text::parse_equation_system_with_config;
-/// use mathlex::{Expression, ParserConfig};
-///
-/// let config = ParserConfig::default();
-/// let exprs = parse_equation_system_with_config("x = 1; y = 2", &config).unwrap();
-/// assert_eq!(exprs.len(), 2);
-/// ```
-pub fn parse_equation_system_with_config(
+pub(crate) fn parse_equation_system_with_config(
     input: &str,
     config: &ParserConfig,
 ) -> ParseResult<Vec<Expression>> {

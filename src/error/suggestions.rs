@@ -103,16 +103,7 @@ const KNOWN_FUNCTIONS: &[&str] = &[
 ///
 /// The Levenshtein distance between the two strings.
 ///
-/// # Example
-///
-/// ```
-/// use mathlex::error::levenshtein;
-///
-/// assert_eq!(levenshtein("sin", "sen"), 1);
-/// assert_eq!(levenshtein("cos", "coz"), 1);
-/// assert_eq!(levenshtein("tan", "tan"), 0);
-/// ```
-pub fn levenshtein(a: &str, b: &str) -> usize {
+pub(crate) fn levenshtein(a: &str, b: &str) -> usize {
     let a_chars: Vec<char> = a.chars().collect();
     let b_chars: Vec<char> = b.chars().collect();
     let a_len = a_chars.len();

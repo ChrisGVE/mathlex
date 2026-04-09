@@ -3,19 +3,8 @@
 use super::types::{ParseError, ParseErrorKind, Position, Span};
 
 /// Builder for constructing parse errors ergonomically.
-///
-/// # Example
-///
-/// ```
-/// use mathlex::error::{ErrorBuilder, Position, ParseErrorKind};
-///
-/// let error = ErrorBuilder::new(ParseErrorKind::EmptyExpression)
-///     .at_position(Position::new(1, 1, 0))
-///     .with_context("in function body")
-///     .build();
-/// ```
 #[derive(Debug)]
-pub struct ErrorBuilder {
+pub(crate) struct ErrorBuilder {
     kind: ParseErrorKind,
     span: Option<Span>,
     context: Option<String>,
