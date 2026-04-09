@@ -37,9 +37,37 @@ use crate::parser::tokenizer::{tokenize, SpannedToken, Token};
 use crate::ParserConfig;
 
 mod arithmetic;
+mod calculus_fns;
+mod derivatives;
 mod expression;
 mod primary;
 mod set_ops;
+
+/// Splits a string like "2y" into (2, "y") — order prefix then remaining.
+/// Returns (0, s) if no leading digits.
+fn split_order_prefix(s: &str) -> (u32, &str) {
+    let digit_end = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
+    if digit_end == 0 {
+        (0, s)
+    } else {
+        let order = s[..digit_end].parse::<u32>().unwrap_or(0);
+        (order, &s[digit_end..])
+    }
+}
+
+/// Splits a string like "x2" into (2, "x") — trailing order then remaining.
+/// Returns (0, s) if no trailing digits.
+fn split_order_suffix(s: &str) -> (u32, &str) {
+    let alpha_end = s
+        .find(|c: char| !c.is_ascii_alphabetic())
+        .unwrap_or(s.len());
+    if alpha_end == s.len() {
+        (0, s)
+    } else {
+        let order = s[alpha_end..].parse::<u32>().unwrap_or(0);
+        (order, &s[..alpha_end])
+    }
+}
 #[cfg(test)]
 mod tests;
 
