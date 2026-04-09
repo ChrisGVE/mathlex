@@ -344,3 +344,84 @@ mod partial_function {
         }
     }
 }
+
+mod gradient_notation {
+    use super::*;
+
+    #[test]
+    fn grad_with_parens() {
+        let expr = parse("grad(f)").unwrap();
+        match expr {
+            Expression::Gradient { expr } => {
+                assert_eq!(*expr, Expression::Variable("f".to_string()));
+            }
+            other => panic!("Expected Gradient, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn nabla_with_parens() {
+        let expr = parse("nabla(f)").unwrap();
+        match expr {
+            Expression::Gradient { expr } => {
+                assert_eq!(*expr, Expression::Variable("f".to_string()));
+            }
+            other => panic!("Expected Gradient, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn unicode_nabla_with_identifier() {
+        let expr = parse("∇f").unwrap();
+        match expr {
+            Expression::Gradient { expr } => {
+                assert_eq!(*expr, Expression::Variable("f".to_string()));
+            }
+            other => panic!("Expected Gradient, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn unicode_nabla_with_parens() {
+        let expr = parse("∇(x^2 + y^2)").unwrap();
+        match expr {
+            Expression::Gradient { expr } => {
+                assert!(matches!(*expr, Expression::Binary { .. }));
+            }
+            other => panic!("Expected Gradient, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn nabla_with_complex_expression() {
+        let expr = parse("nabla(x^2*y + z)").unwrap();
+        match expr {
+            Expression::Gradient { expr } => {
+                assert!(matches!(*expr, Expression::Binary { .. }));
+            }
+            other => panic!("Expected Gradient, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn grad_without_parens() {
+        let expr = parse("grad f").unwrap();
+        match expr {
+            Expression::Gradient { expr } => {
+                assert_eq!(*expr, Expression::Variable("f".to_string()));
+            }
+            other => panic!("Expected Gradient, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn nabla_in_equation() {
+        let expr = parse("∇f = 0").unwrap();
+        match &expr {
+            Expression::Equation { left, .. } => {
+                assert!(matches!(**left, Expression::Gradient { .. }));
+            }
+            other => panic!("Expected Equation, got {:?}", other),
+        }
+    }
+}

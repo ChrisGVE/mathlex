@@ -6,7 +6,7 @@ use mathlex::{
 
 #[test]
 fn test_version() {
-    assert_eq!(mathlex::VERSION, "0.3.2");
+    assert_eq!(mathlex::VERSION, "0.3.3");
 }
 
 #[test]

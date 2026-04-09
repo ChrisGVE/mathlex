@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-04-09
+
+### Added
+
+- **Gradient plain text notation**: `nabla(f)` as alias for `grad(f)`, and Unicode `∇f` for gradient expressions
+- **Parenthesis-optional vector calculus**: `grad f`, `∇f`, `div f`, `curl f`, `laplacian f` now work without parentheses (parsing the next primary expression as the argument)
+
+### Documentation
+
+- Updated README to document all plain text derivative, partial derivative, and gradient notations
+
 ## [0.3.2] - 2026-04-09
 
 ### Added
