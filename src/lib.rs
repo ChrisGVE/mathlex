@@ -290,7 +290,7 @@ pub use ast::{
     MathConstant, MathFloat, MultipleBounds, NumberSet, RelationOp, SetOp, SetRelation,
     TensorIndex, UnaryOp, VectorNotation,
 };
-pub use context::{parse_system, ExpressionContext};
+pub use context::{parse_system, ExpressionContext, InputFormat};
 pub use error::{ParseError, ParseErrorKind, ParseOutput, ParseResult, Position, Span};
 pub use latex::ToLatex;
 pub use metadata::{ContextSource, ExpressionMetadata, MathType};
