@@ -115,6 +115,8 @@ pub enum Token {
     Implies,
     /// Logical biconditional keyword
     Iff,
+    /// Apostrophe for derivative prime notation
+    Apostrophe,
 }
 
 impl std::fmt::Display for Token {
@@ -167,6 +169,7 @@ impl std::fmt::Display for Token {
             Token::Not => write!(f, "not"),
             Token::Implies => write!(f, "implies"),
             Token::Iff => write!(f, "iff"),
+            Token::Apostrophe => write!(f, "'"),
         }
     }
 }
