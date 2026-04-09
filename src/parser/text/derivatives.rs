@@ -34,82 +34,53 @@ impl TextParser {
         self.consume(Token::Comma)?;
         let first_var = self.expect_identifier("variable name")?;
 
-        // Check for optional third argument
-        if self.check(&Token::Comma) {
-            self.next();
-            // Peek: integer → order for first_var; identifier → mixed partial
-            if let Some(token) = self.peek() {
-                match &token.value {
-                    Token::Integer(n) => {
-                        let order = *n as u32;
-                        self.next();
-                        // Collect any additional variable args for mixed partials
-                        let mut result = Expression::PartialDerivative {
-                            expr: Box::new(expr),
-                            var: first_var,
-                            order,
-                        };
-                        while self.check(&Token::Comma) {
-                            self.next();
-                            let var = self.expect_identifier("variable name")?;
-                            let ord = if self.check(&Token::Comma) {
-                                // Peek ahead: if next after comma is integer, consume it
-                                if let Some(t) = self.peek_ahead(1) {
-                                    if matches!(t.value, Token::Integer(_)) {
-                                        self.next(); // comma
-                                        self.expect_positive_integer("derivative order")?
-                                    } else {
-                                        1
-                                    }
-                                } else {
-                                    1
-                                }
-                            } else {
-                                1
-                            };
-                            result = Expression::PartialDerivative {
-                                expr: Box::new(result),
-                                var,
-                                order: ord,
-                            };
-                        }
-                        self.consume(Token::RParen)?;
-                        return Ok(result);
-                    }
-                    Token::Identifier(_) => {
-                        // Mixed partial: partial(f, x, y) → ∂/∂x(∂/∂y(f))
-                        let second_var = self.expect_identifier("variable name")?;
-                        let mut result = Expression::PartialDerivative {
-                            expr: Box::new(expr),
-                            var: second_var,
-                            order: 1,
-                        };
-                        result = Expression::PartialDerivative {
-                            expr: Box::new(result),
-                            var: first_var,
-                            order: 1,
-                        };
-                        // Support more than 2 vars: partial(f, x, y, z)
-                        while self.check(&Token::Comma) {
-                            self.next();
-                            let var = self.expect_identifier("variable name")?;
-                            result = Expression::PartialDerivative {
-                                expr: Box::new(result),
-                                var,
-                                order: 1,
-                            };
-                        }
-                        self.consume(Token::RParen)?;
-                        return Ok(result);
-                    }
-                    _ => {
-                        let span = token.span;
-                        return Err(ParseError::unexpected_token(
-                            vec!["integer order or variable name"],
-                            format!("{}", token.value),
-                            Some(span),
-                        ));
-                    }
+        if !self.check(&Token::Comma) {
+            self.consume(Token::RParen)?;
+            return Ok(Expression::PartialDerivative {
+                expr: Box::new(expr),
+                var: first_var,
+                order: 1,
+            });
+        }
+        self.next(); // consume comma
+
+        // Peek: integer → nth-order partial; identifier → mixed partial
+        if let Some(token) = self.peek() {
+            match &token.value {
+                Token::Integer(n) => {
+                    let order = *n as u32;
+                    self.next();
+                    let result = self.parse_additional_partials(Expression::PartialDerivative {
+                        expr: Box::new(expr),
+                        var: first_var,
+                        order,
+                    })?;
+                    self.consume(Token::RParen)?;
+                    return Ok(result);
+                }
+                Token::Identifier(_) => {
+                    let second_var = self.expect_identifier("variable name")?;
+                    let inner = Expression::PartialDerivative {
+                        expr: Box::new(expr),
+                        var: second_var,
+                        order: 1,
+                    };
+                    let wrapped = Expression::PartialDerivative {
+                        expr: Box::new(inner),
+                        var: first_var,
+                        order: 1,
+                    };
+                    let result = self.parse_additional_partials_simple(wrapped)?;
+                    self.consume(Token::RParen)?;
+                    return Ok(result);
+                }
+                _ => {
+                    let span = token.span;
+                    return Err(ParseError::unexpected_token(
+                        vec!["integer order or variable name"],
+                        format!("{}", token.value),
+                        Some(span),
+                    ));
                 }
             }
         }
@@ -120,6 +91,51 @@ impl TextParser {
             var: first_var,
             order: 1,
         })
+    }
+
+    /// Accumulate additional `, var[, order]` pairs for nth-order partials.
+    fn parse_additional_partials(&mut self, mut result: Expression) -> ParseResult<Expression> {
+        while self.check(&Token::Comma) {
+            self.next();
+            let var = self.expect_identifier("variable name")?;
+            let ord = if self.check(&Token::Comma) {
+                if let Some(t) = self.peek_ahead(1) {
+                    if matches!(t.value, Token::Integer(_)) {
+                        self.next(); // comma
+                        self.expect_positive_integer("derivative order")?
+                    } else {
+                        1
+                    }
+                } else {
+                    1
+                }
+            } else {
+                1
+            };
+            result = Expression::PartialDerivative {
+                expr: Box::new(result),
+                var,
+                order: ord,
+            };
+        }
+        Ok(result)
+    }
+
+    /// Accumulate additional `, var` pairs for mixed partials (order always 1).
+    fn parse_additional_partials_simple(
+        &mut self,
+        mut result: Expression,
+    ) -> ParseResult<Expression> {
+        while self.check(&Token::Comma) {
+            self.next();
+            let var = self.expect_identifier("variable name")?;
+            result = Expression::PartialDerivative {
+                expr: Box::new(result),
+                var,
+                order: 1,
+            };
+        }
+        Ok(result)
     }
 
     /// Tries to parse Leibniz derivative notation: `dy/dx`, `d2y/dx2`, `d(expr)/dx`.
