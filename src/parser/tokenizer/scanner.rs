@@ -179,7 +179,7 @@ impl<'a> Tokenizer<'a> {
         let token = match ident.as_str() {
             "dot" => Token::Dot,
             "cross" => Token::Cross,
-            "grad" => Token::Grad,
+            "grad" | "nabla" => Token::Grad,
             "div" => Token::Div,
             "curl" => Token::Curl,
             "laplacian" => Token::Laplacian,
@@ -241,6 +241,7 @@ impl<'a> Tokenizer<'a> {
             'π' => self.scan_unicode_token(start, Token::Pi),
             '∞' => self.scan_unicode_token(start, Token::Infinity),
             '√' => self.scan_unicode_token(start, Token::Sqrt),
+            '∇' => self.scan_unicode_token(start, Token::Grad),
             _ => return Ok(None),
         };
         Ok(Some(token))

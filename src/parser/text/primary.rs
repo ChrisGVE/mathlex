@@ -230,9 +230,14 @@ impl TextParser {
     }
 
     pub(super) fn parse_unary_vector_calculus(&mut self, op_name: &str) -> ParseResult<Expression> {
-        self.consume(Token::LParen)?;
-        let arg = Box::new(self.parse_expression()?);
-        self.consume(Token::RParen)?;
+        let arg = if self.check(&Token::LParen) {
+            self.next();
+            let expr = self.parse_expression()?;
+            self.consume(Token::RParen)?;
+            Box::new(expr)
+        } else {
+            Box::new(self.parse_primary()?)
+        };
         match op_name {
             "grad" => Ok(Expression::Gradient { expr: arg }),
             "div" => Ok(Expression::Divergence { field: arg }),
