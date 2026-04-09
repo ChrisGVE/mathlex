@@ -286,8 +286,9 @@ pub mod ffi;
 
 // Re-export key types at crate root for convenience
 pub use ast::{
-    BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, LogicalOp, MathConstant,
-    UnaryOp, VectorNotation,
+    BinaryOp, Direction, Expression, IndexType, InequalityOp, IntegralBounds, LogicalOp,
+    MathConstant, MathFloat, MultipleBounds, NumberSet, RelationOp, SetOp, SetRelation,
+    TensorIndex, UnaryOp, VectorNotation,
 };
 pub use context::{parse_system, ExpressionContext};
 pub use error::{ParseError, ParseErrorKind, ParseOutput, ParseResult, Position, Span};
