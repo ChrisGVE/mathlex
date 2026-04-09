@@ -108,3 +108,33 @@ pub struct TensorIndex {
     /// Whether this is an upper or lower index
     pub index_type: IndexType,
 }
+
+/// Format tensor indices as upper/lower index strings (e.g., `^{ij}` and `_{k}`).
+///
+/// Returns a pair `(upper, lower)` where each string is empty if no indices
+/// of that type exist, or formatted as `^{names}` / `_{names}` respectively.
+pub(crate) fn format_tensor_indices(indices: &[TensorIndex]) -> (String, String) {
+    let upper: String = indices
+        .iter()
+        .filter(|i| i.index_type == IndexType::Upper)
+        .map(|i| i.name.as_str())
+        .collect::<Vec<_>>()
+        .join("");
+    let lower: String = indices
+        .iter()
+        .filter(|i| i.index_type == IndexType::Lower)
+        .map(|i| i.name.as_str())
+        .collect::<Vec<_>>()
+        .join("");
+    let upper_fmt = if upper.is_empty() {
+        String::new()
+    } else {
+        format!("^{{{upper}}}")
+    };
+    let lower_fmt = if lower.is_empty() {
+        String::new()
+    } else {
+        format!("_{{{lower}}}")
+    };
+    (upper_fmt, lower_fmt)
+}

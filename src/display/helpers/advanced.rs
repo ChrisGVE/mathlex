@@ -1,8 +1,7 @@
 //! Advanced formatting helpers: calculus, linear algebra, logic/sets, relations.
 
 use crate::ast::{
-    Direction, Expression, IndexType, LogicalOp, NumberSet, SetOp, SetRelation, TensorIndex,
-    VectorNotation,
+    Direction, Expression, LogicalOp, NumberSet, SetOp, SetRelation, TensorIndex, VectorNotation,
 };
 use std::fmt;
 
@@ -130,37 +129,8 @@ pub(crate) fn fmt_calculus(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt
 
 /// Write indexed notation (^{...} and _{...}) for a slice of tensor indices.
 fn fmt_tensor_indices(indices: &[TensorIndex], f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let upper: Vec<_> = indices
-        .iter()
-        .filter(|i| i.index_type == IndexType::Upper)
-        .collect();
-    let lower: Vec<_> = indices
-        .iter()
-        .filter(|i| i.index_type == IndexType::Lower)
-        .collect();
-    if !upper.is_empty() {
-        write!(
-            f,
-            "^{{{}}}",
-            upper
-                .iter()
-                .map(|i| i.name.as_str())
-                .collect::<Vec<_>>()
-                .join("")
-        )?;
-    }
-    if !lower.is_empty() {
-        write!(
-            f,
-            "_{{{}}}",
-            lower
-                .iter()
-                .map(|i| i.name.as_str())
-                .collect::<Vec<_>>()
-                .join("")
-        )?;
-    }
-    Ok(())
+    let (upper, lower) = crate::ast::linear_algebra::format_tensor_indices(indices);
+    write!(f, "{upper}{lower}")
 }
 
 /// Format linear-algebra expressions: Vector, Matrix, MarkedVector, DotProduct,

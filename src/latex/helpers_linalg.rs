@@ -1,39 +1,12 @@
 use super::trait_def::{wrap_if_additive, ToLatex};
+use crate::ast::linear_algebra::format_tensor_indices;
 use crate::ast::{
-    Expression, IndexType, LogicalOp, NumberSet, SetOp, SetRelation, TensorIndex, VectorNotation,
+    Expression, LogicalOp, NumberSet, SetOp, SetRelation, TensorIndex, VectorNotation,
 };
 
 fn indexed_symbol_to_latex(prefix: &str, indices: &[TensorIndex]) -> String {
-    let upper: Vec<_> = indices
-        .iter()
-        .filter(|i| i.index_type == IndexType::Upper)
-        .collect();
-    let lower: Vec<_> = indices
-        .iter()
-        .filter(|i| i.index_type == IndexType::Lower)
-        .collect();
-    let mut result = prefix.to_string();
-    if !upper.is_empty() {
-        result.push_str(&format!(
-            "^{{{}}}",
-            upper
-                .iter()
-                .map(|i| i.name.as_str())
-                .collect::<Vec<_>>()
-                .join("")
-        ));
-    }
-    if !lower.is_empty() {
-        result.push_str(&format!(
-            "_{{{}}}",
-            lower
-                .iter()
-                .map(|i| i.name.as_str())
-                .collect::<Vec<_>>()
-                .join("")
-        ));
-    }
-    result
+    let (upper, lower) = format_tensor_indices(indices);
+    format!("{prefix}{upper}{lower}")
 }
 
 pub(super) fn to_latex_linear_algebra(expr: &Expression) -> String {
