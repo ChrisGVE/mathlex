@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-04-09
+
+### Added
+
+- **Plain text integral notation**: `integrate(expr, var)` and `integrate(expr, var, lower, upper)` producing `Expression::Integral`. Aliases: `integral`, `int`. Variable accepts `dx` or bare `x` form.
+- **Plain text summation**: `sum(expr, var, lower, upper)` producing `Expression::Sum`. Aliases: `summation`, `Sum`.
+- **Plain text product**: `product(expr, var, lower, upper)` producing `Expression::Product`. Aliases: `prod`, `Product`.
+- **Plain text limit**: `limit(expr, var, point)` with optional direction (`+`, `-`, `left`, `right`) producing `Expression::Limit`. Aliases: `lim`, `Limit`.
+- **Operator-form derivative**: `d(expr)/dx` and `d(expr)/d(var)` producing `Expression::Derivative`.
+- **Special function recognition**: `gamma`, `beta`, `erf`, `erfc`, `zeta`, `bessel_j`, `bessel_y`, `bessel_i`, `bessel_k` added to known-functions list for typo suggestions.
+- **Transform functions**: `laplace`, `fourier`, `ilaplace`, `ifourier` recognized as known functions.
+- **Unicode logic/set tokens**: `∧` (and), `∨` (or), `¬` (not), `→` (implies), `↔` (iff), `∪` (union), `∩` (intersect), `∈` (in), `∉` (notin) recognized by text tokenizer.
+- **Cross-parser round-trip tests**: 47 tests verifying text→LaTeX→text and LaTeX→text→LaTeX paths.
+- **Plain text syntax reference**: Comprehensive `docs/plain-text-syntax.md` documenting all supported notation with LaTeX equivalents.
+
 ## [0.3.3] - 2026-04-09
 
 ### Added
