@@ -88,11 +88,11 @@ impl<'a> Tokenizer<'a> {
 
     /// Scans the optional scientific-notation exponent into `buf`; returns true if consumed.
     fn scan_exponent_part(&mut self, buf: &mut String) -> bool {
-        if matches!(self.peek(), Some('e' | 'E')) {
-            buf.push(self.peek().unwrap());
+        if let Some(c @ ('e' | 'E')) = self.peek() {
+            buf.push(c);
             self.consume();
-            if matches!(self.peek(), Some('+' | '-')) {
-                buf.push(self.peek().unwrap());
+            if let Some(c @ ('+' | '-')) = self.peek() {
+                buf.push(c);
                 self.consume();
             }
             while let Some(ch) = self.peek() {

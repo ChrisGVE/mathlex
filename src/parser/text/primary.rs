@@ -68,7 +68,7 @@ impl TextParser {
             | Token::Laplacian => self.parse_vector_token(),
             Token::LParen => self.parse_paren_group(),
             _ => {
-                let token = self.next().unwrap();
+                let token = self.next().expect("peek confirmed token exists");
                 Err(ParseError::unexpected_token(
                     vec!["number", "variable", "("],
                     format!("{}", token.value),

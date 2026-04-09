@@ -262,8 +262,7 @@ impl TextParser {
 
     fn parse_strict(mut self) -> ParseResult<Expression> {
         let expr = self.parse_expression()?;
-        if self.peek().is_some() {
-            let token = self.peek().unwrap();
+        if let Some(token) = self.peek() {
             return Err(ParseError::unexpected_token(
                 vec!["end of input"],
                 format!("{}", token.value),
@@ -279,8 +278,7 @@ impl TextParser {
             match self.parse_expression() {
                 Ok(expr) => {
                     parts.push(expr);
-                    if self.peek().is_some() {
-                        let token = self.peek().unwrap();
+                    if let Some(token) = self.peek() {
                         self.collected_errors.push(ParseError::unexpected_token(
                             vec!["end of input or operator"],
                             format!("{}", token.value),

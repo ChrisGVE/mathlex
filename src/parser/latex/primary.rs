@@ -45,7 +45,7 @@ impl LatexParser {
     pub(super) fn parse_vector_integral_token(
         &mut self,
         token: &LatexToken,
-        span: Span,
+        _span: Span,
     ) -> ParseResult<Option<Expression>> {
         let expr = match token {
             LatexToken::Nabla => {
@@ -99,7 +99,6 @@ impl LatexParser {
             }
             _ => return Ok(None),
         };
-        let _ = span; // span available for future error reporting
         Ok(Some(expr))
     }
 
