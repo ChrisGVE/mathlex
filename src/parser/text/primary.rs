@@ -105,7 +105,27 @@ impl TextParser {
             return self.parse_partial_function();
         }
 
-        // Leibniz notation: dy/dx, d2y/dx2, df/dx
+        // integrate/integral/int(expr, var[, lower, upper]) → Integral
+        if matches!(name.as_str(), "integrate" | "integral" | "int") && self.check(&Token::LParen) {
+            return self.parse_integrate_function();
+        }
+
+        // sum/summation(expr, var, lower, upper) → Sum
+        if matches!(name.as_str(), "sum" | "summation" | "Sum") && self.check(&Token::LParen) {
+            return self.parse_sum_function();
+        }
+
+        // product/prod(expr, var, lower, upper) → Product
+        if matches!(name.as_str(), "product" | "prod" | "Product") && self.check(&Token::LParen) {
+            return self.parse_product_function();
+        }
+
+        // limit/lim(expr, var, point[, direction]) → Limit
+        if matches!(name.as_str(), "limit" | "lim" | "Limit") && self.check(&Token::LParen) {
+            return self.parse_limit_function();
+        }
+
+        // Leibniz notation: dy/dx, d2y/dx2, df/dx, d(expr)/dx
         if let Some(deriv) = self.try_parse_leibniz_derivative(&name)? {
             return Ok(deriv);
         }
@@ -366,12 +386,21 @@ impl TextParser {
         })
     }
 
-    /// Tries to parse Leibniz derivative notation: `dy/dx`, `d2y/dx2`.
+    /// Tries to parse Leibniz derivative notation: `dy/dx`, `d2y/dx2`, `d(expr)/dx`.
     ///
     /// Returns `None` if the identifier doesn't match the pattern or lookahead fails.
     fn try_parse_leibniz_derivative(&mut self, name: &str) -> ParseResult<Option<Expression>> {
         // Must start with 'd'
-        if !name.starts_with('d') || name.len() < 2 {
+        if !name.starts_with('d') {
+            return Ok(None);
+        }
+
+        // Special case: d(expr)/dx — operator form
+        if name == "d" && self.check(&Token::LParen) {
+            return self.try_parse_operator_derivative();
+        }
+
+        if name.len() < 2 {
             return Ok(None);
         }
 
@@ -440,6 +469,82 @@ impl TextParser {
         }))
     }
 
+    /// Tries to parse `d(expr)/dx` or `d(expr)/d(var)` operator-form derivative.
+    ///
+    /// Called when we've consumed identifier `d` and the next token is `(`.
+    /// Returns `None` if the pattern doesn't match (falls back to function call).
+    fn try_parse_operator_derivative(&mut self) -> ParseResult<Option<Expression>> {
+        // We need: ( expr ) / d<var> or ( expr ) / d ( var )
+        // Lookahead to verify the /d pattern before committing
+        // Save position for backtrack
+        let saved_pos = self.pos;
+
+        // Parse the parenthesized expression
+        self.next(); // consume (
+        let expr = match self.parse_expression() {
+            Ok(e) => e,
+            Err(_) => {
+                self.pos = saved_pos;
+                return Ok(None);
+            }
+        };
+        if self.consume(Token::RParen).is_err() {
+            self.pos = saved_pos;
+            return Ok(None);
+        }
+
+        // Expect /
+        if !self.check(&Token::Slash) {
+            self.pos = saved_pos;
+            return Ok(None);
+        }
+        self.next(); // consume /
+
+        // Expect d<var> or d(<var>)
+        let var = if let Some(token) = self.peek() {
+            match &token.value {
+                Token::Identifier(s) if s.starts_with('d') && s.len() > 1 => {
+                    let v = s[1..].to_string();
+                    self.next();
+                    v
+                }
+                Token::Identifier(s) if s == "d" => {
+                    self.next(); // consume d
+                                 // Expect (var)
+                    if self.consume(Token::LParen).is_err() {
+                        self.pos = saved_pos;
+                        return Ok(None);
+                    }
+                    let v = match self.expect_identifier("variable") {
+                        Ok(v) => v,
+                        Err(_) => {
+                            self.pos = saved_pos;
+                            return Ok(None);
+                        }
+                    };
+                    if self.consume(Token::RParen).is_err() {
+                        self.pos = saved_pos;
+                        return Ok(None);
+                    }
+                    v
+                }
+                _ => {
+                    self.pos = saved_pos;
+                    return Ok(None);
+                }
+            }
+        } else {
+            self.pos = saved_pos;
+            return Ok(None);
+        };
+
+        Ok(Some(Expression::Derivative {
+            expr: Box::new(expr),
+            var,
+            order: 1,
+        }))
+    }
+
     /// Parses prime notation: `y'`, `y''`, `y'''`.
     ///
     /// The derivative variable is left empty since prime notation doesn't specify it.
@@ -492,6 +597,144 @@ impl TextParser {
             vec![context],
             Some(self.current_span()),
         ))
+    }
+
+    /// Parses `integrate(expr, var)` or `integrate(expr, var, lower, upper)`.
+    ///
+    /// The `var` argument should be a plain identifier (the variable of integration).
+    /// Aliases: `integral`, `int`.
+    fn parse_integrate_function(&mut self) -> ParseResult<Expression> {
+        self.consume(Token::LParen)?;
+        let integrand = self.parse_expression()?;
+        self.consume(Token::Comma)?;
+
+        // Second arg: variable of integration — may be bare identifier or d-prefixed (dx)
+        let var_raw = self.expect_identifier("variable of integration")?;
+        let var = if var_raw.starts_with('d') && var_raw.len() > 1 {
+            var_raw[1..].to_string() // strip leading 'd' from dx, dt, etc.
+        } else {
+            var_raw
+        };
+
+        let bounds = if self.check(&Token::Comma) {
+            self.next();
+            let lower = self.parse_expression()?;
+            self.consume(Token::Comma)?;
+            let upper = self.parse_expression()?;
+            Some(IntegralBounds {
+                lower: Box::new(lower),
+                upper: Box::new(upper),
+            })
+        } else {
+            None
+        };
+
+        self.consume(Token::RParen)?;
+        Ok(Expression::Integral {
+            integrand: Box::new(integrand),
+            var,
+            bounds,
+        })
+    }
+
+    /// Parses `sum(expr, var, lower, upper)`.
+    ///
+    /// Aliases: `summation`, `Sum`.
+    fn parse_sum_function(&mut self) -> ParseResult<Expression> {
+        self.consume(Token::LParen)?;
+        let body = self.parse_expression()?;
+        self.consume(Token::Comma)?;
+        let index = self.expect_identifier("index variable")?;
+        self.consume(Token::Comma)?;
+        let lower = self.parse_expression()?;
+        self.consume(Token::Comma)?;
+        let upper = self.parse_expression()?;
+        self.consume(Token::RParen)?;
+        Ok(Expression::Sum {
+            index,
+            lower: Box::new(lower),
+            upper: Box::new(upper),
+            body: Box::new(body),
+        })
+    }
+
+    /// Parses `product(expr, var, lower, upper)`.
+    ///
+    /// Aliases: `prod`, `Product`.
+    fn parse_product_function(&mut self) -> ParseResult<Expression> {
+        self.consume(Token::LParen)?;
+        let body = self.parse_expression()?;
+        self.consume(Token::Comma)?;
+        let index = self.expect_identifier("index variable")?;
+        self.consume(Token::Comma)?;
+        let lower = self.parse_expression()?;
+        self.consume(Token::Comma)?;
+        let upper = self.parse_expression()?;
+        self.consume(Token::RParen)?;
+        Ok(Expression::Product {
+            index,
+            lower: Box::new(lower),
+            upper: Box::new(upper),
+            body: Box::new(body),
+        })
+    }
+
+    /// Parses `limit(expr, var, point[, direction])`.
+    ///
+    /// Direction is optional: `"+"` or `"right"` for right-hand,
+    /// `"-"` or `"left"` for left-hand, omitted for two-sided.
+    /// Aliases: `lim`, `Limit`.
+    fn parse_limit_function(&mut self) -> ParseResult<Expression> {
+        self.consume(Token::LParen)?;
+        let expr = self.parse_expression()?;
+        self.consume(Token::Comma)?;
+        let var = self.expect_identifier("limit variable")?;
+        self.consume(Token::Comma)?;
+        let to = self.parse_expression()?;
+
+        let direction = if self.check(&Token::Comma) {
+            self.next();
+            // Expect a direction identifier: +, -, left, right
+            let dir_token = self.next().ok_or_else(|| {
+                ParseError::unexpected_eof(
+                    vec!["direction (+, -, left, right)"],
+                    Some(self.current_span()),
+                )
+            })?;
+            match &dir_token.value {
+                Token::Plus => Direction::Right,
+                Token::Minus => Direction::Left,
+                Token::Identifier(s) => match s.as_str() {
+                    "right" | "Right" => Direction::Right,
+                    "left" | "Left" => Direction::Left,
+                    "both" | "Both" => Direction::Both,
+                    _ => {
+                        return Err(ParseError::unexpected_token(
+                            vec!["direction (+, -, left, right)"],
+                            format!("{}", dir_token.value),
+                            Some(dir_token.span),
+                        ));
+                    }
+                },
+                _ => {
+                    return Err(ParseError::unexpected_token(
+                        vec!["direction (+, -, left, right)"],
+                        format!("{}", dir_token.value),
+                        Some(dir_token.span),
+                    ));
+                }
+            }
+        } else {
+            Direction::Both
+        };
+
+        self.consume(Token::RParen)?;
+        Ok(Expression::Limit {
+            expr: Box::new(expr),
+            var,
+            to: Box::new(to),
+            direction,
+        })
     }
 
     pub(super) fn identifier_to_expression(&self, name: String) -> Expression {
