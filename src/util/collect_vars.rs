@@ -217,9 +217,9 @@ fn cv_contains_calculus_and_rest(expr: &Expression, name: &str) -> bool {
         } => {
             var == name
                 || cv_contains(integrand, name)
-                || bounds.as_ref().map_or(false, |b| {
-                    cv_contains(&b.lower, name) || cv_contains(&b.upper, name)
-                })
+                || bounds
+                    .as_ref()
+                    .is_some_and(|b| cv_contains(&b.lower, name) || cv_contains(&b.upper, name))
         }
         Expression::MultipleIntegral {
             integrand,
@@ -229,7 +229,7 @@ fn cv_contains_calculus_and_rest(expr: &Expression, name: &str) -> bool {
         } => {
             vars.iter().any(|v| v == name)
                 || cv_contains(integrand, name)
-                || bounds.as_ref().map_or(false, |b| {
+                || bounds.as_ref().is_some_and(|b| {
                     b.bounds
                         .iter()
                         .any(|ib| cv_contains(&ib.lower, name) || cv_contains(&ib.upper, name))
@@ -281,7 +281,7 @@ fn cv_contains_logic_sets_and_rest(expr: &Expression, name: &str) -> bool {
             ..
         } => {
             variable == name
-                || domain.as_ref().map_or(false, |d| cv_contains(d, name))
+                || domain.as_ref().is_some_and(|d| cv_contains(d, name))
                 || cv_contains(body, name)
         }
         Expression::Logical { operands, .. } => operands.iter().any(|o| cv_contains(o, name)),
@@ -318,7 +318,7 @@ fn cv_contains_sets_tensors(expr: &Expression, name: &str) -> bool {
             predicate,
         } => {
             variable == name
-                || domain.as_ref().map_or(false, |d| cv_contains(d, name))
+                || domain.as_ref().is_some_and(|d| cv_contains(d, name))
                 || cv_contains(predicate, name)
         }
         Expression::PowerSet { set } => cv_contains(set, name),

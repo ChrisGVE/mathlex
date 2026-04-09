@@ -1,9 +1,5 @@
-// Allow approx_constant - tests parse "3.14" which should give 3.14, not π
-#![allow(clippy::approx_constant)]
 // Allow large error variants - boxing would be a breaking API change
 #![allow(clippy::result_large_err)]
-// Allow unnecessary cast - swift-bridge macro generates these
-#![allow(clippy::unnecessary_cast)]
 
 //! # mathlex
 //!
