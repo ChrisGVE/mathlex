@@ -29,8 +29,8 @@
 //! ```
 
 use crate::ast::{
-    BinaryOp, Expression, InequalityOp, LogicalOp, MathConstant, MathFloat, SetOp, SetRelation,
-    UnaryOp,
+    BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, LogicalOp, MathConstant,
+    MathFloat, SetOp, SetRelation, UnaryOp,
 };
 use crate::error::{ParseError, ParseOutput, ParseResult, Span};
 use crate::parser::tokenizer::{tokenize, SpannedToken, Token};

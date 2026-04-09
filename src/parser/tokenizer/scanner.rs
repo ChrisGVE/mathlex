@@ -242,6 +242,15 @@ impl<'a> Tokenizer<'a> {
             '∞' => self.scan_unicode_token(start, Token::Infinity),
             '√' => self.scan_unicode_token(start, Token::Sqrt),
             '∇' => self.scan_unicode_token(start, Token::Grad),
+            '∧' => self.scan_unicode_token(start, Token::And),
+            '∨' => self.scan_unicode_token(start, Token::Or),
+            '¬' => self.scan_unicode_token(start, Token::Not),
+            '∪' => self.scan_unicode_token(start, Token::Union),
+            '∩' => self.scan_unicode_token(start, Token::Intersect),
+            '∈' => self.scan_unicode_token(start, Token::In),
+            '∉' => self.scan_unicode_token(start, Token::NotIn),
+            '→' => self.scan_unicode_token(start, Token::Implies),
+            '↔' => self.scan_unicode_token(start, Token::Iff),
             _ => return Ok(None),
         };
         Ok(Some(token))
