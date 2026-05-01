@@ -1,6 +1,6 @@
 //! `fmt::Display` implementation for `Expression`.
 
-use crate::ast::Expression;
+use crate::ast::{ExprKind, Expression};
 use std::fmt;
 
 use super::helpers::{
@@ -8,73 +8,79 @@ use super::helpers::{
     fmt_relations, fmt_unary,
 };
 
+impl fmt::Display for ExprKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", Expression::from(self.clone()))
+    }
+}
+
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
+        match &self.kind {
             // Literals
-            Expression::Integer(_)
-            | Expression::Float(_)
-            | Expression::Rational { .. }
-            | Expression::Complex { .. }
-            | Expression::Quaternion { .. }
-            | Expression::Variable(_)
-            | Expression::Constant(_) => fmt_literal(self, f),
+            ExprKind::Integer(_)
+            | ExprKind::Float(_)
+            | ExprKind::Rational { .. }
+            | ExprKind::Complex { .. }
+            | ExprKind::Quaternion { .. }
+            | ExprKind::Variable(_)
+            | ExprKind::Constant(_) => fmt_literal(self, f),
 
             // Arithmetic
-            Expression::Binary { .. } => fmt_binary(self, f),
-            Expression::Unary { .. } => fmt_unary(self, f),
-            Expression::Function { .. } => fmt_function(self, f),
+            ExprKind::Binary { .. } => fmt_binary(self, f),
+            ExprKind::Unary { .. } => fmt_unary(self, f),
+            ExprKind::Function { .. } => fmt_function(self, f),
 
             // Calculus
-            Expression::Derivative { .. }
-            | Expression::PartialDerivative { .. }
-            | Expression::Integral { .. }
-            | Expression::MultipleIntegral { .. }
-            | Expression::ClosedIntegral { .. }
-            | Expression::Limit { .. }
-            | Expression::Sum { .. }
-            | Expression::Product { .. } => fmt_calculus(self, f),
+            ExprKind::Derivative { .. }
+            | ExprKind::PartialDerivative { .. }
+            | ExprKind::Integral { .. }
+            | ExprKind::MultipleIntegral { .. }
+            | ExprKind::ClosedIntegral { .. }
+            | ExprKind::Limit { .. }
+            | ExprKind::Sum { .. }
+            | ExprKind::Product { .. } => fmt_calculus(self, f),
 
             // Linear algebra and tensors
-            Expression::Vector(_)
-            | Expression::Matrix(_)
-            | Expression::MarkedVector { .. }
-            | Expression::DotProduct { .. }
-            | Expression::CrossProduct { .. }
-            | Expression::OuterProduct { .. }
-            | Expression::Gradient { .. }
-            | Expression::Divergence { .. }
-            | Expression::Curl { .. }
-            | Expression::Laplacian { .. }
-            | Expression::Nabla
-            | Expression::Determinant { .. }
-            | Expression::Trace { .. }
-            | Expression::Rank { .. }
-            | Expression::ConjugateTranspose { .. }
-            | Expression::MatrixInverse { .. }
-            | Expression::Tensor { .. }
-            | Expression::KroneckerDelta { .. }
-            | Expression::LeviCivita { .. } => fmt_linear_algebra(self, f),
+            ExprKind::Vector(_)
+            | ExprKind::Matrix(_)
+            | ExprKind::MarkedVector { .. }
+            | ExprKind::DotProduct { .. }
+            | ExprKind::CrossProduct { .. }
+            | ExprKind::OuterProduct { .. }
+            | ExprKind::Gradient { .. }
+            | ExprKind::Divergence { .. }
+            | ExprKind::Curl { .. }
+            | ExprKind::Laplacian { .. }
+            | ExprKind::Nabla
+            | ExprKind::Determinant { .. }
+            | ExprKind::Trace { .. }
+            | ExprKind::Rank { .. }
+            | ExprKind::ConjugateTranspose { .. }
+            | ExprKind::MatrixInverse { .. }
+            | ExprKind::Tensor { .. }
+            | ExprKind::KroneckerDelta { .. }
+            | ExprKind::LeviCivita { .. } => fmt_linear_algebra(self, f),
 
             // Logic and sets
-            Expression::Equation { .. }
-            | Expression::Inequality { .. }
-            | Expression::ForAll { .. }
-            | Expression::Exists { .. }
-            | Expression::Logical { .. }
-            | Expression::NumberSetExpr(_)
-            | Expression::SetOperation { .. }
-            | Expression::SetRelationExpr { .. }
-            | Expression::SetBuilder { .. }
-            | Expression::EmptySet
-            | Expression::PowerSet { .. } => fmt_logic_sets(self, f),
+            ExprKind::Equation { .. }
+            | ExprKind::Inequality { .. }
+            | ExprKind::ForAll { .. }
+            | ExprKind::Exists { .. }
+            | ExprKind::Logical { .. }
+            | ExprKind::NumberSetExpr(_)
+            | ExprKind::SetOperation { .. }
+            | ExprKind::SetRelationExpr { .. }
+            | ExprKind::SetBuilder { .. }
+            | ExprKind::EmptySet
+            | ExprKind::PowerSet { .. } => fmt_logic_sets(self, f),
 
             // Relations and misc
-            Expression::FunctionSignature { .. }
-            | Expression::Composition { .. }
-            | Expression::Differential { .. }
-            | Expression::WedgeProduct { .. }
-            | Expression::Relation { .. } => fmt_relations(self, f),
+            ExprKind::FunctionSignature { .. }
+            | ExprKind::Composition { .. }
+            | ExprKind::Differential { .. }
+            | ExprKind::WedgeProduct { .. }
+            | ExprKind::Relation { .. } => fmt_relations(self, f),
         }
     }
 }

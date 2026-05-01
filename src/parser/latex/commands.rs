@@ -10,13 +10,13 @@ impl LatexParser {
             // Float
             num_str
                 .parse::<f64>()
-                .map(|f| Expression::Float(MathFloat::from(f)))
+                .map(|f| ExprKind::Float(MathFloat::from(f)).into())
                 .map_err(|_| ParseError::invalid_number(num_str, "invalid float", Some(span)))
         } else {
             // Integer
             num_str
                 .parse::<i64>()
-                .map(Expression::Integer)
+                .map(|n| ExprKind::Integer(n).into())
                 .map_err(|_| ParseError::invalid_number(num_str, "invalid integer", Some(span)))
         }
     }
@@ -32,11 +32,12 @@ impl LatexParser {
             return Ok(deriv);
         }
 
-        Ok(Expression::Binary {
+        Ok(ExprKind::Binary {
             op: BinaryOp::Div,
             left: Box::new(numerator),
             right: Box::new(denominator),
-        })
+        }
+        .into())
     }
 
     /// Parses \log (with optional base subscript) or \ln.
@@ -45,16 +46,18 @@ impl LatexParser {
             self.next(); // consume _
             let base = self.parse_braced_or_atom()?;
             let arg = self.parse_function_arg()?;
-            return Ok(Expression::Function {
+            return Ok(ExprKind::Function {
                 name: "log".to_string(),
                 args: vec![arg, base],
-            });
+            }
+            .into());
         }
         let arg = self.parse_function_arg()?;
-        Ok(Expression::Function {
+        Ok(ExprKind::Function {
             name: if is_log { "log" } else { "ln" }.to_string(),
             args: vec![arg],
-        })
+        }
+        .into())
     }
 
     /// Parses \lfloor expr \rfloor or \lceil expr \rceil.
@@ -68,10 +71,11 @@ impl LatexParser {
         if let Some((LatexToken::Command(c), _)) = self.peek() {
             if c == close_cmd {
                 self.next();
-                return Ok(Expression::Function {
+                return Ok(ExprKind::Function {
                     name: fn_name.to_string(),
                     args: vec![expr],
-                });
+                }
+                .into());
             }
         }
         Err(ParseError::custom(
@@ -87,13 +91,13 @@ impl LatexParser {
             let indices = self.parse_tensor_indices()?;
             if !indices.is_empty() {
                 return Ok(if cmd == "delta" {
-                    Expression::KroneckerDelta { indices }
+                    ExprKind::KroneckerDelta { indices }.into()
                 } else {
-                    Expression::LeviCivita { indices }
+                    ExprKind::LeviCivita { indices }.into()
                 });
             }
         }
-        Ok(Expression::Variable(cmd.to_string()))
+        Ok(Expression::variable(cmd.to_string()).into())
     }
 
     /// Dispatches a LaTeX command to the appropriate sub-parser.
@@ -105,16 +109,18 @@ impl LatexParser {
                 if self.check(&LatexToken::LBracket) {
                     let n = self.bracketed(|p| p.parse_expression())?;
                     let x = self.braced(|p| p.parse_expression())?;
-                    Ok(Expression::Function {
+                    Ok(ExprKind::Function {
                         name: "root".to_string(),
                         args: vec![x, n],
-                    })
+                    }
+                    .into())
                 } else {
                     let x = self.braced(|p| p.parse_expression())?;
-                    Ok(Expression::Function {
+                    Ok(ExprKind::Function {
                         name: "sqrt".to_string(),
                         args: vec![x],
-                    })
+                    }
+                    .into())
                 }
             }
 
@@ -126,23 +132,24 @@ impl LatexParser {
             | "phi" | "chi" | "psi" | "omega" | "Gamma" | "Delta" | "Theta" | "Lambda" | "Xi"
             | "Pi" | "Sigma" | "Upsilon" | "Phi" | "Psi" | "Omega" => {
                 if cmd == "pi" {
-                    Ok(Expression::Constant(MathConstant::Pi))
+                    Ok(Expression::constant(MathConstant::Pi).into())
                 } else {
-                    Ok(Expression::Variable(cmd.to_string()))
+                    Ok(Expression::variable(cmd.to_string()).into())
                 }
             }
 
-            "partial" => Ok(Expression::Variable("partial".to_string())),
+            "partial" => Ok(Expression::variable("partial".to_string()).into()),
 
             // Single-argument functions
             "sin" | "cos" | "tan" | "sec" | "csc" | "cot" | "arcsin" | "arccos" | "arctan"
             | "sinh" | "cosh" | "tanh" | "exp" | "det" | "min" | "max" | "gcd" | "lcm" | "abs"
             | "floor" | "ceil" | "sgn" | "trunc" | "rad" | "deg" => {
                 let arg = self.parse_function_arg()?;
-                Ok(Expression::Function {
+                Ok(ExprKind::Function {
                     name: cmd.to_string(),
                     args: vec![arg],
-                })
+                }
+                .into())
             }
 
             // Three-argument functions: clamp(x, lo, hi) and lerp(a, b, t)
@@ -201,10 +208,11 @@ impl LatexParser {
             ));
         }
         let arg = self.parse_function_arg()?;
-        Ok(Expression::Function {
+        Ok(ExprKind::Function {
             name,
             args: vec![arg],
-        })
+        }
+        .into())
     }
 
     /// Parses a parenthesized three-argument function: `\name(a, b, c)`.
@@ -219,10 +227,11 @@ impl LatexParser {
         self.consume(LatexToken::Comma)?;
         let third = self.parse_expression()?;
         self.consume(LatexToken::RParen)?;
-        Ok(Expression::Function {
+        Ok(ExprKind::Function {
             name: name.to_string(),
             args: vec![first, second, third],
-        })
+        }
+        .into())
     }
 
     /// Parses a function argument (either braced or a primary expression).

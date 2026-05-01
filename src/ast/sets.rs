@@ -15,6 +15,7 @@
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "kind", content = "value"))]
 pub enum SetOp {
     /// Union of two sets: A ∪ B
     Union,
@@ -46,6 +47,7 @@ pub enum SetOp {
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "kind", content = "value"))]
 pub enum SetRelation {
     /// Element membership: x ∈ S
     In,
@@ -81,6 +83,7 @@ pub enum SetRelation {
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "kind", content = "value"))]
 pub enum NumberSet {
     /// Natural numbers: ℕ = {0, 1, 2, 3, ...} or {1, 2, 3, ...}
     Natural,

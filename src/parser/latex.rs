@@ -74,7 +74,7 @@
 use std::collections::HashSet;
 
 use crate::ast::{
-    BinaryOp, Direction, Expression, IndexType, InequalityOp, IntegralBounds, LogicalOp,
+    BinaryOp, Direction, ExprKind, Expression, IndexType, InequalityOp, IntegralBounds, LogicalOp,
     MathConstant, MathFloat, RelationOp, SetOp, SetRelation, TensorIndex, VectorNotation,
 };
 use crate::error::{ParseError, ParseOutput, ParseResult, Span};
@@ -238,18 +238,18 @@ impl LatexParser {
 
         // Rule 1: Bound variables are always variables
         if self.is_bound(&name) {
-            return Expression::Variable(name);
+            return ExprKind::Variable(name).into();
         }
 
         // Rule 2: Explicit markers are always constants
         // This includes e, i (complex) and j, k (quaternion) from \mathrm{x}
         if is_explicit {
             return match ch {
-                'e' => Expression::Constant(MathConstant::E),
-                'i' => Expression::Constant(MathConstant::I),
-                'j' => Expression::Constant(MathConstant::J),
-                'k' => Expression::Constant(MathConstant::K),
-                _ => Expression::Variable(name),
+                'e' => ExprKind::Constant(MathConstant::E).into(),
+                'i' => ExprKind::Constant(MathConstant::I).into(),
+                'j' => ExprKind::Constant(MathConstant::J).into(),
+                'k' => ExprKind::Constant(MathConstant::K).into(),
+                _ => ExprKind::Variable(name).into(),
             };
         }
 
@@ -257,13 +257,13 @@ impl LatexParser {
         // Note: j and k default to variables (quaternion context requires explicit markers)
         if ch == 'e' || ch == 'i' {
             return match ch {
-                'e' => Expression::Constant(MathConstant::E),
-                'i' => Expression::Constant(MathConstant::I),
+                'e' => ExprKind::Constant(MathConstant::E).into(),
+                'i' => ExprKind::Constant(MathConstant::I).into(),
                 _ => unreachable!(),
             };
         }
 
-        Expression::Variable(name)
+        ExprKind::Variable(name).into()
     }
 
     /// Returns the current token without consuming it.

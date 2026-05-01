@@ -9,8 +9,8 @@ mod extended_functions {
     fn test_many_function_arguments() {
         // Test function with 10 arguments
         let expr = parse("f(a, b, c, d, e, f, g, h, i, j)").unwrap();
-        match expr {
-            Expression::Function { name, args } => {
+        match &expr.kind {
+            ExprKind::Function { name, args } => {
                 assert_eq!(name, "f");
                 assert_eq!(args.len(), 10);
             }
@@ -22,19 +22,19 @@ mod extended_functions {
     fn test_deeply_nested_functions_three_levels() {
         // f(g(h(x)))
         let expr = parse("f(g(h(x)))").unwrap();
-        match expr {
-            Expression::Function { name, args } => {
+        match &expr.kind {
+            ExprKind::Function { name, args } => {
                 assert_eq!(name, "f");
                 assert_eq!(args.len(), 1);
-                match &args[0] {
-                    Expression::Function { name, args } => {
+                match &args[0].kind {
+                    ExprKind::Function { name, args } => {
                         assert_eq!(name, "g");
                         assert_eq!(args.len(), 1);
-                        match &args[0] {
-                            Expression::Function { name, args } => {
+                        match &args[0].kind {
+                            ExprKind::Function { name, args } => {
                                 assert_eq!(name, "h");
                                 assert_eq!(args.len(), 1);
-                                assert_eq!(args[0], Expression::Variable("x".to_string()));
+                                assert_eq!(args[0], Expression::variable("x".to_string()));
                             }
                             _ => panic!("Expected third level function"),
                         }
@@ -49,13 +49,13 @@ mod extended_functions {
     #[test]
     fn test_function_with_factorial_argument() {
         let expr = parse("sin(5!)").unwrap();
-        match expr {
-            Expression::Function { name, args } => {
+        match &expr.kind {
+            ExprKind::Function { name, args } => {
                 assert_eq!(name, "sin");
                 assert_eq!(args.len(), 1);
                 assert!(matches!(
-                    args[0],
-                    Expression::Unary {
+                    args[0].kind,
+                    ExprKind::Unary {
                         op: UnaryOp::Factorial,
                         ..
                     }
@@ -69,11 +69,11 @@ mod extended_functions {
     fn test_function_with_equation_argument() {
         // solve(x = 5) - equation as argument should parse
         let expr = parse("solve(x = 5)").unwrap();
-        match expr {
-            Expression::Function { name, args } => {
+        match &expr.kind {
+            ExprKind::Function { name, args } => {
                 assert_eq!(name, "solve");
                 assert_eq!(args.len(), 1);
-                assert!(matches!(args[0], Expression::Equation { .. }));
+                assert!(matches!(args[0].kind, ExprKind::Equation { .. }));
             }
             _ => panic!("Expected function"),
         }
@@ -82,11 +82,11 @@ mod extended_functions {
     #[test]
     fn test_function_with_inequality_argument() {
         let expr = parse("filter(x > 0)").unwrap();
-        match expr {
-            Expression::Function { name, args } => {
+        match &expr.kind {
+            ExprKind::Function { name, args } => {
                 assert_eq!(name, "filter");
                 assert_eq!(args.len(), 1);
-                assert!(matches!(args[0], Expression::Inequality { .. }));
+                assert!(matches!(args[0].kind, ExprKind::Inequality { .. }));
             }
             _ => panic!("Expected function"),
         }
@@ -96,34 +96,34 @@ mod extended_functions {
     fn test_function_with_all_operator_types() {
         // f(a+b, c*d, e^f, g!)
         let expr = parse("f(a+b, c*d, e^f, g!)").unwrap();
-        match expr {
-            Expression::Function { name, args } => {
+        match &expr.kind {
+            ExprKind::Function { name, args } => {
                 assert_eq!(name, "f");
                 assert_eq!(args.len(), 4);
                 assert!(matches!(
-                    args[0],
-                    Expression::Binary {
+                    args[0].kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Add,
                         ..
                     }
                 ));
                 assert!(matches!(
-                    args[1],
-                    Expression::Binary {
+                    args[1].kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Mul,
                         ..
                     }
                 ));
                 assert!(matches!(
-                    args[2],
-                    Expression::Binary {
+                    args[2].kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Pow,
                         ..
                     }
                 ));
                 assert!(matches!(
-                    args[3],
-                    Expression::Unary {
+                    args[3].kind,
+                    ExprKind::Unary {
                         op: UnaryOp::Factorial,
                         ..
                     }
@@ -136,11 +136,11 @@ mod extended_functions {
     #[test]
     fn test_function_with_nested_parentheses_argument() {
         let expr = parse("f(((x)))").unwrap();
-        match expr {
-            Expression::Function { name, args } => {
+        match &expr.kind {
+            ExprKind::Function { name, args } => {
                 assert_eq!(name, "f");
                 assert_eq!(args.len(), 1);
-                assert_eq!(args[0], Expression::Variable("x".to_string()));
+                assert_eq!(args[0], Expression::variable("x".to_string()));
             }
             _ => panic!("Expected function"),
         }
@@ -155,20 +155,20 @@ mod extended_implicit_multiplication {
         // 5!x should parse as (5!)*x
         let config = ParserConfig::default();
         let expr = parse_with_config("5!x", &config).unwrap();
-        match expr {
-            Expression::Binary {
+        match &expr.kind {
+            ExprKind::Binary {
                 op: BinaryOp::Mul,
                 left,
                 right,
             } => {
                 assert!(matches!(
-                    *left,
-                    Expression::Unary {
+                    (**left).kind,
+                    ExprKind::Unary {
                         op: UnaryOp::Factorial,
                         ..
                     }
                 ));
-                assert_eq!(*right, Expression::Variable("x".to_string()));
+                assert_eq!(**right, Expression::variable("x".to_string()));
             }
             _ => panic!("Expected multiplication"),
         }
@@ -179,22 +179,22 @@ mod extended_implicit_multiplication {
         // 5!(x+1) should parse as (5!)*(x+1)
         let config = ParserConfig::default();
         let expr = parse_with_config("5!(x+1)", &config).unwrap();
-        match expr {
-            Expression::Binary {
+        match &expr.kind {
+            ExprKind::Binary {
                 op: BinaryOp::Mul,
                 left,
                 right,
             } => {
                 assert!(matches!(
-                    *left,
-                    Expression::Unary {
+                    (**left).kind,
+                    ExprKind::Unary {
                         op: UnaryOp::Factorial,
                         ..
                     }
                 ));
                 assert!(matches!(
-                    *right,
-                    Expression::Binary {
+                    (**right).kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Add,
                         ..
                     }
@@ -209,20 +209,20 @@ mod extended_implicit_multiplication {
         // a b c should parse as (a*b)*c
         let config = ParserConfig::default();
         let expr = parse_with_config("a b c", &config).unwrap();
-        match expr {
-            Expression::Binary {
+        match &expr.kind {
+            ExprKind::Binary {
                 op: BinaryOp::Mul,
                 left,
                 right,
             } => {
                 assert!(matches!(
-                    *left,
-                    Expression::Binary {
+                    (**left).kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Mul,
                         ..
                     }
                 ));
-                assert_eq!(*right, Expression::Variable("c".to_string()));
+                assert_eq!(**right, Expression::variable("c".to_string()));
             }
             _ => panic!("Expected multiplication"),
         }
@@ -233,14 +233,14 @@ mod extended_implicit_multiplication {
         // pi sin(x) should parse as pi*sin(x)
         let config = ParserConfig::default();
         let expr = parse_with_config("pi sin(x)", &config).unwrap();
-        match expr {
-            Expression::Binary {
+        match &expr.kind {
+            ExprKind::Binary {
                 op: BinaryOp::Mul,
                 left,
                 right,
             } => {
-                assert_eq!(*left, Expression::Constant(MathConstant::Pi));
-                assert!(matches!(*right, Expression::Function { .. }));
+                assert_eq!(**left, Expression::constant(MathConstant::Pi));
+                assert!(matches!(right.kind, ExprKind::Function { .. }));
             }
             _ => panic!("Expected multiplication"),
         }
@@ -259,16 +259,16 @@ mod extended_implicit_multiplication {
         // 2x^3 should parse as 2*(x^3), not (2*x)^3
         let config = ParserConfig::default();
         let expr = parse_with_config("2x^3", &config).unwrap();
-        match expr {
-            Expression::Binary {
+        match &expr.kind {
+            ExprKind::Binary {
                 op: BinaryOp::Mul,
                 left,
                 right,
             } => {
-                assert_eq!(*left, Expression::Integer(2));
+                assert_eq!(**left, Expression::integer(2));
                 assert!(matches!(
-                    *right,
-                    Expression::Binary {
+                    (**right).kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Pow,
                         ..
                     }
@@ -283,16 +283,16 @@ mod extended_implicit_multiplication {
         // 2x = 5 should parse as (2*x) = 5
         let config = ParserConfig::default();
         let expr = parse_with_config("2x = 5", &config).unwrap();
-        match expr {
-            Expression::Equation { left, right } => {
+        match &expr.kind {
+            ExprKind::Equation { left, right } => {
                 assert!(matches!(
-                    *left,
-                    Expression::Binary {
+                    (**left).kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Mul,
                         ..
                     }
                 ));
-                assert_eq!(*right, Expression::Integer(5));
+                assert_eq!(**right, Expression::integer(5));
             }
             _ => panic!("Expected equation"),
         }

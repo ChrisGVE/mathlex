@@ -10,7 +10,7 @@ use mathlex::ast::{
     MathFloat, MultipleBounds, NumberSet, RelationOp, SetOp, SetRelation, TensorIndex, UnaryOp,
     VectorNotation,
 };
-use mathlex::Expression;
+use mathlex::{ExprKind, Expression};
 
 fn roundtrip(expr: &Expression) -> Expression {
     let json = serde_json::to_string(expr).expect("serialize failed");
@@ -32,27 +32,27 @@ fn assert_roundtrip(expr: &Expression) {
 
 #[test]
 fn integer_positive() {
-    assert_roundtrip(&Expression::Integer(42));
+    assert_roundtrip(&ExprKind::Integer(42));
 }
 
 #[test]
 fn integer_negative() {
-    assert_roundtrip(&Expression::Integer(-1));
+    assert_roundtrip(&ExprKind::Integer(-1));
 }
 
 #[test]
 fn integer_zero() {
-    assert_roundtrip(&Expression::Integer(0));
+    assert_roundtrip(&ExprKind::Integer(0));
 }
 
 #[test]
 fn float_decimal() {
-    assert_roundtrip(&Expression::Float(MathFloat::from(1.5)));
+    assert_roundtrip(&ExprKind::Float(MathFloat::from(1.5)));
 }
 
 #[test]
 fn float_zero() {
-    assert_roundtrip(&Expression::Float(MathFloat::from(0.0)));
+    assert_roundtrip(&ExprKind::Float(MathFloat::from(0.0)));
 }
 
 /// JSON does not support non-finite floats; serde_json serializes them as `null`,
@@ -62,7 +62,7 @@ fn float_zero() {
 /// `Constant(MathConstant::Infinity)` / `Constant(MathConstant::NegInfinity)` instead.
 #[test]
 fn float_infinity_serializes_to_null() {
-    let expr = Expression::Float(MathFloat::from(f64::INFINITY));
+    let expr = Expression::float(MathFloat::from(f64::INFINITY));
     let json = serde_json::to_string(&expr).expect("serialize failed");
     // serde_json encodes non-finite f64 as null — round-trip is not possible
     assert!(
@@ -73,7 +73,7 @@ fn float_infinity_serializes_to_null() {
 
 #[test]
 fn float_neg_infinity_serializes_to_null() {
-    let expr = Expression::Float(MathFloat::from(f64::NEG_INFINITY));
+    let expr = Expression::float(MathFloat::from(f64::NEG_INFINITY));
     let json = serde_json::to_string(&expr).expect("serialize failed");
     assert!(
         json.contains("null"),
@@ -83,7 +83,7 @@ fn float_neg_infinity_serializes_to_null() {
 
 #[test]
 fn float_nan_serializes_to_null() {
-    let expr = Expression::Float(MathFloat::from(f64::NAN));
+    let expr = Expression::float(MathFloat::from(f64::NAN));
     let json = serde_json::to_string(&expr).expect("serialize failed");
     assert!(
         json.contains("null"),
@@ -93,47 +93,47 @@ fn float_nan_serializes_to_null() {
 
 #[test]
 fn variable_simple() {
-    assert_roundtrip(&Expression::Variable("x".to_string()));
+    assert_roundtrip(&ExprKind::Variable("x".to_string()));
 }
 
 #[test]
 fn variable_subscript() {
-    assert_roundtrip(&Expression::Variable("x_1".to_string()));
+    assert_roundtrip(&ExprKind::Variable("x_1".to_string()));
 }
 
 #[test]
 fn constant_pi() {
-    assert_roundtrip(&Expression::Constant(MathConstant::Pi));
+    assert_roundtrip(&ExprKind::Constant(MathConstant::Pi));
 }
 
 #[test]
 fn constant_e() {
-    assert_roundtrip(&Expression::Constant(MathConstant::E));
+    assert_roundtrip(&ExprKind::Constant(MathConstant::E));
 }
 
 #[test]
 fn constant_i() {
-    assert_roundtrip(&Expression::Constant(MathConstant::I));
+    assert_roundtrip(&ExprKind::Constant(MathConstant::I));
 }
 
 #[test]
 fn constant_j() {
-    assert_roundtrip(&Expression::Constant(MathConstant::J));
+    assert_roundtrip(&ExprKind::Constant(MathConstant::J));
 }
 
 #[test]
 fn constant_k() {
-    assert_roundtrip(&Expression::Constant(MathConstant::K));
+    assert_roundtrip(&ExprKind::Constant(MathConstant::K));
 }
 
 #[test]
 fn constant_infinity() {
-    assert_roundtrip(&Expression::Constant(MathConstant::Infinity));
+    assert_roundtrip(&ExprKind::Constant(MathConstant::Infinity));
 }
 
 #[test]
 fn constant_neg_infinity() {
-    assert_roundtrip(&Expression::Constant(MathConstant::NegInfinity));
+    assert_roundtrip(&ExprKind::Constant(MathConstant::NegInfinity));
 }
 
 // ---------------------------------------------------------------------------
@@ -142,27 +142,27 @@ fn constant_neg_infinity() {
 
 #[test]
 fn rational() {
-    assert_roundtrip(&Expression::Rational {
-        numerator: Box::new(Expression::Integer(1)),
-        denominator: Box::new(Expression::Integer(2)),
+    assert_roundtrip(&ExprKind::Rational {
+        numerator: Box::new(Expression::integer(1)),
+        denominator: Box::new(Expression::integer(2)),
     });
 }
 
 #[test]
 fn complex() {
-    assert_roundtrip(&Expression::Complex {
-        real: Box::new(Expression::Integer(1)),
-        imaginary: Box::new(Expression::Integer(2)),
+    assert_roundtrip(&ExprKind::Complex {
+        real: Box::new(Expression::integer(1)),
+        imaginary: Box::new(Expression::integer(2)),
     });
 }
 
 #[test]
 fn quaternion() {
-    assert_roundtrip(&Expression::Quaternion {
-        real: Box::new(Expression::Integer(1)),
-        i: Box::new(Expression::Integer(2)),
-        j: Box::new(Expression::Integer(3)),
-        k: Box::new(Expression::Integer(4)),
+    assert_roundtrip(&ExprKind::Quaternion {
+        real: Box::new(Expression::integer(1)),
+        i: Box::new(Expression::integer(2)),
+        j: Box::new(Expression::integer(3)),
+        k: Box::new(Expression::integer(4)),
     });
 }
 
@@ -172,10 +172,10 @@ fn quaternion() {
 
 #[test]
 fn binary_add() {
-    assert_roundtrip(&Expression::Binary {
+    assert_roundtrip(&ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Integer(1)),
-        right: Box::new(Expression::Integer(2)),
+        left: Box::new(Expression::integer(1)),
+        right: Box::new(Expression::integer(2)),
     });
 }
 
@@ -191,10 +191,10 @@ fn binary_all_ops() {
         BinaryOp::MinusPlus,
     ];
     for op in ops {
-        assert_roundtrip(&Expression::Binary {
+        assert_roundtrip(&ExprKind::Binary {
             op,
-            left: Box::new(Expression::Variable("a".to_string())),
-            right: Box::new(Expression::Variable("b".to_string())),
+            left: Box::new(Expression::variable("a".to_string())),
+            right: Box::new(Expression::variable("b".to_string())),
         });
     }
 }
@@ -208,35 +208,35 @@ fn unary_all_ops() {
         UnaryOp::Transpose,
     ];
     for op in ops {
-        assert_roundtrip(&Expression::Unary {
+        assert_roundtrip(&ExprKind::Unary {
             op,
-            operand: Box::new(Expression::Variable("x".to_string())),
+            operand: Box::new(Expression::variable("x".to_string())),
         });
     }
 }
 
 #[test]
 fn function_one_arg() {
-    assert_roundtrip(&Expression::Function {
+    assert_roundtrip(&ExprKind::Function {
         name: "sin".to_string(),
-        args: vec![Expression::Variable("x".to_string())],
+        args: vec![Expression::variable("x".to_string())],
     });
 }
 
 #[test]
 fn function_two_args() {
-    assert_roundtrip(&Expression::Function {
+    assert_roundtrip(&ExprKind::Function {
         name: "log".to_string(),
         args: vec![
-            Expression::Variable("x".to_string()),
-            Expression::Integer(2),
+            ExprKind::Variable("x".to_string()),
+            ExprKind::Integer(2),
         ],
     });
 }
 
 #[test]
 fn function_no_args() {
-    assert_roundtrip(&Expression::Function {
+    assert_roundtrip(&ExprKind::Function {
         name: "f".to_string(),
         args: vec![],
     });
@@ -248,8 +248,8 @@ fn function_no_args() {
 
 #[test]
 fn derivative_first_order() {
-    assert_roundtrip(&Expression::Derivative {
-        expr: Box::new(Expression::Variable("x".to_string())),
+    assert_roundtrip(&ExprKind::Derivative {
+        expr: Box::new(Expression::variable("x".to_string())),
         var: "x".to_string(),
         order: 1,
     });
@@ -257,10 +257,10 @@ fn derivative_first_order() {
 
 #[test]
 fn derivative_second_order() {
-    assert_roundtrip(&Expression::Derivative {
-        expr: Box::new(Expression::Function {
+    assert_roundtrip(&ExprKind::Derivative {
+        expr: Box::new(ExprKind::Function {
             name: "sin".to_string(),
-            args: vec![Expression::Variable("x".to_string())],
+            args: vec![Expression::variable("x".to_string())],
         }),
         var: "x".to_string(),
         order: 2,
@@ -269,8 +269,8 @@ fn derivative_second_order() {
 
 #[test]
 fn partial_derivative() {
-    assert_roundtrip(&Expression::PartialDerivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    assert_roundtrip(&ExprKind::PartialDerivative {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
         order: 1,
     });
@@ -278,8 +278,8 @@ fn partial_derivative() {
 
 #[test]
 fn integral_indefinite() {
-    assert_roundtrip(&Expression::Integral {
-        integrand: Box::new(Expression::Variable("x".to_string())),
+    assert_roundtrip(&ExprKind::Integral {
+        integrand: Box::new(Expression::variable("x".to_string())),
         var: "x".to_string(),
         bounds: None,
     });
@@ -287,21 +287,21 @@ fn integral_indefinite() {
 
 #[test]
 fn integral_definite() {
-    assert_roundtrip(&Expression::Integral {
-        integrand: Box::new(Expression::Variable("x".to_string())),
+    assert_roundtrip(&ExprKind::Integral {
+        integrand: Box::new(Expression::variable("x".to_string())),
         var: "x".to_string(),
         bounds: Some(IntegralBounds {
-            lower: Box::new(Expression::Integer(0)),
-            upper: Box::new(Expression::Integer(1)),
+            lower: Box::new(Expression::integer(0)),
+            upper: Box::new(Expression::integer(1)),
         }),
     });
 }
 
 #[test]
 fn multiple_integral_no_bounds() {
-    assert_roundtrip(&Expression::MultipleIntegral {
+    assert_roundtrip(&ExprKind::MultipleIntegral {
         dimension: 2,
-        integrand: Box::new(Expression::Variable("f".to_string())),
+        integrand: Box::new(Expression::variable("f".to_string())),
         bounds: None,
         vars: vec!["x".to_string(), "y".to_string()],
     });
@@ -309,18 +309,18 @@ fn multiple_integral_no_bounds() {
 
 #[test]
 fn multiple_integral_with_bounds() {
-    assert_roundtrip(&Expression::MultipleIntegral {
+    assert_roundtrip(&ExprKind::MultipleIntegral {
         dimension: 2,
-        integrand: Box::new(Expression::Variable("f".to_string())),
+        integrand: Box::new(Expression::variable("f".to_string())),
         bounds: Some(MultipleBounds {
             bounds: vec![
                 IntegralBounds {
-                    lower: Box::new(Expression::Integer(0)),
-                    upper: Box::new(Expression::Integer(1)),
+                    lower: Box::new(Expression::integer(0)),
+                    upper: Box::new(Expression::integer(1)),
                 },
                 IntegralBounds {
-                    lower: Box::new(Expression::Integer(0)),
-                    upper: Box::new(Expression::Integer(2)),
+                    lower: Box::new(Expression::integer(0)),
+                    upper: Box::new(Expression::integer(2)),
                 },
             ],
         }),
@@ -330,9 +330,9 @@ fn multiple_integral_with_bounds() {
 
 #[test]
 fn closed_integral_no_surface() {
-    assert_roundtrip(&Expression::ClosedIntegral {
+    assert_roundtrip(&ExprKind::ClosedIntegral {
         dimension: 1,
-        integrand: Box::new(Expression::Variable("F".to_string())),
+        integrand: Box::new(Expression::variable("F".to_string())),
         surface: None,
         var: "r".to_string(),
     });
@@ -340,9 +340,9 @@ fn closed_integral_no_surface() {
 
 #[test]
 fn closed_integral_with_surface() {
-    assert_roundtrip(&Expression::ClosedIntegral {
+    assert_roundtrip(&ExprKind::ClosedIntegral {
         dimension: 2,
-        integrand: Box::new(Expression::Variable("F".to_string())),
+        integrand: Box::new(Expression::variable("F".to_string())),
         surface: Some("S".to_string()),
         var: "r".to_string(),
     });
@@ -350,10 +350,10 @@ fn closed_integral_with_surface() {
 
 #[test]
 fn limit_both_direction() {
-    assert_roundtrip(&Expression::Limit {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    assert_roundtrip(&ExprKind::Limit {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
-        to: Box::new(Expression::Integer(0)),
+        to: Box::new(Expression::integer(0)),
         direction: Direction::Both,
     });
 }
@@ -361,10 +361,10 @@ fn limit_both_direction() {
 #[test]
 fn limit_left_and_right() {
     for dir in [Direction::Left, Direction::Right] {
-        assert_roundtrip(&Expression::Limit {
-            expr: Box::new(Expression::Variable("f".to_string())),
+        assert_roundtrip(&ExprKind::Limit {
+            expr: Box::new(Expression::variable("f".to_string())),
             var: "x".to_string(),
-            to: Box::new(Expression::Constant(MathConstant::Infinity)),
+            to: Box::new(Expression::constant(MathConstant::Infinity)),
             direction: dir,
         });
     }
@@ -372,21 +372,21 @@ fn limit_left_and_right() {
 
 #[test]
 fn sum() {
-    assert_roundtrip(&Expression::Sum {
+    assert_roundtrip(&ExprKind::Sum {
         index: "i".to_string(),
-        lower: Box::new(Expression::Integer(1)),
-        upper: Box::new(Expression::Variable("n".to_string())),
-        body: Box::new(Expression::Variable("i".to_string())),
+        lower: Box::new(Expression::integer(1)),
+        upper: Box::new(Expression::variable("n".to_string())),
+        body: Box::new(Expression::variable("i".to_string())),
     });
 }
 
 #[test]
 fn product() {
-    assert_roundtrip(&Expression::Product {
+    assert_roundtrip(&ExprKind::Product {
         index: "k".to_string(),
-        lower: Box::new(Expression::Integer(1)),
-        upper: Box::new(Expression::Integer(10)),
-        body: Box::new(Expression::Variable("k".to_string())),
+        lower: Box::new(Expression::integer(1)),
+        upper: Box::new(Expression::integer(10)),
+        body: Box::new(Expression::variable("k".to_string())),
     });
 }
 
@@ -396,23 +396,23 @@ fn product() {
 
 #[test]
 fn vector_numeric() {
-    assert_roundtrip(&Expression::Vector(vec![
-        Expression::Integer(1),
-        Expression::Integer(2),
-        Expression::Integer(3),
+    assert_roundtrip(&ExprKind::Vector(vec![
+        ExprKind::Integer(1),
+        ExprKind::Integer(2),
+        ExprKind::Integer(3),
     ]));
 }
 
 #[test]
 fn vector_empty() {
-    assert_roundtrip(&Expression::Vector(vec![]));
+    assert_roundtrip(&ExprKind::Vector(vec![]));
 }
 
 #[test]
 fn matrix_2x2() {
-    assert_roundtrip(&Expression::Matrix(vec![
-        vec![Expression::Integer(1), Expression::Integer(0)],
-        vec![Expression::Integer(0), Expression::Integer(1)],
+    assert_roundtrip(&ExprKind::Matrix(vec![
+        vec![Expression::integer(1), Expression::integer(0)],
+        vec![Expression::integer(0), Expression::integer(1)],
     ]));
 }
 
@@ -425,7 +425,7 @@ fn marked_vector_all_notations() {
         VectorNotation::Underline,
         VectorNotation::Plain,
     ] {
-        assert_roundtrip(&Expression::MarkedVector {
+        assert_roundtrip(&ExprKind::MarkedVector {
             name: "v".to_string(),
             notation,
         });
@@ -434,60 +434,60 @@ fn marked_vector_all_notations() {
 
 #[test]
 fn dot_product() {
-    assert_roundtrip(&Expression::DotProduct {
-        left: Box::new(Expression::Variable("u".to_string())),
-        right: Box::new(Expression::Variable("v".to_string())),
+    assert_roundtrip(&ExprKind::DotProduct {
+        left: Box::new(Expression::variable("u".to_string())),
+        right: Box::new(Expression::variable("v".to_string())),
     });
 }
 
 #[test]
 fn cross_product() {
-    assert_roundtrip(&Expression::CrossProduct {
-        left: Box::new(Expression::Variable("u".to_string())),
-        right: Box::new(Expression::Variable("v".to_string())),
+    assert_roundtrip(&ExprKind::CrossProduct {
+        left: Box::new(Expression::variable("u".to_string())),
+        right: Box::new(Expression::variable("v".to_string())),
     });
 }
 
 #[test]
 fn outer_product() {
-    assert_roundtrip(&Expression::OuterProduct {
-        left: Box::new(Expression::Variable("u".to_string())),
-        right: Box::new(Expression::Variable("v".to_string())),
+    assert_roundtrip(&ExprKind::OuterProduct {
+        left: Box::new(Expression::variable("u".to_string())),
+        right: Box::new(Expression::variable("v".to_string())),
     });
 }
 
 #[test]
 fn determinant() {
-    assert_roundtrip(&Expression::Determinant {
-        matrix: Box::new(Expression::Variable("A".to_string())),
+    assert_roundtrip(&ExprKind::Determinant {
+        matrix: Box::new(Expression::variable("A".to_string())),
     });
 }
 
 #[test]
 fn trace() {
-    assert_roundtrip(&Expression::Trace {
-        matrix: Box::new(Expression::Variable("A".to_string())),
+    assert_roundtrip(&ExprKind::Trace {
+        matrix: Box::new(Expression::variable("A".to_string())),
     });
 }
 
 #[test]
 fn rank() {
-    assert_roundtrip(&Expression::Rank {
-        matrix: Box::new(Expression::Variable("A".to_string())),
+    assert_roundtrip(&ExprKind::Rank {
+        matrix: Box::new(Expression::variable("A".to_string())),
     });
 }
 
 #[test]
 fn conjugate_transpose() {
-    assert_roundtrip(&Expression::ConjugateTranspose {
-        matrix: Box::new(Expression::Variable("A".to_string())),
+    assert_roundtrip(&ExprKind::ConjugateTranspose {
+        matrix: Box::new(Expression::variable("A".to_string())),
     });
 }
 
 #[test]
 fn matrix_inverse() {
-    assert_roundtrip(&Expression::MatrixInverse {
-        matrix: Box::new(Expression::Variable("A".to_string())),
+    assert_roundtrip(&ExprKind::MatrixInverse {
+        matrix: Box::new(Expression::variable("A".to_string())),
     });
 }
 
@@ -497,35 +497,35 @@ fn matrix_inverse() {
 
 #[test]
 fn gradient() {
-    assert_roundtrip(&Expression::Gradient {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    assert_roundtrip(&ExprKind::Gradient {
+        expr: Box::new(Expression::variable("f".to_string())),
     });
 }
 
 #[test]
 fn divergence() {
-    assert_roundtrip(&Expression::Divergence {
-        field: Box::new(Expression::Variable("F".to_string())),
+    assert_roundtrip(&ExprKind::Divergence {
+        field: Box::new(Expression::variable("F".to_string())),
     });
 }
 
 #[test]
 fn curl() {
-    assert_roundtrip(&Expression::Curl {
-        field: Box::new(Expression::Variable("F".to_string())),
+    assert_roundtrip(&ExprKind::Curl {
+        field: Box::new(Expression::variable("F".to_string())),
     });
 }
 
 #[test]
 fn laplacian() {
-    assert_roundtrip(&Expression::Laplacian {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    assert_roundtrip(&ExprKind::Laplacian {
+        expr: Box::new(Expression::variable("f".to_string())),
     });
 }
 
 #[test]
 fn nabla() {
-    assert_roundtrip(&Expression::Nabla);
+    assert_roundtrip(&ExprKind::Nabla);
 }
 
 // ---------------------------------------------------------------------------
@@ -534,9 +534,9 @@ fn nabla() {
 
 #[test]
 fn equation() {
-    assert_roundtrip(&Expression::Equation {
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Integer(5)),
+    assert_roundtrip(&ExprKind::Equation {
+        left: Box::new(Expression::variable("x".to_string())),
+        right: Box::new(Expression::integer(5)),
     });
 }
 
@@ -550,10 +550,10 @@ fn inequality_all_ops() {
         InequalityOp::Ne,
     ];
     for op in ops {
-        assert_roundtrip(&Expression::Inequality {
+        assert_roundtrip(&ExprKind::Inequality {
             op,
-            left: Box::new(Expression::Variable("x".to_string())),
-            right: Box::new(Expression::Integer(0)),
+            left: Box::new(Expression::variable("x".to_string())),
+            right: Box::new(Expression::integer(0)),
         });
     }
 }
@@ -567,10 +567,10 @@ fn relation_all_ops() {
         RelationOp::Approx,
     ];
     for op in ops {
-        assert_roundtrip(&Expression::Relation {
+        assert_roundtrip(&ExprKind::Relation {
             op,
-            left: Box::new(Expression::Variable("a".to_string())),
-            right: Box::new(Expression::Variable("b".to_string())),
+            left: Box::new(Expression::variable("a".to_string())),
+            right: Box::new(Expression::variable("b".to_string())),
         });
     }
 }
@@ -581,38 +581,38 @@ fn relation_all_ops() {
 
 #[test]
 fn for_all_no_domain() {
-    assert_roundtrip(&Expression::ForAll {
+    assert_roundtrip(&ExprKind::ForAll {
         variable: "x".to_string(),
         domain: None,
-        body: Box::new(Expression::Variable("P".to_string())),
+        body: Box::new(Expression::variable("P".to_string())),
     });
 }
 
 #[test]
 fn for_all_with_domain() {
-    assert_roundtrip(&Expression::ForAll {
+    assert_roundtrip(&ExprKind::ForAll {
         variable: "x".to_string(),
-        domain: Some(Box::new(Expression::NumberSetExpr(NumberSet::Real))),
-        body: Box::new(Expression::Variable("P".to_string())),
+        domain: Some(Box::new(Expression::number_set(NumberSet::Real))),
+        body: Box::new(Expression::variable("P".to_string())),
     });
 }
 
 #[test]
 fn exists_non_unique() {
-    assert_roundtrip(&Expression::Exists {
+    assert_roundtrip(&ExprKind::Exists {
         variable: "x".to_string(),
         domain: None,
-        body: Box::new(Expression::Variable("P".to_string())),
+        body: Box::new(Expression::variable("P".to_string())),
         unique: false,
     });
 }
 
 #[test]
 fn exists_unique() {
-    assert_roundtrip(&Expression::Exists {
+    assert_roundtrip(&ExprKind::Exists {
         variable: "x".to_string(),
-        domain: Some(Box::new(Expression::NumberSetExpr(NumberSet::Integer))),
-        body: Box::new(Expression::Variable("Q".to_string())),
+        domain: Some(Box::new(Expression::number_set(NumberSet::Integer))),
+        body: Box::new(Expression::variable("Q".to_string())),
         unique: true,
     });
 }
@@ -627,11 +627,11 @@ fn logical_all_ops() {
         LogicalOp::Iff,
     ];
     for op in ops {
-        assert_roundtrip(&Expression::Logical {
+        assert_roundtrip(&ExprKind::Logical {
             op,
             operands: vec![
-                Expression::Variable("P".to_string()),
-                Expression::Variable("Q".to_string()),
+                ExprKind::Variable("P".to_string()),
+                ExprKind::Variable("Q".to_string()),
             ],
         });
     }
@@ -652,7 +652,7 @@ fn number_set_all_variants() {
         NumberSet::Quaternion,
     ];
     for set in sets {
-        assert_roundtrip(&Expression::NumberSetExpr(set));
+        assert_roundtrip(&ExprKind::NumberSetExpr(set));
     }
 }
 
@@ -666,10 +666,10 @@ fn set_operation_all_ops() {
         SetOp::CartesianProd,
     ];
     for op in ops {
-        assert_roundtrip(&Expression::SetOperation {
+        assert_roundtrip(&ExprKind::SetOperation {
             op,
-            left: Box::new(Expression::Variable("A".to_string())),
-            right: Box::new(Expression::Variable("B".to_string())),
+            left: Box::new(Expression::variable("A".to_string())),
+            right: Box::new(Expression::variable("B".to_string())),
         });
     }
 }
@@ -685,49 +685,49 @@ fn set_relation_all_variants() {
         SetRelation::SupersetEq,
     ];
     for relation in rels {
-        assert_roundtrip(&Expression::SetRelationExpr {
+        assert_roundtrip(&ExprKind::SetRelationExpr {
             relation,
-            element: Box::new(Expression::Variable("x".to_string())),
-            set: Box::new(Expression::NumberSetExpr(NumberSet::Real)),
+            element: Box::new(Expression::variable("x".to_string())),
+            set: Box::new(Expression::number_set(NumberSet::Real)),
         });
     }
 }
 
 #[test]
 fn set_builder_no_domain() {
-    assert_roundtrip(&Expression::SetBuilder {
+    assert_roundtrip(&ExprKind::SetBuilder {
         variable: "x".to_string(),
         domain: None,
-        predicate: Box::new(Expression::Inequality {
+        predicate: Box::new(ExprKind::Inequality {
             op: InequalityOp::Gt,
-            left: Box::new(Expression::Variable("x".to_string())),
-            right: Box::new(Expression::Integer(0)),
+            left: Box::new(Expression::variable("x".to_string())),
+            right: Box::new(Expression::integer(0)),
         }),
     });
 }
 
 #[test]
 fn set_builder_with_domain() {
-    assert_roundtrip(&Expression::SetBuilder {
+    assert_roundtrip(&ExprKind::SetBuilder {
         variable: "x".to_string(),
-        domain: Some(Box::new(Expression::NumberSetExpr(NumberSet::Real))),
-        predicate: Box::new(Expression::Inequality {
+        domain: Some(Box::new(Expression::number_set(NumberSet::Real))),
+        predicate: Box::new(ExprKind::Inequality {
             op: InequalityOp::Gt,
-            left: Box::new(Expression::Variable("x".to_string())),
-            right: Box::new(Expression::Integer(0)),
+            left: Box::new(Expression::variable("x".to_string())),
+            right: Box::new(Expression::integer(0)),
         }),
     });
 }
 
 #[test]
 fn empty_set() {
-    assert_roundtrip(&Expression::EmptySet);
+    assert_roundtrip(&ExprKind::EmptySet);
 }
 
 #[test]
 fn power_set() {
-    assert_roundtrip(&Expression::PowerSet {
-        set: Box::new(Expression::Variable("A".to_string())),
+    assert_roundtrip(&ExprKind::PowerSet {
+        set: Box::new(Expression::variable("A".to_string())),
     });
 }
 
@@ -744,7 +744,7 @@ fn idx(name: &str, index_type: IndexType) -> TensorIndex {
 
 #[test]
 fn tensor_mixed_indices() {
-    assert_roundtrip(&Expression::Tensor {
+    assert_roundtrip(&ExprKind::Tensor {
         name: "T".to_string(),
         indices: vec![idx("i", IndexType::Upper), idx("j", IndexType::Lower)],
     });
@@ -752,14 +752,14 @@ fn tensor_mixed_indices() {
 
 #[test]
 fn kronecker_delta() {
-    assert_roundtrip(&Expression::KroneckerDelta {
+    assert_roundtrip(&ExprKind::KroneckerDelta {
         indices: vec![idx("i", IndexType::Upper), idx("j", IndexType::Lower)],
     });
 }
 
 #[test]
 fn levi_civita() {
-    assert_roundtrip(&Expression::LeviCivita {
+    assert_roundtrip(&ExprKind::LeviCivita {
         indices: vec![
             idx("i", IndexType::Upper),
             idx("j", IndexType::Upper),
@@ -770,18 +770,18 @@ fn levi_civita() {
 
 #[test]
 fn differential() {
-    assert_roundtrip(&Expression::Differential {
+    assert_roundtrip(&ExprKind::Differential {
         var: "x".to_string(),
     });
 }
 
 #[test]
 fn wedge_product() {
-    assert_roundtrip(&Expression::WedgeProduct {
-        left: Box::new(Expression::Differential {
+    assert_roundtrip(&ExprKind::WedgeProduct {
+        left: Box::new(ExprKind::Differential {
             var: "x".to_string(),
         }),
-        right: Box::new(Expression::Differential {
+        right: Box::new(ExprKind::Differential {
             var: "y".to_string(),
         }),
     });
@@ -789,18 +789,18 @@ fn wedge_product() {
 
 #[test]
 fn function_signature() {
-    assert_roundtrip(&Expression::FunctionSignature {
+    assert_roundtrip(&ExprKind::FunctionSignature {
         name: "f".to_string(),
-        domain: Box::new(Expression::NumberSetExpr(NumberSet::Real)),
-        codomain: Box::new(Expression::NumberSetExpr(NumberSet::Real)),
+        domain: Box::new(Expression::number_set(NumberSet::Real)),
+        codomain: Box::new(Expression::number_set(NumberSet::Real)),
     });
 }
 
 #[test]
 fn composition() {
-    assert_roundtrip(&Expression::Composition {
-        outer: Box::new(Expression::Variable("f".to_string())),
-        inner: Box::new(Expression::Variable("g".to_string())),
+    assert_roundtrip(&ExprKind::Composition {
+        outer: Box::new(Expression::variable("f".to_string())),
+        inner: Box::new(Expression::variable("g".to_string())),
     });
 }
 
@@ -811,23 +811,23 @@ fn composition() {
 #[test]
 fn nested_expression() {
     // sin(x)² + cos(x)²
-    let sin_sq = Expression::Binary {
+    let sin_sq = ExprKind::Binary {
         op: BinaryOp::Pow,
-        left: Box::new(Expression::Function {
+        left: Box::new(ExprKind::Function {
             name: "sin".to_string(),
-            args: vec![Expression::Variable("x".to_string())],
+            args: vec![Expression::variable("x".to_string())],
         }),
-        right: Box::new(Expression::Integer(2)),
+        right: Box::new(Expression::integer(2)),
     };
-    let cos_sq = Expression::Binary {
+    let cos_sq = ExprKind::Binary {
         op: BinaryOp::Pow,
-        left: Box::new(Expression::Function {
+        left: Box::new(ExprKind::Function {
             name: "cos".to_string(),
-            args: vec![Expression::Variable("x".to_string())],
+            args: vec![Expression::variable("x".to_string())],
         }),
-        right: Box::new(Expression::Integer(2)),
+        right: Box::new(Expression::integer(2)),
     };
-    assert_roundtrip(&Expression::Binary {
+    assert_roundtrip(&ExprKind::Binary {
         op: BinaryOp::Add,
         left: Box::new(sin_sq),
         right: Box::new(cos_sq),

@@ -6,11 +6,11 @@ use super::*;
 #[test]
 fn test_power_simple() {
     let expr = parse_latex("x^2").unwrap();
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Pow);
-            assert_eq!(*left, Expression::Variable("x".to_string()));
-            assert_eq!(*right, Expression::Integer(2));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(*op, BinaryOp::Pow);
+            assert_eq!(**left, Expression::variable("x".to_string()));
+            assert_eq!(**right, Expression::integer(2));
         }
         _ => panic!("Expected binary power"),
     }
@@ -19,11 +19,11 @@ fn test_power_simple() {
 #[test]
 fn test_power_braced() {
     let expr = parse_latex("x^{10}").unwrap();
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Pow);
-            assert_eq!(*left, Expression::Variable("x".to_string()));
-            assert_eq!(*right, Expression::Integer(10));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(*op, BinaryOp::Pow);
+            assert_eq!(**left, Expression::variable("x".to_string()));
+            assert_eq!(**right, Expression::integer(10));
         }
         _ => panic!("Expected binary power"),
     }
@@ -32,16 +32,16 @@ fn test_power_braced() {
 #[test]
 fn test_power_expression_simple() {
     let expr = parse_latex("x^{n+1}").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Variable("x".to_string()));
+            assert_eq!(**left, Expression::variable("x".to_string()));
             assert!(matches!(
-                *right,
-                Expression::Binary {
+                right.kind,
+                ExprKind::Binary {
                     op: BinaryOp::Add,
                     ..
                 }
@@ -54,23 +54,23 @@ fn test_power_expression_simple() {
 #[test]
 fn test_power_expression_complex() {
     let expr = parse_latex("x^{2*n+1}").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Variable("x".to_string()));
+            assert_eq!(**left, Expression::variable("x".to_string()));
             // Right should be addition with multiplication on left
-            match *right {
-                Expression::Binary {
+            match &right.kind {
+                ExprKind::Binary {
                     op: BinaryOp::Add,
                     left: add_left,
                     ..
                 } => {
                     assert!(matches!(
-                        *add_left,
-                        Expression::Binary {
+                        add_left.kind,
+                        ExprKind::Binary {
                             op: BinaryOp::Mul,
                             ..
                         }
@@ -86,22 +86,22 @@ fn test_power_expression_complex() {
 #[test]
 fn test_power_nested() {
     let expr = parse_latex("x^{y^z}").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Variable("x".to_string()));
+            assert_eq!(**left, Expression::variable("x".to_string()));
             // Right should be another power
-            match *right {
-                Expression::Binary {
+            match &right.kind {
+                ExprKind::Binary {
                     op: BinaryOp::Pow,
                     left: inner_left,
                     right: inner_right,
                 } => {
-                    assert_eq!(*inner_left, Expression::Variable("y".to_string()));
-                    assert_eq!(*inner_right, Expression::Variable("z".to_string()));
+                    assert_eq!(**inner_left, Expression::variable("y".to_string()));
+                    assert_eq!(**inner_right, Expression::variable("z".to_string()));
                 }
                 _ => panic!("Expected nested power"),
             }
@@ -113,23 +113,23 @@ fn test_power_nested() {
 #[test]
 fn test_power_triple_nested() {
     let expr = parse_latex("a^{b^{c^d}}").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Variable("a".to_string()));
+            assert_eq!(**left, Expression::variable("a".to_string()));
             // Verify triple nesting
-            match *right {
-                Expression::Binary {
+            match &right.kind {
+                ExprKind::Binary {
                     op: BinaryOp::Pow,
                     right: r1,
                     ..
                 } => {
                     assert!(matches!(
-                        *r1,
-                        Expression::Binary {
+                        r1.kind,
+                        ExprKind::Binary {
                             op: BinaryOp::Pow,
                             ..
                         }
@@ -145,11 +145,11 @@ fn test_power_triple_nested() {
 #[test]
 fn test_power_of_number() {
     let expr = parse_latex("2^3").unwrap();
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Pow);
-            assert_eq!(*left, Expression::Integer(2));
-            assert_eq!(*right, Expression::Integer(3));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(*op, BinaryOp::Pow);
+            assert_eq!(**left, Expression::integer(2));
+            assert_eq!(**right, Expression::integer(3));
         }
         _ => panic!("Expected binary power"),
     }
@@ -158,20 +158,20 @@ fn test_power_of_number() {
 #[test]
 fn test_power_negative_exponent() {
     let expr = parse_latex("x^{-1}").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Variable("x".to_string()));
+            assert_eq!(**left, Expression::variable("x".to_string()));
             // -1 is parsed as unary negation of 1
-            match *right {
-                Expression::Unary {
+            match &right.kind {
+                ExprKind::Unary {
                     op: crate::ast::UnaryOp::Neg,
                     operand,
                 } => {
-                    assert_eq!(*operand, Expression::Integer(1));
+                    assert_eq!(**operand, Expression::integer(1));
                 }
                 _ => panic!("Expected unary negation"),
             }
@@ -183,16 +183,16 @@ fn test_power_negative_exponent() {
 #[test]
 fn test_power_fraction_exponent() {
     let expr = parse_latex(r"x^{\frac{1}{2}}").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Variable("x".to_string()));
+            assert_eq!(**left, Expression::variable("x".to_string()));
             assert!(matches!(
-                *right,
-                Expression::Binary {
+                right.kind,
+                ExprKind::Binary {
                     op: BinaryOp::Div,
                     ..
                 }
@@ -205,11 +205,11 @@ fn test_power_fraction_exponent() {
 #[test]
 fn test_power_greek_letter() {
     let expr = parse_latex(r"x^\alpha").unwrap();
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Pow);
-            assert_eq!(*left, Expression::Variable("x".to_string()));
-            assert_eq!(*right, Expression::Variable("alpha".to_string()));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(*op, BinaryOp::Pow);
+            assert_eq!(**left, Expression::variable("x".to_string()));
+            assert_eq!(**right, Expression::variable("alpha".to_string()));
         }
         _ => panic!("Expected binary power"),
     }
@@ -220,25 +220,25 @@ fn test_power_greek_letter() {
 #[test]
 fn test_subscript_simple() {
     let expr = parse_latex("x_1").unwrap();
-    assert_eq!(expr, Expression::Variable("x_1".to_string()));
+    assert_eq!(expr, Expression::variable("x_1".to_string()));
 }
 
 #[test]
 fn test_subscript_braced() {
     let expr = parse_latex("x_{12}").unwrap();
-    assert_eq!(expr, Expression::Variable("x_12".to_string()));
+    assert_eq!(expr, Expression::variable("x_12".to_string()));
 }
 
 #[test]
 fn test_subscript_variable() {
     let expr = parse_latex("x_i").unwrap();
-    assert_eq!(expr, Expression::Variable("x_i".to_string()));
+    assert_eq!(expr, Expression::variable("x_i".to_string()));
 }
 
 #[test]
 fn test_subscript_letter() {
     let expr = parse_latex("x_n").unwrap();
-    assert_eq!(expr, Expression::Variable("x_n".to_string()));
+    assert_eq!(expr, Expression::variable("x_n".to_string()));
 }
 
 #[test]
@@ -251,19 +251,19 @@ fn test_subscript_braced_variable() {
 
     // If we want to test multi-letter implicit mult in subscripts, use explicit operators:
     let expr = parse_latex("x_{m*a*x}").unwrap();
-    assert_eq!(expr, Expression::Variable("x_mtimesatimesx".to_string()));
+    assert_eq!(expr, Expression::variable("x_mtimesatimesx".to_string()));
 }
 
 #[test]
 fn test_subscript_zero() {
     let expr = parse_latex("x_0").unwrap();
-    assert_eq!(expr, Expression::Variable("x_0".to_string()));
+    assert_eq!(expr, Expression::variable("x_0".to_string()));
 }
 
 #[test]
 fn test_subscript_three_digits() {
     let expr = parse_latex("x_{123}").unwrap();
-    assert_eq!(expr, Expression::Variable("x_123".to_string()));
+    assert_eq!(expr, Expression::variable("x_123".to_string()));
 }
 
 // Combined subscript and superscript tests
@@ -295,35 +295,35 @@ fn test_subscript_and_superscript_braced() {
 fn test_subscript_expression_addition() {
     // Subscript with expression: x_{i+1}
     let expr = parse_latex("x_{i+1}").unwrap();
-    assert_eq!(expr, Expression::Variable("x_iplus1".to_string()));
+    assert_eq!(expr, Expression::variable("x_iplus1".to_string()));
 }
 
 #[test]
 fn test_subscript_expression_subtraction() {
     // Subscript with expression: a_{n-1}
     let expr = parse_latex("a_{n-1}").unwrap();
-    assert_eq!(expr, Expression::Variable("a_nminus1".to_string()));
+    assert_eq!(expr, Expression::variable("a_nminus1".to_string()));
 }
 
 #[test]
 fn test_subscript_expression_multiplication() {
     // Subscript with expression: x_{2*i}
     let expr = parse_latex("x_{2*i}").unwrap();
-    assert_eq!(expr, Expression::Variable("x_2timesi".to_string()));
+    assert_eq!(expr, Expression::variable("x_2timesi".to_string()));
 }
 
 #[test]
 fn test_subscript_expression_complex() {
     // Subscript with complex expression: x_{i+2*j}
     let expr = parse_latex("x_{i+2*j}").unwrap();
-    assert_eq!(expr, Expression::Variable("x_iplus2timesj".to_string()));
+    assert_eq!(expr, Expression::variable("x_iplus2timesj".to_string()));
 }
 
 #[test]
 fn test_subscript_expression_nested() {
     // Subscript with nested expression: x_{(i+1)*2}
     let expr = parse_latex("x_{(i+1)*2}").unwrap();
-    assert_eq!(expr, Expression::Variable("x_iplus1times2".to_string()));
+    assert_eq!(expr, Expression::variable("x_iplus1times2".to_string()));
 }
 
 #[test]
@@ -339,22 +339,22 @@ fn test_subscript_power_combined_complex() {
 #[test]
 fn test_power_in_addition() {
     let expr = parse_latex("x^2 + y^2").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Add,
             left,
             right,
         } => {
             assert!(matches!(
-                *left,
-                Expression::Binary {
+                left.kind,
+                ExprKind::Binary {
                     op: BinaryOp::Pow,
                     ..
                 }
             ));
             assert!(matches!(
-                *right,
-                Expression::Binary {
+                right.kind,
+                ExprKind::Binary {
                     op: BinaryOp::Pow,
                     ..
                 }
@@ -367,16 +367,16 @@ fn test_power_in_addition() {
 #[test]
 fn test_power_in_multiplication() {
     let expr = parse_latex("2 * x^2").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Mul,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Integer(2));
+            assert_eq!(**left, Expression::integer(2));
             assert!(matches!(
-                *right,
-                Expression::Binary {
+                right.kind,
+                ExprKind::Binary {
                     op: BinaryOp::Pow,
                     ..
                 }
@@ -389,20 +389,20 @@ fn test_power_in_multiplication() {
 #[test]
 fn test_power_of_sum() {
     let expr = parse_latex("(x+y)^2").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             left,
             right,
         } => {
             assert!(matches!(
-                *left,
-                Expression::Binary {
+                left.kind,
+                ExprKind::Binary {
                     op: BinaryOp::Add,
                     ..
                 }
             ));
-            assert_eq!(*right, Expression::Integer(2));
+            assert_eq!(**right, Expression::integer(2));
         }
         _ => panic!("Expected power expression"),
     }
@@ -411,20 +411,20 @@ fn test_power_of_sum() {
 #[test]
 fn test_power_of_product() {
     let expr = parse_latex("(x*y)^n").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             left,
             right,
         } => {
             assert!(matches!(
-                *left,
-                Expression::Binary {
+                left.kind,
+                ExprKind::Binary {
                     op: BinaryOp::Mul,
                     ..
                 }
             ));
-            assert_eq!(*right, Expression::Variable("n".to_string()));
+            assert_eq!(**right, Expression::variable("n".to_string()));
         }
         _ => panic!("Expected power expression"),
     }
@@ -436,21 +436,21 @@ fn test_power_of_product() {
 fn test_subscript_expression_with_negative() {
     // Subscript with negative: x_{-1}
     let expr = parse_latex("x_{-1}").unwrap();
-    assert_eq!(expr, Expression::Variable("x_neg1".to_string()));
+    assert_eq!(expr, Expression::variable("x_neg1".to_string()));
 }
 
 #[test]
 fn test_subscript_expression_division() {
     // Subscript with division: x_{n/2}
     let expr = parse_latex("x_{n/2}").unwrap();
-    assert_eq!(expr, Expression::Variable("x_ndiv2".to_string()));
+    assert_eq!(expr, Expression::variable("x_ndiv2".to_string()));
 }
 
 #[test]
 fn test_subscript_expression_power() {
     // Subscript with power: x_{i^2}
     let expr = parse_latex("x_{i^2}").unwrap();
-    assert_eq!(expr, Expression::Variable("x_ipow2".to_string()));
+    assert_eq!(expr, Expression::variable("x_ipow2".to_string()));
 }
 
 // Edge cases
@@ -458,25 +458,25 @@ fn test_subscript_expression_power() {
 #[test]
 fn test_multiple_subscripts_in_expression() {
     let expr = parse_latex("x_1 + x_2 + x_3").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Add,
             left,
             right,
         } => {
             // Left should be x_1 + x_2, right should be x_3
-            match *left {
-                Expression::Binary {
+            match &left.kind {
+                ExprKind::Binary {
                     op: BinaryOp::Add,
                     left: ll,
                     right: lr,
                 } => {
-                    assert_eq!(*ll, Expression::Variable("x_1".to_string()));
-                    assert_eq!(*lr, Expression::Variable("x_2".to_string()));
+                    assert_eq!(**ll, Expression::variable("x_1".to_string()));
+                    assert_eq!(**lr, Expression::variable("x_2".to_string()));
                 }
                 _ => panic!("Expected addition"),
             }
-            assert_eq!(*right, Expression::Variable("x_3".to_string()));
+            assert_eq!(**right, Expression::variable("x_3".to_string()));
         }
         _ => panic!("Expected addition"),
     }
@@ -485,11 +485,11 @@ fn test_multiple_subscripts_in_expression() {
 #[test]
 fn test_power_zero() {
     let expr = parse_latex("x^0").unwrap();
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Pow);
-            assert_eq!(*left, Expression::Variable("x".to_string()));
-            assert_eq!(*right, Expression::Integer(0));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(*op, BinaryOp::Pow);
+            assert_eq!(**left, Expression::variable("x".to_string()));
+            assert_eq!(**right, Expression::integer(0));
         }
         _ => panic!("Expected binary power"),
     }
@@ -498,11 +498,11 @@ fn test_power_zero() {
 #[test]
 fn test_power_one() {
     let expr = parse_latex("x^1").unwrap();
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Pow);
-            assert_eq!(*left, Expression::Variable("x".to_string()));
-            assert_eq!(*right, Expression::Integer(1));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(*op, BinaryOp::Pow);
+            assert_eq!(**left, Expression::variable("x".to_string()));
+            assert_eq!(**right, Expression::integer(1));
         }
         _ => panic!("Expected binary power"),
     }

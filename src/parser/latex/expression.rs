@@ -17,8 +17,8 @@ impl LatexParser {
         // Check for function signature (colon followed by \to)
         if let Some((LatexToken::Colon, _)) = self.peek() {
             // Extract function name (must be a simple variable)
-            let name = match &left {
-                Expression::Variable(n) => n.clone(),
+            let name = match &left.kind {
+                ExprKind::Variable(n) => n.clone(),
                 _ => {
                     // Not a valid function signature, just return the expression
                     return Ok(left);
@@ -33,11 +33,12 @@ impl LatexParser {
                 self.next(); // consume \to
                 let codomain = self.parse_logical_iff()?;
 
-                return Ok(Expression::FunctionSignature {
+                return Ok(ExprKind::FunctionSignature {
                     name,
                     domain: Box::new(domain),
                     codomain: Box::new(codomain),
-                });
+                }
+                .into());
             } else {
                 // Missing \to, return error
                 return Err(ParseError::custom(
@@ -58,10 +59,11 @@ impl LatexParser {
         while let Some((LatexToken::Iff, _)) = self.peek() {
             self.next(); // consume \iff
             let right = self.parse_logical_implies()?;
-            left = Expression::Logical {
+            left = ExprKind::Logical {
                 op: LogicalOp::Iff,
                 operands: vec![left, right],
-            };
+            }
+            .into();
         }
 
         Ok(left)
@@ -74,10 +76,11 @@ impl LatexParser {
         while let Some((LatexToken::Implies, _)) = self.peek() {
             self.next(); // consume \implies
             let right = self.parse_logical_or()?;
-            left = Expression::Logical {
+            left = ExprKind::Logical {
                 op: LogicalOp::Implies,
                 operands: vec![left, right],
-            };
+            }
+            .into();
         }
 
         Ok(left)
@@ -90,10 +93,11 @@ impl LatexParser {
         while let Some((LatexToken::Lor, _)) = self.peek() {
             self.next(); // consume \lor
             let right = self.parse_logical_and()?;
-            left = Expression::Logical {
+            left = ExprKind::Logical {
                 op: LogicalOp::Or,
                 operands: vec![left, right],
-            };
+            }
+            .into();
         }
 
         Ok(left)
@@ -106,10 +110,11 @@ impl LatexParser {
         while let Some((LatexToken::Land, _)) = self.peek() {
             self.next(); // consume \land
             let right = self.parse_set_membership()?;
-            left = Expression::Logical {
+            left = ExprKind::Logical {
                 op: LogicalOp::And,
                 operands: vec![left, right],
-            };
+            }
+            .into();
         }
 
         Ok(left)
@@ -135,11 +140,12 @@ impl LatexParser {
             if let Some(rel) = relation {
                 self.next(); // consume the relation token
                 let right = self.parse_relation()?;
-                return Ok(Expression::SetRelationExpr {
+                return Ok(ExprKind::SetRelationExpr {
                     relation: rel,
                     element: Box::new(left),
                     set: Box::new(right),
-                });
+                }
+                .into());
             }
         }
 
@@ -202,15 +208,17 @@ impl LatexParser {
         right: Expression,
     ) -> Expression {
         match rel_op {
-            None => Expression::Equation {
+            None => ExprKind::Equation {
                 left: Box::new(left),
                 right: Box::new(right),
-            },
-            Some(op) => Expression::Inequality {
+            }
+            .into(),
+            Some(op) => ExprKind::Inequality {
                 op,
                 left: Box::new(left),
                 right: Box::new(right),
-            },
+            }
+            .into(),
         }
     }
 
@@ -223,11 +231,12 @@ impl LatexParser {
             if let Some(rel_op) = Self::match_math_relation(token) {
                 self.next();
                 let right = self.parse_additive()?;
-                return Ok(Expression::Relation {
+                return Ok(ExprKind::Relation {
                     op: rel_op,
                     left: Box::new(left),
                     right: Box::new(right),
-                });
+                }
+                .into());
             }
 
             // Check equation/inequality relations

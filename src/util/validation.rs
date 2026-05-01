@@ -1,6 +1,6 @@
 //! Matrix shape validation helpers.
 
-use crate::ast::Expression;
+use crate::ast::{ExprKind, Expression};
 
 impl Expression {
     /// Returns whether this expression is a well-formed rectangular matrix.
@@ -14,26 +14,26 @@ impl Expression {
     /// # Examples
     ///
     /// ```
-    /// use mathlex::ast::Expression;
+    /// use mathlex::ast::{Expression, ExprKind};
     ///
-    /// let valid = Expression::Matrix(vec![
-    ///     vec![Expression::Integer(1), Expression::Integer(2)],
-    ///     vec![Expression::Integer(3), Expression::Integer(4)],
-    /// ]);
+    /// let valid: Expression = ExprKind::Matrix(vec![
+    ///     vec![Expression::integer(1), Expression::integer(2)],
+    ///     vec![Expression::integer(3), Expression::integer(4)],
+    /// ]).into();
     /// assert!(valid.is_valid_matrix());
     ///
-    /// let ragged = Expression::Matrix(vec![
-    ///     vec![Expression::Integer(1), Expression::Integer(2)],
-    ///     vec![Expression::Integer(3)],
-    /// ]);
+    /// let ragged: Expression = ExprKind::Matrix(vec![
+    ///     vec![Expression::integer(1), Expression::integer(2)],
+    ///     vec![Expression::integer(3)],
+    /// ]).into();
     /// assert!(!ragged.is_valid_matrix());
     ///
-    /// let not_matrix = Expression::Integer(42);
+    /// let not_matrix = Expression::integer(42);
     /// assert!(!not_matrix.is_valid_matrix());
     /// ```
     pub fn is_valid_matrix(&self) -> bool {
-        match self {
-            Expression::Matrix(rows) => {
+        match &self.kind {
+            ExprKind::Matrix(rows) => {
                 if rows.is_empty() {
                     return false;
                 }
@@ -52,20 +52,20 @@ impl Expression {
     /// # Examples
     ///
     /// ```
-    /// use mathlex::ast::Expression;
+    /// use mathlex::ast::{Expression, ExprKind};
     ///
-    /// let matrix = Expression::Matrix(vec![
-    ///     vec![Expression::Integer(1), Expression::Integer(2), Expression::Integer(3)],
-    ///     vec![Expression::Integer(4), Expression::Integer(5), Expression::Integer(6)],
-    /// ]);
+    /// let matrix: Expression = ExprKind::Matrix(vec![
+    ///     vec![Expression::integer(1), Expression::integer(2), Expression::integer(3)],
+    ///     vec![Expression::integer(4), Expression::integer(5), Expression::integer(6)],
+    /// ]).into();
     /// assert_eq!(matrix.matrix_dimensions(), Some((2, 3)));
     ///
-    /// let not_matrix = Expression::Integer(42);
+    /// let not_matrix = Expression::integer(42);
     /// assert_eq!(not_matrix.matrix_dimensions(), None);
     /// ```
     pub fn matrix_dimensions(&self) -> Option<(usize, usize)> {
         if self.is_valid_matrix() {
-            if let Expression::Matrix(rows) = self {
+            if let ExprKind::Matrix(rows) = &self.kind {
                 return Some((rows.len(), rows[0].len()));
             }
         }

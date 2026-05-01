@@ -133,74 +133,61 @@ fn test_inequality_op_copy() {
 #[test]
 fn test_integral_bounds_creation() {
     let bounds = IntegralBounds {
-        lower: Box::new(Expression::Integer(0)),
-        upper: Box::new(Expression::Integer(1)),
+        lower: Box::new(Expression::integer(0)),
+        upper: Box::new(Expression::integer(1)),
     };
 
-    match (*bounds.lower, *bounds.upper) {
-        (Expression::Integer(l), Expression::Integer(u)) => {
-            assert_eq!(l, 0);
-            assert_eq!(u, 1);
-        }
-        _ => panic!("Expected integer bounds"),
-    }
+    assert!(matches!(bounds.lower.kind, ExprKind::Integer(0)));
+    assert!(matches!(bounds.upper.kind, ExprKind::Integer(1)));
 }
 
 #[test]
 fn test_integral_bounds_clone() {
     let bounds = IntegralBounds {
-        lower: Box::new(Expression::Integer(0)),
-        upper: Box::new(Expression::Integer(1)),
+        lower: Box::new(Expression::integer(0)),
+        upper: Box::new(Expression::integer(1)),
     };
 
     let bounds_clone = bounds.clone();
 
-    match (*bounds_clone.lower, *bounds_clone.upper) {
-        (Expression::Integer(l), Expression::Integer(u)) => {
-            assert_eq!(l, 0);
-            assert_eq!(u, 1);
-        }
-        _ => panic!("Expected integer bounds"),
-    }
+    assert!(matches!(bounds_clone.lower.kind, ExprKind::Integer(0)));
+    assert!(matches!(bounds_clone.upper.kind, ExprKind::Integer(1)));
 }
 
 // Tests for Expression - Integer
 #[test]
 fn test_expression_integer() {
-    let expr = Expression::Integer(42);
-    match expr {
-        Expression::Integer(n) => assert_eq!(n, 42),
+    let expr = Expression::integer(42);
+    match &expr.kind {
+        ExprKind::Integer(n) => assert_eq!(*n, 42),
         _ => panic!("Expected Integer variant"),
     }
 }
 
 #[test]
 fn test_expression_integer_negative() {
-    let expr = Expression::Integer(-17);
-    match expr {
-        Expression::Integer(n) => assert_eq!(n, -17),
+    let expr = Expression::integer(-17);
+    match &expr.kind {
+        ExprKind::Integer(n) => assert_eq!(*n, -17),
         _ => panic!("Expected Integer variant"),
     }
 }
 
 #[test]
 fn test_expression_integer_clone() {
-    let expr = Expression::Integer(42);
+    let expr = Expression::integer(42);
     let expr_clone = expr.clone();
 
-    match (expr, expr_clone) {
-        (Expression::Integer(a), Expression::Integer(b)) => assert_eq!(a, b),
-        _ => panic!("Expected Integer variants"),
-    }
+    assert_eq!(expr.kind, expr_clone.kind);
 }
 
 // Tests for Expression - Float
 #[test]
 fn test_expression_float() {
-    let expr = Expression::Float(MathFloat::from(42.5));
-    match expr {
-        Expression::Float(f) => {
-            let value: f64 = f.into();
+    let expr = Expression::float(MathFloat::from(42.5));
+    match &expr.kind {
+        ExprKind::Float(f) => {
+            let value: f64 = (*f).into();
             assert!((value - 42.5).abs() < 1e-10);
         }
         _ => panic!("Expected Float variant"),
@@ -209,10 +196,10 @@ fn test_expression_float() {
 
 #[test]
 fn test_expression_float_negative() {
-    let expr = Expression::Float(MathFloat::from(-2.5));
-    match expr {
-        Expression::Float(f) => {
-            let value: f64 = f.into();
+    let expr = Expression::float(MathFloat::from(-2.5));
+    match &expr.kind {
+        ExprKind::Float(f) => {
+            let value: f64 = (*f).into();
             assert!((value + 2.5).abs() < 1e-10);
         }
         _ => panic!("Expected Float variant"),
@@ -222,18 +209,19 @@ fn test_expression_float_negative() {
 // Tests for Expression - Rational
 #[test]
 fn test_expression_rational() {
-    let expr = Expression::Rational {
-        numerator: Box::new(Expression::Integer(1)),
-        denominator: Box::new(Expression::Integer(2)),
-    };
+    let expr: Expression = ExprKind::Rational {
+        numerator: Box::new(Expression::integer(1)),
+        denominator: Box::new(Expression::integer(2)),
+    }
+    .into();
 
-    match expr {
-        Expression::Rational {
+    match &expr.kind {
+        ExprKind::Rational {
             numerator,
             denominator,
         } => {
-            assert!(matches!(*numerator, Expression::Integer(1)));
-            assert!(matches!(*denominator, Expression::Integer(2)));
+            assert!(matches!(numerator.kind, ExprKind::Integer(1)));
+            assert!(matches!(denominator.kind, ExprKind::Integer(2)));
         }
         _ => panic!("Expected Rational variant"),
     }
@@ -241,20 +229,21 @@ fn test_expression_rational() {
 
 #[test]
 fn test_expression_rational_clone() {
-    let expr = Expression::Rational {
-        numerator: Box::new(Expression::Integer(3)),
-        denominator: Box::new(Expression::Integer(4)),
-    };
+    let expr: Expression = ExprKind::Rational {
+        numerator: Box::new(Expression::integer(3)),
+        denominator: Box::new(Expression::integer(4)),
+    }
+    .into();
 
     let expr_clone = expr.clone();
 
-    match expr_clone {
-        Expression::Rational {
+    match &expr_clone.kind {
+        ExprKind::Rational {
             numerator,
             denominator,
         } => {
-            assert!(matches!(*numerator, Expression::Integer(3)));
-            assert!(matches!(*denominator, Expression::Integer(4)));
+            assert!(matches!(numerator.kind, ExprKind::Integer(3)));
+            assert!(matches!(denominator.kind, ExprKind::Integer(4)));
         }
         _ => panic!("Expected Rational variant"),
     }
@@ -263,15 +252,16 @@ fn test_expression_rational_clone() {
 // Tests for Expression - Complex
 #[test]
 fn test_expression_complex() {
-    let expr = Expression::Complex {
-        real: Box::new(Expression::Integer(3)),
-        imaginary: Box::new(Expression::Integer(4)),
-    };
+    let expr: Expression = ExprKind::Complex {
+        real: Box::new(Expression::integer(3)),
+        imaginary: Box::new(Expression::integer(4)),
+    }
+    .into();
 
-    match expr {
-        Expression::Complex { real, imaginary } => {
-            assert!(matches!(*real, Expression::Integer(3)));
-            assert!(matches!(*imaginary, Expression::Integer(4)));
+    match &expr.kind {
+        ExprKind::Complex { real, imaginary } => {
+            assert!(matches!(real.kind, ExprKind::Integer(3)));
+            assert!(matches!(imaginary.kind, ExprKind::Integer(4)));
         }
         _ => panic!("Expected Complex variant"),
     }
@@ -279,15 +269,16 @@ fn test_expression_complex() {
 
 #[test]
 fn test_expression_complex_pure_imaginary() {
-    let expr = Expression::Complex {
-        real: Box::new(Expression::Integer(0)),
-        imaginary: Box::new(Expression::Integer(1)),
-    };
+    let expr: Expression = ExprKind::Complex {
+        real: Box::new(Expression::integer(0)),
+        imaginary: Box::new(Expression::integer(1)),
+    }
+    .into();
 
-    match expr {
-        Expression::Complex { real, imaginary } => {
-            assert!(matches!(*real, Expression::Integer(0)));
-            assert!(matches!(*imaginary, Expression::Integer(1)));
+    match &expr.kind {
+        ExprKind::Complex { real, imaginary } => {
+            assert!(matches!(real.kind, ExprKind::Integer(0)));
+            assert!(matches!(imaginary.kind, ExprKind::Integer(1)));
         }
         _ => panic!("Expected Complex variant"),
     }
@@ -296,27 +287,27 @@ fn test_expression_complex_pure_imaginary() {
 // Tests for Expression - Variable
 #[test]
 fn test_expression_variable() {
-    let expr = Expression::Variable("x".to_string());
-    match expr {
-        Expression::Variable(name) => assert_eq!(name, "x"),
+    let expr = Expression::variable("x".to_string());
+    match &expr.kind {
+        ExprKind::Variable(name) => assert_eq!(name, "x"),
         _ => panic!("Expected Variable variant"),
     }
 }
 
 #[test]
 fn test_expression_variable_greek() {
-    let expr = Expression::Variable("theta".to_string());
-    match expr {
-        Expression::Variable(name) => assert_eq!(name, "theta"),
+    let expr = Expression::variable("theta".to_string());
+    match &expr.kind {
+        ExprKind::Variable(name) => assert_eq!(name, "theta"),
         _ => panic!("Expected Variable variant"),
     }
 }
 
 #[test]
 fn test_expression_variable_subscript() {
-    let expr = Expression::Variable("x_1".to_string());
-    match expr {
-        Expression::Variable(name) => assert_eq!(name, "x_1"),
+    let expr = Expression::variable("x_1".to_string());
+    match &expr.kind {
+        ExprKind::Variable(name) => assert_eq!(name, "x_1"),
         _ => panic!("Expected Variable variant"),
     }
 }
@@ -324,18 +315,18 @@ fn test_expression_variable_subscript() {
 // Tests for Expression - Constant
 #[test]
 fn test_expression_constant_pi() {
-    let expr = Expression::Constant(MathConstant::Pi);
-    match expr {
-        Expression::Constant(c) => assert_eq!(c, MathConstant::Pi),
+    let expr = Expression::constant(MathConstant::Pi);
+    match &expr.kind {
+        ExprKind::Constant(c) => assert_eq!(*c, MathConstant::Pi),
         _ => panic!("Expected Constant variant"),
     }
 }
 
 #[test]
 fn test_expression_constant_e() {
-    let expr = Expression::Constant(MathConstant::E);
-    match expr {
-        Expression::Constant(c) => assert_eq!(c, MathConstant::E),
+    let expr = Expression::constant(MathConstant::E);
+    match &expr.kind {
+        ExprKind::Constant(c) => assert_eq!(*c, MathConstant::E),
         _ => panic!("Expected Constant variant"),
     }
 }
@@ -343,17 +334,18 @@ fn test_expression_constant_e() {
 // Tests for Expression - Binary
 #[test]
 fn test_expression_binary_add() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Integer(2)),
-        right: Box::new(Expression::Integer(3)),
-    };
+        left: Box::new(Expression::integer(2)),
+        right: Box::new(Expression::integer(3)),
+    }
+    .into();
 
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Add);
-            assert!(matches!(*left, Expression::Integer(2)));
-            assert!(matches!(*right, Expression::Integer(3)));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(op, &BinaryOp::Add);
+            assert!(matches!(left.kind, ExprKind::Integer(2)));
+            assert!(matches!(right.kind, ExprKind::Integer(3)));
         }
         _ => panic!("Expected Binary variant"),
     }
@@ -362,21 +354,25 @@ fn test_expression_binary_add() {
 #[test]
 fn test_expression_binary_nested() {
     // (2 + 3) * 4
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Mul,
-        left: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Integer(2)),
-            right: Box::new(Expression::Integer(3)),
-        }),
-        right: Box::new(Expression::Integer(4)),
-    };
+        left: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::integer(2)),
+                right: Box::new(Expression::integer(3)),
+            }
+            .into(),
+        ),
+        right: Box::new(Expression::integer(4)),
+    }
+    .into();
 
-    match expr {
-        Expression::Binary { op, left, .. } => {
-            assert_eq!(op, BinaryOp::Mul);
-            match *left {
-                Expression::Binary { op, .. } => assert_eq!(op, BinaryOp::Add),
+    match &expr.kind {
+        ExprKind::Binary { op, left, .. } => {
+            assert_eq!(op, &BinaryOp::Mul);
+            match &left.kind {
+                ExprKind::Binary { op, .. } => assert_eq!(op, &BinaryOp::Add),
                 _ => panic!("Expected nested Binary"),
             }
         }
@@ -387,15 +383,16 @@ fn test_expression_binary_nested() {
 // Tests for Expression - Unary
 #[test]
 fn test_expression_unary_neg() {
-    let expr = Expression::Unary {
+    let expr: Expression = ExprKind::Unary {
         op: UnaryOp::Neg,
-        operand: Box::new(Expression::Integer(5)),
-    };
+        operand: Box::new(Expression::integer(5)),
+    }
+    .into();
 
-    match expr {
-        Expression::Unary { op, operand } => {
-            assert_eq!(op, UnaryOp::Neg);
-            assert!(matches!(*operand, Expression::Integer(5)));
+    match &expr.kind {
+        ExprKind::Unary { op, operand } => {
+            assert_eq!(op, &UnaryOp::Neg);
+            assert!(matches!(operand.kind, ExprKind::Integer(5)));
         }
         _ => panic!("Expected Unary variant"),
     }
@@ -403,16 +400,17 @@ fn test_expression_unary_neg() {
 
 #[test]
 fn test_expression_unary_factorial() {
-    let expr = Expression::Unary {
+    let expr: Expression = ExprKind::Unary {
         op: UnaryOp::Factorial,
-        operand: Box::new(Expression::Variable("n".to_string())),
-    };
+        operand: Box::new(Expression::variable("n".to_string())),
+    }
+    .into();
 
-    match expr {
-        Expression::Unary { op, operand } => {
-            assert_eq!(op, UnaryOp::Factorial);
-            match *operand {
-                Expression::Variable(ref name) => assert_eq!(name, "n"),
+    match &expr.kind {
+        ExprKind::Unary { op, operand } => {
+            assert_eq!(op, &UnaryOp::Factorial);
+            match &operand.kind {
+                ExprKind::Variable(name) => assert_eq!(name, "n"),
                 _ => panic!("Expected Variable operand"),
             }
         }
@@ -423,13 +421,14 @@ fn test_expression_unary_factorial() {
 // Tests for Expression - Function
 #[test]
 fn test_expression_function_no_args() {
-    let expr = Expression::Function {
+    let expr: Expression = ExprKind::Function {
         name: "f".to_string(),
         args: vec![],
-    };
+    }
+    .into();
 
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "f");
             assert_eq!(args.len(), 0);
         }
@@ -439,17 +438,18 @@ fn test_expression_function_no_args() {
 
 #[test]
 fn test_expression_function_one_arg() {
-    let expr = Expression::Function {
+    let expr: Expression = ExprKind::Function {
         name: "sin".to_string(),
-        args: vec![Expression::Variable("x".to_string())],
-    };
+        args: vec![Expression::variable("x".to_string())],
+    }
+    .into();
 
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sin");
             assert_eq!(args.len(), 1);
-            match &args[0] {
-                Expression::Variable(v) => assert_eq!(v, "x"),
+            match &args[0].kind {
+                ExprKind::Variable(v) => assert_eq!(v, "x"),
                 _ => panic!("Expected Variable argument"),
             }
         }
@@ -459,17 +459,18 @@ fn test_expression_function_one_arg() {
 
 #[test]
 fn test_expression_function_multiple_args() {
-    let expr = Expression::Function {
+    let expr: Expression = ExprKind::Function {
         name: "max".to_string(),
         args: vec![
-            Expression::Integer(1),
-            Expression::Integer(2),
-            Expression::Integer(3),
+            Expression::integer(1),
+            Expression::integer(2),
+            Expression::integer(3),
         ],
-    };
+    }
+    .into();
 
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "max");
             assert_eq!(args.len(), 3);
         }
@@ -480,17 +481,18 @@ fn test_expression_function_multiple_args() {
 // Tests for Expression - Derivative
 #[test]
 fn test_expression_derivative_first_order() {
-    let expr = Expression::Derivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr: Expression = ExprKind::Derivative {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
         order: 1,
-    };
+    }
+    .into();
 
-    match expr {
-        Expression::Derivative { expr, var, order } => {
-            assert!(matches!(*expr, Expression::Variable(_)));
+    match &expr.kind {
+        ExprKind::Derivative { expr, var, order } => {
+            assert!(matches!(expr.kind, ExprKind::Variable(_)));
             assert_eq!(var, "x");
-            assert_eq!(order, 1);
+            assert_eq!(*order, 1);
         }
         _ => panic!("Expected Derivative variant"),
     }
@@ -498,14 +500,15 @@ fn test_expression_derivative_first_order() {
 
 #[test]
 fn test_expression_derivative_second_order() {
-    let expr = Expression::Derivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr: Expression = ExprKind::Derivative {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
         order: 2,
-    };
+    }
+    .into();
 
-    match expr {
-        Expression::Derivative { order, .. } => assert_eq!(order, 2),
+    match &expr.kind {
+        ExprKind::Derivative { order, .. } => assert_eq!(*order, 2),
         _ => panic!("Expected Derivative variant"),
     }
 }
@@ -513,17 +516,18 @@ fn test_expression_derivative_second_order() {
 // Tests for Expression - PartialDerivative
 #[test]
 fn test_expression_partial_derivative() {
-    let expr = Expression::PartialDerivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr: Expression = ExprKind::PartialDerivative {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
         order: 1,
-    };
+    }
+    .into();
 
-    match expr {
-        Expression::PartialDerivative { expr, var, order } => {
-            assert!(matches!(*expr, Expression::Variable(_)));
+    match &expr.kind {
+        ExprKind::PartialDerivative { expr, var, order } => {
+            assert!(matches!(expr.kind, ExprKind::Variable(_)));
             assert_eq!(var, "x");
-            assert_eq!(order, 1);
+            assert_eq!(*order, 1);
         }
         _ => panic!("Expected PartialDerivative variant"),
     }
@@ -531,16 +535,17 @@ fn test_expression_partial_derivative() {
 
 #[test]
 fn test_expression_partial_derivative_higher_order() {
-    let expr = Expression::PartialDerivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr: Expression = ExprKind::PartialDerivative {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "y".to_string(),
         order: 3,
-    };
+    }
+    .into();
 
-    match expr {
-        Expression::PartialDerivative { var, order, .. } => {
+    match &expr.kind {
+        ExprKind::PartialDerivative { var, order, .. } => {
             assert_eq!(var, "y");
-            assert_eq!(order, 3);
+            assert_eq!(*order, 3);
         }
         _ => panic!("Expected PartialDerivative variant"),
     }
@@ -549,19 +554,20 @@ fn test_expression_partial_derivative_higher_order() {
 // Tests for Expression - Integral
 #[test]
 fn test_expression_integral_indefinite() {
-    let expr = Expression::Integral {
-        integrand: Box::new(Expression::Variable("x".to_string())),
+    let expr: Expression = ExprKind::Integral {
+        integrand: Box::new(Expression::variable("x".to_string())),
         var: "x".to_string(),
         bounds: None,
-    };
+    }
+    .into();
 
-    match expr {
-        Expression::Integral {
+    match &expr.kind {
+        ExprKind::Integral {
             integrand,
             var,
             bounds,
         } => {
-            assert!(matches!(*integrand, Expression::Variable(_)));
+            assert!(matches!(integrand.kind, ExprKind::Variable(_)));
             assert_eq!(var, "x");
             assert!(bounds.is_none());
         }
@@ -571,21 +577,22 @@ fn test_expression_integral_indefinite() {
 
 #[test]
 fn test_expression_integral_definite() {
-    let expr = Expression::Integral {
-        integrand: Box::new(Expression::Variable("x".to_string())),
+    let expr: Expression = ExprKind::Integral {
+        integrand: Box::new(Expression::variable("x".to_string())),
         var: "x".to_string(),
         bounds: Some(IntegralBounds {
-            lower: Box::new(Expression::Integer(0)),
-            upper: Box::new(Expression::Integer(1)),
+            lower: Box::new(Expression::integer(0)),
+            upper: Box::new(Expression::integer(1)),
         }),
-    };
+    }
+    .into();
 
-    match expr {
-        Expression::Integral { bounds, .. } => {
+    match &expr.kind {
+        ExprKind::Integral { bounds, .. } => {
             assert!(bounds.is_some());
-            let bounds = bounds.unwrap();
-            assert!(matches!(*bounds.lower, Expression::Integer(0)));
-            assert!(matches!(*bounds.upper, Expression::Integer(1)));
+            let bounds = bounds.as_ref().unwrap();
+            assert!(matches!(bounds.lower.kind, ExprKind::Integer(0)));
+            assert!(matches!(bounds.upper.kind, ExprKind::Integer(1)));
         }
         _ => panic!("Expected Integral variant"),
     }
@@ -594,24 +601,25 @@ fn test_expression_integral_definite() {
 // Tests for Expression - Limit
 #[test]
 fn test_expression_limit_both_sides() {
-    let expr = Expression::Limit {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr: Expression = ExprKind::Limit {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
-        to: Box::new(Expression::Integer(0)),
+        to: Box::new(Expression::integer(0)),
         direction: Direction::Both,
-    };
+    }
+    .into();
 
-    match expr {
-        Expression::Limit {
+    match &expr.kind {
+        ExprKind::Limit {
             expr,
             var,
             to,
             direction,
         } => {
-            assert!(matches!(*expr, Expression::Variable(_)));
+            assert!(matches!(expr.kind, ExprKind::Variable(_)));
             assert_eq!(var, "x");
-            assert!(matches!(*to, Expression::Integer(0)));
-            assert_eq!(direction, Direction::Both);
+            assert!(matches!(to.kind, ExprKind::Integer(0)));
+            assert_eq!(*direction, Direction::Both);
         }
         _ => panic!("Expected Limit variant"),
     }
@@ -619,31 +627,36 @@ fn test_expression_limit_both_sides() {
 
 #[test]
 fn test_expression_limit_from_left() {
-    let expr = Expression::Limit {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr: Expression = ExprKind::Limit {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
-        to: Box::new(Expression::Integer(0)),
+        to: Box::new(Expression::integer(0)),
         direction: Direction::Left,
-    };
+    }
+    .into();
 
-    match expr {
-        Expression::Limit { direction, .. } => assert_eq!(direction, Direction::Left),
+    match &expr.kind {
+        ExprKind::Limit { direction, .. } => assert_eq!(*direction, Direction::Left),
         _ => panic!("Expected Limit variant"),
     }
 }
 
 #[test]
 fn test_expression_limit_to_infinity() {
-    let expr = Expression::Limit {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr: Expression = ExprKind::Limit {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
-        to: Box::new(Expression::Constant(MathConstant::Infinity)),
+        to: Box::new(Expression::constant(MathConstant::Infinity)),
         direction: Direction::Both,
-    };
+    }
+    .into();
 
-    match expr {
-        Expression::Limit { to, .. } => {
-            assert!(matches!(*to, Expression::Constant(MathConstant::Infinity)));
+    match &expr.kind {
+        ExprKind::Limit { to, .. } => {
+            assert!(matches!(
+                to.kind,
+                ExprKind::Constant(MathConstant::Infinity)
+            ));
         }
         _ => panic!("Expected Limit variant"),
     }
@@ -652,24 +665,25 @@ fn test_expression_limit_to_infinity() {
 // Tests for Expression - Sum
 #[test]
 fn test_expression_sum() {
-    let expr = Expression::Sum {
+    let expr: Expression = ExprKind::Sum {
         index: "i".to_string(),
-        lower: Box::new(Expression::Integer(1)),
-        upper: Box::new(Expression::Variable("n".to_string())),
-        body: Box::new(Expression::Variable("i".to_string())),
-    };
+        lower: Box::new(Expression::integer(1)),
+        upper: Box::new(Expression::variable("n".to_string())),
+        body: Box::new(Expression::variable("i".to_string())),
+    }
+    .into();
 
-    match expr {
-        Expression::Sum {
+    match &expr.kind {
+        ExprKind::Sum {
             index,
             lower,
             upper,
             body,
         } => {
             assert_eq!(index, "i");
-            assert!(matches!(*lower, Expression::Integer(1)));
-            assert!(matches!(*upper, Expression::Variable(_)));
-            assert!(matches!(*body, Expression::Variable(_)));
+            assert!(matches!(lower.kind, ExprKind::Integer(1)));
+            assert!(matches!(upper.kind, ExprKind::Variable(_)));
+            assert!(matches!(body.kind, ExprKind::Variable(_)));
         }
         _ => panic!("Expected Sum variant"),
     }
@@ -677,20 +691,24 @@ fn test_expression_sum() {
 
 #[test]
 fn test_expression_sum_complex_body() {
-    let expr = Expression::Sum {
+    let expr: Expression = ExprKind::Sum {
         index: "k".to_string(),
-        lower: Box::new(Expression::Integer(0)),
-        upper: Box::new(Expression::Integer(10)),
-        body: Box::new(Expression::Binary {
-            op: BinaryOp::Pow,
-            left: Box::new(Expression::Variable("k".to_string())),
-            right: Box::new(Expression::Integer(2)),
-        }),
-    };
+        lower: Box::new(Expression::integer(0)),
+        upper: Box::new(Expression::integer(10)),
+        body: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Pow,
+                left: Box::new(Expression::variable("k".to_string())),
+                right: Box::new(Expression::integer(2)),
+            }
+            .into(),
+        ),
+    }
+    .into();
 
-    match expr {
-        Expression::Sum { body, .. } => {
-            assert!(matches!(*body, Expression::Binary { .. }));
+    match &expr.kind {
+        ExprKind::Sum { body, .. } => {
+            assert!(matches!(body.kind, ExprKind::Binary { .. }));
         }
         _ => panic!("Expected Sum variant"),
     }
@@ -699,24 +717,25 @@ fn test_expression_sum_complex_body() {
 // Tests for Expression - Product
 #[test]
 fn test_expression_product() {
-    let expr = Expression::Product {
+    let expr: Expression = ExprKind::Product {
         index: "i".to_string(),
-        lower: Box::new(Expression::Integer(1)),
-        upper: Box::new(Expression::Variable("n".to_string())),
-        body: Box::new(Expression::Variable("i".to_string())),
-    };
+        lower: Box::new(Expression::integer(1)),
+        upper: Box::new(Expression::variable("n".to_string())),
+        body: Box::new(Expression::variable("i".to_string())),
+    }
+    .into();
 
-    match expr {
-        Expression::Product {
+    match &expr.kind {
+        ExprKind::Product {
             index,
             lower,
             upper,
             body,
         } => {
             assert_eq!(index, "i");
-            assert!(matches!(*lower, Expression::Integer(1)));
-            assert!(matches!(*upper, Expression::Variable(_)));
-            assert!(matches!(*body, Expression::Variable(_)));
+            assert!(matches!(lower.kind, ExprKind::Integer(1)));
+            assert!(matches!(upper.kind, ExprKind::Variable(_)));
+            assert!(matches!(body.kind, ExprKind::Variable(_)));
         }
         _ => panic!("Expected Product variant"),
     }
@@ -725,20 +744,20 @@ fn test_expression_product() {
 // Tests for Expression - Vector
 #[test]
 fn test_expression_vector_empty() {
-    let expr = Expression::Vector(vec![]);
-    match expr {
-        Expression::Vector(elements) => assert_eq!(elements.len(), 0),
+    let expr: Expression = ExprKind::Vector(vec![]).into();
+    match &expr.kind {
+        ExprKind::Vector(elements) => assert_eq!(elements.len(), 0),
         _ => panic!("Expected Vector variant"),
     }
 }
 
 #[test]
 fn test_expression_vector_single() {
-    let expr = Expression::Vector(vec![Expression::Integer(1)]);
-    match expr {
-        Expression::Vector(elements) => {
+    let expr: Expression = ExprKind::Vector(vec![Expression::integer(1)]).into();
+    match &expr.kind {
+        ExprKind::Vector(elements) => {
             assert_eq!(elements.len(), 1);
-            assert!(matches!(elements[0], Expression::Integer(1)));
+            assert!(matches!(elements[0].kind, ExprKind::Integer(1)));
         }
         _ => panic!("Expected Vector variant"),
     }
@@ -746,18 +765,19 @@ fn test_expression_vector_single() {
 
 #[test]
 fn test_expression_vector_multiple() {
-    let expr = Expression::Vector(vec![
-        Expression::Integer(1),
-        Expression::Integer(2),
-        Expression::Integer(3),
-    ]);
+    let expr: Expression = ExprKind::Vector(vec![
+        Expression::integer(1),
+        Expression::integer(2),
+        Expression::integer(3),
+    ])
+    .into();
 
-    match expr {
-        Expression::Vector(elements) => {
+    match &expr.kind {
+        ExprKind::Vector(elements) => {
             assert_eq!(elements.len(), 3);
-            assert!(matches!(elements[0], Expression::Integer(1)));
-            assert!(matches!(elements[1], Expression::Integer(2)));
-            assert!(matches!(elements[2], Expression::Integer(3)));
+            assert!(matches!(elements[0].kind, ExprKind::Integer(1)));
+            assert!(matches!(elements[1].kind, ExprKind::Integer(2)));
+            assert!(matches!(elements[2].kind, ExprKind::Integer(3)));
         }
         _ => panic!("Expected Vector variant"),
     }
@@ -765,14 +785,15 @@ fn test_expression_vector_multiple() {
 
 #[test]
 fn test_expression_vector_mixed_types() {
-    let expr = Expression::Vector(vec![
-        Expression::Integer(1),
-        Expression::Variable("x".to_string()),
-        Expression::Float(MathFloat::from(2.5)),
-    ]);
+    let expr: Expression = ExprKind::Vector(vec![
+        Expression::integer(1),
+        Expression::variable("x".to_string()),
+        Expression::float(MathFloat::from(2.5)),
+    ])
+    .into();
 
-    match expr {
-        Expression::Vector(elements) => assert_eq!(elements.len(), 3),
+    match &expr.kind {
+        ExprKind::Vector(elements) => assert_eq!(elements.len(), 3),
         _ => panic!("Expected Vector variant"),
     }
 }
@@ -780,22 +801,22 @@ fn test_expression_vector_mixed_types() {
 // Tests for Expression - Matrix
 #[test]
 fn test_expression_matrix_empty() {
-    let expr = Expression::Matrix(vec![]);
-    match expr {
-        Expression::Matrix(rows) => assert_eq!(rows.len(), 0),
+    let expr: Expression = ExprKind::Matrix(vec![]).into();
+    match &expr.kind {
+        ExprKind::Matrix(rows) => assert_eq!(rows.len(), 0),
         _ => panic!("Expected Matrix variant"),
     }
 }
 
 #[test]
 fn test_expression_matrix_single_element() {
-    let expr = Expression::Matrix(vec![vec![Expression::Integer(1)]]);
+    let expr: Expression = ExprKind::Matrix(vec![vec![Expression::integer(1)]]).into();
 
-    match expr {
-        Expression::Matrix(rows) => {
+    match &expr.kind {
+        ExprKind::Matrix(rows) => {
             assert_eq!(rows.len(), 1);
             assert_eq!(rows[0].len(), 1);
-            assert!(matches!(rows[0][0], Expression::Integer(1)));
+            assert!(matches!(rows[0][0].kind, ExprKind::Integer(1)));
         }
         _ => panic!("Expected Matrix variant"),
     }
@@ -803,18 +824,19 @@ fn test_expression_matrix_single_element() {
 
 #[test]
 fn test_expression_matrix_2x2() {
-    let expr = Expression::Matrix(vec![
-        vec![Expression::Integer(1), Expression::Integer(2)],
-        vec![Expression::Integer(3), Expression::Integer(4)],
-    ]);
+    let expr: Expression = ExprKind::Matrix(vec![
+        vec![Expression::integer(1), Expression::integer(2)],
+        vec![Expression::integer(3), Expression::integer(4)],
+    ])
+    .into();
 
-    match expr {
-        Expression::Matrix(rows) => {
+    match &expr.kind {
+        ExprKind::Matrix(rows) => {
             assert_eq!(rows.len(), 2);
             assert_eq!(rows[0].len(), 2);
             assert_eq!(rows[1].len(), 2);
-            assert!(matches!(rows[0][0], Expression::Integer(1)));
-            assert!(matches!(rows[1][1], Expression::Integer(4)));
+            assert!(matches!(rows[0][0].kind, ExprKind::Integer(1)));
+            assert!(matches!(rows[1][1].kind, ExprKind::Integer(4)));
         }
         _ => panic!("Expected Matrix variant"),
     }
@@ -822,21 +844,22 @@ fn test_expression_matrix_2x2() {
 
 #[test]
 fn test_expression_matrix_rectangular() {
-    let expr = Expression::Matrix(vec![
+    let expr: Expression = ExprKind::Matrix(vec![
         vec![
-            Expression::Integer(1),
-            Expression::Integer(2),
-            Expression::Integer(3),
+            Expression::integer(1),
+            Expression::integer(2),
+            Expression::integer(3),
         ],
         vec![
-            Expression::Integer(4),
-            Expression::Integer(5),
-            Expression::Integer(6),
+            Expression::integer(4),
+            Expression::integer(5),
+            Expression::integer(6),
         ],
-    ]);
+    ])
+    .into();
 
-    match expr {
-        Expression::Matrix(rows) => {
+    match &expr.kind {
+        ExprKind::Matrix(rows) => {
             assert_eq!(rows.len(), 2);
             assert_eq!(rows[0].len(), 3);
             assert_eq!(rows[1].len(), 3);
@@ -848,15 +871,16 @@ fn test_expression_matrix_rectangular() {
 // Tests for Expression - Equation
 #[test]
 fn test_expression_equation_simple() {
-    let expr = Expression::Equation {
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Integer(5)),
-    };
+    let expr: Expression = ExprKind::Equation {
+        left: Box::new(Expression::variable("x".to_string())),
+        right: Box::new(Expression::integer(5)),
+    }
+    .into();
 
-    match expr {
-        Expression::Equation { left, right } => {
-            assert!(matches!(*left, Expression::Variable(_)));
-            assert!(matches!(*right, Expression::Integer(5)));
+    match &expr.kind {
+        ExprKind::Equation { left, right } => {
+            assert!(matches!(left.kind, ExprKind::Variable(_)));
+            assert!(matches!(right.kind, ExprKind::Integer(5)));
         }
         _ => panic!("Expected Equation variant"),
     }
@@ -865,22 +889,29 @@ fn test_expression_equation_simple() {
 #[test]
 fn test_expression_equation_complex() {
     // y = 2x + 1
-    let expr = Expression::Equation {
-        left: Box::new(Expression::Variable("y".to_string())),
-        right: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Binary {
-                op: BinaryOp::Mul,
-                left: Box::new(Expression::Integer(2)),
-                right: Box::new(Expression::Variable("x".to_string())),
-            }),
-            right: Box::new(Expression::Integer(1)),
-        }),
-    };
+    let expr: Expression = ExprKind::Equation {
+        left: Box::new(Expression::variable("y".to_string())),
+        right: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(
+                    ExprKind::Binary {
+                        op: BinaryOp::Mul,
+                        left: Box::new(Expression::integer(2)),
+                        right: Box::new(Expression::variable("x".to_string())),
+                    }
+                    .into(),
+                ),
+                right: Box::new(Expression::integer(1)),
+            }
+            .into(),
+        ),
+    }
+    .into();
 
-    match expr {
-        Expression::Equation { right, .. } => {
-            assert!(matches!(*right, Expression::Binary { .. }));
+    match &expr.kind {
+        ExprKind::Equation { right, .. } => {
+            assert!(matches!(right.kind, ExprKind::Binary { .. }));
         }
         _ => panic!("Expected Equation variant"),
     }
@@ -889,17 +920,18 @@ fn test_expression_equation_complex() {
 // Tests for Expression - Inequality
 #[test]
 fn test_expression_inequality_less_than() {
-    let expr = Expression::Inequality {
+    let expr: Expression = ExprKind::Inequality {
         op: InequalityOp::Lt,
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Integer(5)),
-    };
+        left: Box::new(Expression::variable("x".to_string())),
+        right: Box::new(Expression::integer(5)),
+    }
+    .into();
 
-    match expr {
-        Expression::Inequality { op, left, right } => {
-            assert_eq!(op, InequalityOp::Lt);
-            assert!(matches!(*left, Expression::Variable(_)));
-            assert!(matches!(*right, Expression::Integer(5)));
+    match &expr.kind {
+        ExprKind::Inequality { op, left, right } => {
+            assert_eq!(*op, InequalityOp::Lt);
+            assert!(matches!(left.kind, ExprKind::Variable(_)));
+            assert!(matches!(right.kind, ExprKind::Integer(5)));
         }
         _ => panic!("Expected Inequality variant"),
     }
@@ -907,45 +939,47 @@ fn test_expression_inequality_less_than() {
 
 #[test]
 fn test_expression_inequality_greater_equal() {
-    let expr = Expression::Inequality {
+    let expr: Expression = ExprKind::Inequality {
         op: InequalityOp::Ge,
-        left: Box::new(Expression::Variable("y".to_string())),
-        right: Box::new(Expression::Integer(0)),
-    };
+        left: Box::new(Expression::variable("y".to_string())),
+        right: Box::new(Expression::integer(0)),
+    }
+    .into();
 
-    match expr {
-        Expression::Inequality { op, .. } => assert_eq!(op, InequalityOp::Ge),
+    match &expr.kind {
+        ExprKind::Inequality { op, .. } => assert_eq!(*op, InequalityOp::Ge),
         _ => panic!("Expected Inequality variant"),
     }
 }
 
 #[test]
 fn test_expression_inequality_not_equal() {
-    let expr = Expression::Inequality {
+    let expr: Expression = ExprKind::Inequality {
         op: InequalityOp::Ne,
-        left: Box::new(Expression::Variable("a".to_string())),
-        right: Box::new(Expression::Variable("b".to_string())),
-    };
+        left: Box::new(Expression::variable("a".to_string())),
+        right: Box::new(Expression::variable("b".to_string())),
+    }
+    .into();
 
-    match expr {
-        Expression::Inequality { op, .. } => assert_eq!(op, InequalityOp::Ne),
+    match &expr.kind {
+        ExprKind::Inequality { op, .. } => assert_eq!(*op, InequalityOp::Ne),
         _ => panic!("Expected Inequality variant"),
     }
 }
 
-// Test Expression::Clone
+// Test ExprKind clone
 #[test]
 fn test_expression_clone_deep() {
-    let expr = Expression::Binary {
+    let kind = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Integer(2)),
-        right: Box::new(Expression::Variable("x".to_string())),
+        left: Box::new(Expression::integer(2)),
+        right: Box::new(Expression::variable("x".to_string())),
     };
 
-    let expr_clone = expr.clone();
+    let kind_clone = kind.clone();
 
-    match (expr, expr_clone) {
-        (Expression::Binary { op: op1, .. }, Expression::Binary { op: op2, .. }) => {
+    match (kind, kind_clone) {
+        (ExprKind::Binary { op: op1, .. }, ExprKind::Binary { op: op2, .. }) => {
             assert_eq!(op1, op2);
         }
         _ => panic!("Clone failed"),
@@ -955,7 +989,7 @@ fn test_expression_clone_deep() {
 // Test Debug trait
 #[test]
 fn test_expression_debug() {
-    let expr = Expression::Integer(42);
+    let expr = Expression::integer(42);
     let debug_str = format!("{:?}", expr);
     assert!(debug_str.contains("Integer"));
     assert!(debug_str.contains("42"));
@@ -1036,18 +1070,18 @@ fn test_math_float_infinity() {
 #[test]
 fn test_integral_bounds_equality() {
     let bounds1 = IntegralBounds {
-        lower: Box::new(Expression::Integer(0)),
-        upper: Box::new(Expression::Integer(1)),
+        lower: Box::new(Expression::integer(0)),
+        upper: Box::new(Expression::integer(1)),
     };
 
     let bounds2 = IntegralBounds {
-        lower: Box::new(Expression::Integer(0)),
-        upper: Box::new(Expression::Integer(1)),
+        lower: Box::new(Expression::integer(0)),
+        upper: Box::new(Expression::integer(1)),
     };
 
     let bounds3 = IntegralBounds {
-        lower: Box::new(Expression::Integer(0)),
-        upper: Box::new(Expression::Integer(2)),
+        lower: Box::new(Expression::integer(0)),
+        upper: Box::new(Expression::integer(2)),
     };
 
     assert_eq!(bounds1, bounds2);
@@ -1060,13 +1094,13 @@ fn test_integral_bounds_hash() {
     let mut set = HashSet::new();
 
     let bounds1 = IntegralBounds {
-        lower: Box::new(Expression::Integer(0)),
-        upper: Box::new(Expression::Integer(1)),
+        lower: Box::new(Expression::integer(0)),
+        upper: Box::new(Expression::integer(1)),
     };
 
     let bounds2 = IntegralBounds {
-        lower: Box::new(Expression::Integer(0)),
-        upper: Box::new(Expression::Integer(1)),
+        lower: Box::new(Expression::integer(0)),
+        upper: Box::new(Expression::integer(1)),
     };
 
     set.insert(bounds1);
@@ -1078,9 +1112,9 @@ fn test_integral_bounds_hash() {
 // Tests for Expression equality
 #[test]
 fn test_expression_integer_equality() {
-    let e1 = Expression::Integer(42);
-    let e2 = Expression::Integer(42);
-    let e3 = Expression::Integer(43);
+    let e1 = Expression::integer(42);
+    let e2 = Expression::integer(42);
+    let e3 = Expression::integer(43);
 
     assert_eq!(e1, e2);
     assert_ne!(e1, e3);
@@ -1088,9 +1122,9 @@ fn test_expression_integer_equality() {
 
 #[test]
 fn test_expression_float_equality() {
-    let e1 = Expression::Float(MathFloat::from(3.14));
-    let e2 = Expression::Float(MathFloat::from(3.14));
-    let e3 = Expression::Float(MathFloat::from(2.71));
+    let e1 = Expression::float(MathFloat::from(3.14));
+    let e2 = Expression::float(MathFloat::from(3.14));
+    let e3 = Expression::float(MathFloat::from(2.71));
 
     assert_eq!(e1, e2);
     assert_ne!(e1, e3);
@@ -1098,9 +1132,9 @@ fn test_expression_float_equality() {
 
 #[test]
 fn test_expression_variable_equality() {
-    let e1 = Expression::Variable("x".to_string());
-    let e2 = Expression::Variable("x".to_string());
-    let e3 = Expression::Variable("y".to_string());
+    let e1 = Expression::variable("x".to_string());
+    let e2 = Expression::variable("x".to_string());
+    let e3 = Expression::variable("y".to_string());
 
     assert_eq!(e1, e2);
     assert_ne!(e1, e3);
@@ -1108,22 +1142,22 @@ fn test_expression_variable_equality() {
 
 #[test]
 fn test_expression_binary_equality() {
-    let e1 = Expression::Binary {
+    let e1 = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Integer(1)),
-        right: Box::new(Expression::Integer(2)),
+        left: Box::new(Expression::integer(1)),
+        right: Box::new(Expression::integer(2)),
     };
 
-    let e2 = Expression::Binary {
+    let e2 = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Integer(1)),
-        right: Box::new(Expression::Integer(2)),
+        left: Box::new(Expression::integer(1)),
+        right: Box::new(Expression::integer(2)),
     };
 
-    let e3 = Expression::Binary {
+    let e3 = ExprKind::Binary {
         op: BinaryOp::Mul,
-        left: Box::new(Expression::Integer(1)),
-        right: Box::new(Expression::Integer(2)),
+        left: Box::new(Expression::integer(1)),
+        right: Box::new(Expression::integer(2)),
     };
 
     assert_eq!(e1, e2);
@@ -1133,24 +1167,30 @@ fn test_expression_binary_equality() {
 #[test]
 fn test_expression_nested_equality() {
     // (1 + 2) * 3
-    let e1 = Expression::Binary {
+    let e1 = ExprKind::Binary {
         op: BinaryOp::Mul,
-        left: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Integer(1)),
-            right: Box::new(Expression::Integer(2)),
-        }),
-        right: Box::new(Expression::Integer(3)),
+        left: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::integer(1)),
+                right: Box::new(Expression::integer(2)),
+            }
+            .into(),
+        ),
+        right: Box::new(Expression::integer(3)),
     };
 
-    let e2 = Expression::Binary {
+    let e2 = ExprKind::Binary {
         op: BinaryOp::Mul,
-        left: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Integer(1)),
-            right: Box::new(Expression::Integer(2)),
-        }),
-        right: Box::new(Expression::Integer(3)),
+        left: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::integer(1)),
+                right: Box::new(Expression::integer(2)),
+            }
+            .into(),
+        ),
+        right: Box::new(Expression::integer(3)),
     };
 
     assert_eq!(e1, e2);
@@ -1158,11 +1198,11 @@ fn test_expression_nested_equality() {
 
 #[test]
 fn test_expression_vector_equality() {
-    let e1 = Expression::Vector(vec![Expression::Integer(1), Expression::Integer(2)]);
+    let e1 = ExprKind::Vector(vec![Expression::integer(1), Expression::integer(2)]);
 
-    let e2 = Expression::Vector(vec![Expression::Integer(1), Expression::Integer(2)]);
+    let e2 = ExprKind::Vector(vec![Expression::integer(1), Expression::integer(2)]);
 
-    let e3 = Expression::Vector(vec![Expression::Integer(1), Expression::Integer(3)]);
+    let e3 = ExprKind::Vector(vec![Expression::integer(1), Expression::integer(3)]);
 
     assert_eq!(e1, e2);
     assert_ne!(e1, e3);
@@ -1170,19 +1210,19 @@ fn test_expression_vector_equality() {
 
 #[test]
 fn test_expression_matrix_equality() {
-    let e1 = Expression::Matrix(vec![
-        vec![Expression::Integer(1), Expression::Integer(2)],
-        vec![Expression::Integer(3), Expression::Integer(4)],
+    let e1 = ExprKind::Matrix(vec![
+        vec![Expression::integer(1), Expression::integer(2)],
+        vec![Expression::integer(3), Expression::integer(4)],
     ]);
 
-    let e2 = Expression::Matrix(vec![
-        vec![Expression::Integer(1), Expression::Integer(2)],
-        vec![Expression::Integer(3), Expression::Integer(4)],
+    let e2 = ExprKind::Matrix(vec![
+        vec![Expression::integer(1), Expression::integer(2)],
+        vec![Expression::integer(3), Expression::integer(4)],
     ]);
 
-    let e3 = Expression::Matrix(vec![
-        vec![Expression::Integer(1), Expression::Integer(2)],
-        vec![Expression::Integer(3), Expression::Integer(5)],
+    let e3 = ExprKind::Matrix(vec![
+        vec![Expression::integer(1), Expression::integer(2)],
+        vec![Expression::integer(3), Expression::integer(5)],
     ]);
 
     assert_eq!(e1, e2);
@@ -1195,13 +1235,13 @@ fn test_expression_hash_set() {
     use std::collections::HashSet;
     let mut set = HashSet::new();
 
-    set.insert(Expression::Integer(1));
-    set.insert(Expression::Integer(2));
-    set.insert(Expression::Integer(1)); // Duplicate
+    set.insert(Expression::integer(1));
+    set.insert(Expression::integer(2));
+    set.insert(Expression::integer(1)); // Duplicate
 
     assert_eq!(set.len(), 2);
-    assert!(set.contains(&Expression::Integer(1)));
-    assert!(set.contains(&Expression::Integer(2)));
+    assert!(set.contains(&Expression::integer(1)));
+    assert!(set.contains(&Expression::integer(2)));
 }
 
 #[test]
@@ -1209,13 +1249,13 @@ fn test_expression_hash_map() {
     use std::collections::HashMap;
     let mut map = HashMap::new();
 
-    map.insert(Expression::Variable("x".to_string()), 42);
-    map.insert(Expression::Variable("y".to_string()), 17);
-    map.insert(Expression::Variable("x".to_string()), 99); // Update
+    map.insert(Expression::variable("x".to_string()), 42);
+    map.insert(Expression::variable("y".to_string()), 17);
+    map.insert(Expression::variable("x".to_string()), 99); // Update
 
     assert_eq!(map.len(), 2);
-    assert_eq!(map.get(&Expression::Variable("x".to_string())), Some(&99));
-    assert_eq!(map.get(&Expression::Variable("y".to_string())), Some(&17));
+    assert_eq!(map.get(&Expression::variable("x".to_string())), Some(&99));
+    assert_eq!(map.get(&Expression::variable("y".to_string())), Some(&17));
 }
 
 #[test]
@@ -1223,16 +1263,16 @@ fn test_expression_complex_hash() {
     use std::collections::HashSet;
     let mut set = HashSet::new();
 
-    let expr1 = Expression::Binary {
+    let expr1 = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Integer(1)),
-        right: Box::new(Expression::Integer(2)),
+        left: Box::new(Expression::integer(1)),
+        right: Box::new(Expression::integer(2)),
     };
 
-    let expr2 = Expression::Binary {
+    let expr2 = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Integer(1)),
-        right: Box::new(Expression::Integer(2)),
+        left: Box::new(Expression::integer(1)),
+        right: Box::new(Expression::integer(2)),
     };
 
     set.insert(expr1);
@@ -1246,28 +1286,28 @@ fn test_expression_float_hash() {
     use std::collections::HashSet;
     let mut set = HashSet::new();
 
-    set.insert(Expression::Float(MathFloat::from(3.14)));
-    set.insert(Expression::Float(MathFloat::from(2.71)));
-    set.insert(Expression::Float(MathFloat::from(3.14))); // Duplicate
+    set.insert(Expression::float(MathFloat::from(3.14)));
+    set.insert(Expression::float(MathFloat::from(2.71)));
+    set.insert(Expression::float(MathFloat::from(3.14))); // Duplicate
 
     assert_eq!(set.len(), 2);
 }
 
 #[test]
 fn test_expression_function_equality() {
-    let e1 = Expression::Function {
+    let e1 = ExprKind::Function {
         name: "sin".to_string(),
-        args: vec![Expression::Variable("x".to_string())],
+        args: vec![Expression::variable("x".to_string())],
     };
 
-    let e2 = Expression::Function {
+    let e2 = ExprKind::Function {
         name: "sin".to_string(),
-        args: vec![Expression::Variable("x".to_string())],
+        args: vec![Expression::variable("x".to_string())],
     };
 
-    let e3 = Expression::Function {
+    let e3 = ExprKind::Function {
         name: "cos".to_string(),
-        args: vec![Expression::Variable("x".to_string())],
+        args: vec![Expression::variable("x".to_string())],
     };
 
     assert_eq!(e1, e2);
@@ -1276,20 +1316,20 @@ fn test_expression_function_equality() {
 
 #[test]
 fn test_expression_derivative_equality() {
-    let e1 = Expression::Derivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let e1 = ExprKind::Derivative {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
         order: 1,
     };
 
-    let e2 = Expression::Derivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let e2 = ExprKind::Derivative {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
         order: 1,
     };
 
-    let e3 = Expression::Derivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let e3 = ExprKind::Derivative {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
         order: 2,
     };
@@ -1300,26 +1340,26 @@ fn test_expression_derivative_equality() {
 
 #[test]
 fn test_expression_integral_equality() {
-    let e1 = Expression::Integral {
-        integrand: Box::new(Expression::Variable("x".to_string())),
+    let e1 = ExprKind::Integral {
+        integrand: Box::new(Expression::variable("x".to_string())),
         var: "x".to_string(),
         bounds: Some(IntegralBounds {
-            lower: Box::new(Expression::Integer(0)),
-            upper: Box::new(Expression::Integer(1)),
+            lower: Box::new(Expression::integer(0)),
+            upper: Box::new(Expression::integer(1)),
         }),
     };
 
-    let e2 = Expression::Integral {
-        integrand: Box::new(Expression::Variable("x".to_string())),
+    let e2 = ExprKind::Integral {
+        integrand: Box::new(Expression::variable("x".to_string())),
         var: "x".to_string(),
         bounds: Some(IntegralBounds {
-            lower: Box::new(Expression::Integer(0)),
-            upper: Box::new(Expression::Integer(1)),
+            lower: Box::new(Expression::integer(0)),
+            upper: Box::new(Expression::integer(1)),
         }),
     };
 
-    let e3 = Expression::Integral {
-        integrand: Box::new(Expression::Variable("x".to_string())),
+    let e3 = ExprKind::Integral {
+        integrand: Box::new(Expression::variable("x".to_string())),
         var: "x".to_string(),
         bounds: None,
     };
@@ -1335,7 +1375,7 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_integer() {
-        let expr = Expression::Integer(42);
+        let expr = Expression::integer(42);
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1343,7 +1383,7 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_float() {
-        let expr = Expression::Float(MathFloat::from(3.14159));
+        let expr = Expression::float(MathFloat::from(3.14159));
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1351,7 +1391,7 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_variable() {
-        let expr = Expression::Variable("x".to_string());
+        let expr = Expression::variable("x".to_string());
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1359,7 +1399,7 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_constant() {
-        let expr = Expression::Constant(MathConstant::Pi);
+        let expr = Expression::constant(MathConstant::Pi);
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1367,11 +1407,12 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_binary() {
-        let expr = Expression::Binary {
+        let expr: Expression = ExprKind::Binary {
             op: BinaryOp::Add,
-            left: Box::new(Expression::Integer(2)),
-            right: Box::new(Expression::Variable("x".to_string())),
-        };
+            left: Box::new(Expression::integer(2)),
+            right: Box::new(Expression::variable("x".to_string())),
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1379,10 +1420,11 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_unary() {
-        let expr = Expression::Unary {
+        let expr: Expression = ExprKind::Unary {
             op: UnaryOp::Neg,
-            operand: Box::new(Expression::Integer(5)),
-        };
+            operand: Box::new(Expression::integer(5)),
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1390,10 +1432,11 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_function() {
-        let expr = Expression::Function {
+        let expr: Expression = ExprKind::Function {
             name: "sin".to_string(),
-            args: vec![Expression::Variable("x".to_string())],
-        };
+            args: vec![Expression::variable("x".to_string())],
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1401,10 +1444,11 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_rational() {
-        let expr = Expression::Rational {
-            numerator: Box::new(Expression::Integer(1)),
-            denominator: Box::new(Expression::Integer(2)),
-        };
+        let expr: Expression = ExprKind::Rational {
+            numerator: Box::new(Expression::integer(1)),
+            denominator: Box::new(Expression::integer(2)),
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1412,10 +1456,11 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_complex() {
-        let expr = Expression::Complex {
-            real: Box::new(Expression::Integer(3)),
-            imaginary: Box::new(Expression::Integer(4)),
-        };
+        let expr: Expression = ExprKind::Complex {
+            real: Box::new(Expression::integer(3)),
+            imaginary: Box::new(Expression::integer(4)),
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1423,11 +1468,12 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_derivative() {
-        let expr = Expression::Derivative {
-            expr: Box::new(Expression::Variable("f".to_string())),
+        let expr: Expression = ExprKind::Derivative {
+            expr: Box::new(Expression::variable("f".to_string())),
             var: "x".to_string(),
             order: 2,
-        };
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1435,11 +1481,12 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_partial_derivative() {
-        let expr = Expression::PartialDerivative {
-            expr: Box::new(Expression::Variable("f".to_string())),
+        let expr: Expression = ExprKind::PartialDerivative {
+            expr: Box::new(Expression::variable("f".to_string())),
             var: "x".to_string(),
             order: 1,
-        };
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1447,11 +1494,12 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_integral_indefinite() {
-        let expr = Expression::Integral {
-            integrand: Box::new(Expression::Variable("x".to_string())),
+        let expr: Expression = ExprKind::Integral {
+            integrand: Box::new(Expression::variable("x".to_string())),
             var: "x".to_string(),
             bounds: None,
-        };
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1459,14 +1507,15 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_integral_definite() {
-        let expr = Expression::Integral {
-            integrand: Box::new(Expression::Variable("x".to_string())),
+        let expr: Expression = ExprKind::Integral {
+            integrand: Box::new(Expression::variable("x".to_string())),
             var: "x".to_string(),
             bounds: Some(IntegralBounds {
-                lower: Box::new(Expression::Integer(0)),
-                upper: Box::new(Expression::Integer(1)),
+                lower: Box::new(Expression::integer(0)),
+                upper: Box::new(Expression::integer(1)),
             }),
-        };
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1474,12 +1523,13 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_limit() {
-        let expr = Expression::Limit {
-            expr: Box::new(Expression::Variable("f".to_string())),
+        let expr: Expression = ExprKind::Limit {
+            expr: Box::new(Expression::variable("f".to_string())),
             var: "x".to_string(),
-            to: Box::new(Expression::Integer(0)),
+            to: Box::new(Expression::integer(0)),
             direction: Direction::Both,
-        };
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1487,12 +1537,13 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_sum() {
-        let expr = Expression::Sum {
+        let expr: Expression = ExprKind::Sum {
             index: "i".to_string(),
-            lower: Box::new(Expression::Integer(1)),
-            upper: Box::new(Expression::Variable("n".to_string())),
-            body: Box::new(Expression::Variable("i".to_string())),
-        };
+            lower: Box::new(Expression::integer(1)),
+            upper: Box::new(Expression::variable("n".to_string())),
+            body: Box::new(Expression::variable("i".to_string())),
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1500,12 +1551,13 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_product() {
-        let expr = Expression::Product {
+        let expr: Expression = ExprKind::Product {
             index: "i".to_string(),
-            lower: Box::new(Expression::Integer(1)),
-            upper: Box::new(Expression::Variable("n".to_string())),
-            body: Box::new(Expression::Variable("i".to_string())),
-        };
+            lower: Box::new(Expression::integer(1)),
+            upper: Box::new(Expression::variable("n".to_string())),
+            body: Box::new(Expression::variable("i".to_string())),
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1513,11 +1565,12 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_vector() {
-        let expr = Expression::Vector(vec![
-            Expression::Integer(1),
-            Expression::Integer(2),
-            Expression::Integer(3),
-        ]);
+        let expr: Expression = ExprKind::Vector(vec![
+            Expression::integer(1),
+            Expression::integer(2),
+            Expression::integer(3),
+        ])
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1525,10 +1578,11 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_matrix() {
-        let expr = Expression::Matrix(vec![
-            vec![Expression::Integer(1), Expression::Integer(2)],
-            vec![Expression::Integer(3), Expression::Integer(4)],
-        ]);
+        let expr: Expression = ExprKind::Matrix(vec![
+            vec![Expression::integer(1), Expression::integer(2)],
+            vec![Expression::integer(3), Expression::integer(4)],
+        ])
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1536,10 +1590,11 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_equation() {
-        let expr = Expression::Equation {
-            left: Box::new(Expression::Variable("x".to_string())),
-            right: Box::new(Expression::Integer(5)),
-        };
+        let expr: Expression = ExprKind::Equation {
+            left: Box::new(Expression::variable("x".to_string())),
+            right: Box::new(Expression::integer(5)),
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1547,11 +1602,12 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_deserialize_inequality() {
-        let expr = Expression::Inequality {
+        let expr: Expression = ExprKind::Inequality {
             op: InequalityOp::Lt,
-            left: Box::new(Expression::Variable("x".to_string())),
-            right: Box::new(Expression::Integer(5)),
-        };
+            left: Box::new(Expression::variable("x".to_string())),
+            right: Box::new(Expression::integer(5)),
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1560,15 +1616,19 @@ mod serde_tests {
     #[test]
     fn test_serialize_deserialize_nested_expression() {
         // (2 + x) * 3
-        let expr = Expression::Binary {
+        let expr: Expression = ExprKind::Binary {
             op: BinaryOp::Mul,
-            left: Box::new(Expression::Binary {
-                op: BinaryOp::Add,
-                left: Box::new(Expression::Integer(2)),
-                right: Box::new(Expression::Variable("x".to_string())),
-            }),
-            right: Box::new(Expression::Integer(3)),
-        };
+            left: Box::new(
+                ExprKind::Binary {
+                    op: BinaryOp::Add,
+                    left: Box::new(Expression::integer(2)),
+                    right: Box::new(Expression::variable("x".to_string())),
+                }
+                .into(),
+            ),
+            right: Box::new(Expression::integer(3)),
+        }
+        .into();
         let json = serde_json::to_string(&expr).unwrap();
         let parsed: Expression = serde_json::from_str(&json).unwrap();
         assert_eq!(expr, parsed);
@@ -1659,8 +1719,8 @@ mod serde_tests {
     #[test]
     fn test_serialize_deserialize_integral_bounds() {
         let bounds = IntegralBounds {
-            lower: Box::new(Expression::Integer(0)),
-            upper: Box::new(Expression::Integer(10)),
+            lower: Box::new(Expression::integer(0)),
+            upper: Box::new(Expression::integer(10)),
         };
         let json = serde_json::to_string(&bounds).unwrap();
         let parsed: IntegralBounds = serde_json::from_str(&json).unwrap();

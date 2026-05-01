@@ -1,7 +1,7 @@
 use super::trait_def::{wrap_if_additive, ToLatex};
 use crate::ast::linear_algebra::format_tensor_indices;
 use crate::ast::{
-    Expression, LogicalOp, NumberSet, SetOp, SetRelation, TensorIndex, VectorNotation,
+    ExprKind, Expression, LogicalOp, NumberSet, SetOp, SetRelation, TensorIndex, VectorNotation,
 };
 
 fn indexed_symbol_to_latex(prefix: &str, indices: &[TensorIndex]) -> String {
@@ -10,8 +10,8 @@ fn indexed_symbol_to_latex(prefix: &str, indices: &[TensorIndex]) -> String {
 }
 
 pub(super) fn to_latex_linear_algebra(expr: &Expression) -> String {
-    match expr {
-        Expression::Vector(elements) => {
+    match &expr.kind {
+        ExprKind::Vector(elements) => {
             let s = elements
                 .iter()
                 .map(|e| e.to_latex())
@@ -19,7 +19,7 @@ pub(super) fn to_latex_linear_algebra(expr: &Expression) -> String {
                 .join(r" \\ ");
             format!(r"\begin{{pmatrix}} {} \end{{pmatrix}}", s)
         }
-        Expression::Matrix(rows) => {
+        ExprKind::Matrix(rows) => {
             let s = rows
                 .iter()
                 .map(|row| {
@@ -32,54 +32,54 @@ pub(super) fn to_latex_linear_algebra(expr: &Expression) -> String {
                 .join(r" \\ ");
             format!(r"\begin{{pmatrix}} {} \end{{pmatrix}}", s)
         }
-        Expression::MarkedVector { name, notation } => match notation {
+        ExprKind::MarkedVector { name, notation } => match notation {
             VectorNotation::Bold => format!(r"\mathbf{{{}}}", name),
             VectorNotation::Arrow => format!(r"\vec{{{}}}", name),
             VectorNotation::Hat => format!(r"\hat{{{}}}", name),
             VectorNotation::Underline => format!(r"\underline{{{}}}", name),
             VectorNotation::Plain => name.clone(),
         },
-        Expression::DotProduct { left, right } => {
+        ExprKind::DotProduct { left, right } => {
             format!(
                 r"{} \cdot {}",
                 wrap_if_additive(left),
                 wrap_if_additive(right)
             )
         }
-        Expression::CrossProduct { left, right } => {
+        ExprKind::CrossProduct { left, right } => {
             format!(
                 r"{} \times {}",
                 wrap_if_additive(left),
                 wrap_if_additive(right)
             )
         }
-        Expression::OuterProduct { left, right } => {
+        ExprKind::OuterProduct { left, right } => {
             format!(
                 r"{} \otimes {}",
                 wrap_if_additive(left),
                 wrap_if_additive(right)
             )
         }
-        Expression::Gradient { expr } => format!(r"\nabla {}", expr.to_latex()),
-        Expression::Divergence { field } => format!(r"\nabla \cdot {}", field.to_latex()),
-        Expression::Curl { field } => format!(r"\nabla \times {}", field.to_latex()),
-        Expression::Laplacian { expr } => format!(r"\nabla^2 {}", expr.to_latex()),
-        Expression::Nabla => r"\nabla".to_string(),
-        Expression::Determinant { matrix } => format!(r"\det({})", matrix.to_latex()),
-        Expression::Trace { matrix } => format!(r"\text{{tr}}({})", matrix.to_latex()),
-        Expression::Rank { matrix } => format!(r"\text{{rank}}({})", matrix.to_latex()),
-        Expression::ConjugateTranspose { matrix } => format!(r"{}^\dagger", matrix.to_latex()),
-        Expression::MatrixInverse { matrix } => format!(r"{}^{{-1}}", matrix.to_latex()),
-        Expression::Tensor { name, indices } => indexed_symbol_to_latex(name, indices),
-        Expression::KroneckerDelta { indices } => indexed_symbol_to_latex(r"\delta", indices),
-        Expression::LeviCivita { indices } => indexed_symbol_to_latex(r"\varepsilon", indices),
+        ExprKind::Gradient { expr } => format!(r"\nabla {}", expr.to_latex()),
+        ExprKind::Divergence { field } => format!(r"\nabla \cdot {}", field.to_latex()),
+        ExprKind::Curl { field } => format!(r"\nabla \times {}", field.to_latex()),
+        ExprKind::Laplacian { expr } => format!(r"\nabla^2 {}", expr.to_latex()),
+        ExprKind::Nabla => r"\nabla".to_string(),
+        ExprKind::Determinant { matrix } => format!(r"\det({})", matrix.to_latex()),
+        ExprKind::Trace { matrix } => format!(r"\text{{tr}}({})", matrix.to_latex()),
+        ExprKind::Rank { matrix } => format!(r"\text{{rank}}({})", matrix.to_latex()),
+        ExprKind::ConjugateTranspose { matrix } => format!(r"{}^\dagger", matrix.to_latex()),
+        ExprKind::MatrixInverse { matrix } => format!(r"{}^{{-1}}", matrix.to_latex()),
+        ExprKind::Tensor { name, indices } => indexed_symbol_to_latex(name, indices),
+        ExprKind::KroneckerDelta { indices } => indexed_symbol_to_latex(r"\delta", indices),
+        ExprKind::LeviCivita { indices } => indexed_symbol_to_latex(r"\varepsilon", indices),
         _ => unreachable!("to_latex_linear_algebra called on non-linear-algebra expression"),
     }
 }
 
 fn to_latex_quantifiers(expr: &Expression) -> String {
-    match expr {
-        Expression::ForAll {
+    match &expr.kind {
+        ExprKind::ForAll {
             variable,
             domain,
             body,
@@ -95,7 +95,7 @@ fn to_latex_quantifiers(expr: &Expression) -> String {
                 format!(r"\forall {}: {}", variable, body.to_latex())
             }
         }
-        Expression::Exists {
+        ExprKind::Exists {
             variable,
             domain,
             body,
@@ -114,7 +114,7 @@ fn to_latex_quantifiers(expr: &Expression) -> String {
                 format!(r"{} {}: {}", q, variable, body.to_latex())
             }
         }
-        Expression::Logical { op, operands } => match op {
+        ExprKind::Logical { op, operands } => match op {
             LogicalOp::Not => {
                 if operands.len() == 1 {
                     format!(r"{} {}", op.to_latex(), operands[0].to_latex())
@@ -133,8 +133,8 @@ fn to_latex_quantifiers(expr: &Expression) -> String {
 }
 
 fn to_latex_set_ops(expr: &Expression) -> String {
-    match expr {
-        Expression::SetOperation { op, left, right } => {
+    match &expr.kind {
+        ExprKind::SetOperation { op, left, right } => {
             let latex_op = match op {
                 SetOp::Union => r"\cup",
                 SetOp::Intersection => r"\cap",
@@ -144,7 +144,7 @@ fn to_latex_set_ops(expr: &Expression) -> String {
             };
             format!("{} {} {}", left.to_latex(), latex_op, right.to_latex())
         }
-        Expression::SetRelationExpr {
+        ExprKind::SetRelationExpr {
             relation,
             element,
             set,
@@ -159,7 +159,7 @@ fn to_latex_set_ops(expr: &Expression) -> String {
             };
             format!("{} {} {}", element.to_latex(), latex_rel, set.to_latex())
         }
-        Expression::SetBuilder {
+        ExprKind::SetBuilder {
             variable,
             domain,
             predicate,
@@ -175,9 +175,9 @@ fn to_latex_set_ops(expr: &Expression) -> String {
                 format!(r"\{{{} \mid {}\}}", variable, predicate.to_latex())
             }
         }
-        Expression::EmptySet => r"\emptyset".to_string(),
-        Expression::PowerSet { set } => format!(r"\mathcal{{P}}({})", set.to_latex()),
-        Expression::NumberSetExpr(set) => match set {
+        ExprKind::EmptySet => r"\emptyset".to_string(),
+        ExprKind::PowerSet { set } => format!(r"\mathcal{{P}}({})", set.to_latex()),
+        ExprKind::NumberSetExpr(set) => match set {
             NumberSet::Natural => r"\mathbb{N}",
             NumberSet::Integer => r"\mathbb{Z}",
             NumberSet::Rational => r"\mathbb{Q}",
@@ -191,29 +191,29 @@ fn to_latex_set_ops(expr: &Expression) -> String {
 }
 
 pub(super) fn to_latex_logic_sets(expr: &Expression) -> String {
-    match expr {
-        Expression::Equation { left, right } => {
+    match &expr.kind {
+        ExprKind::Equation { left, right } => {
             format!("{} = {}", left.to_latex(), right.to_latex())
         }
-        Expression::Inequality { op, left, right } => {
+        ExprKind::Inequality { op, left, right } => {
             format!("{} {} {}", left.to_latex(), op.to_latex(), right.to_latex())
         }
-        Expression::ForAll { .. } | Expression::Exists { .. } | Expression::Logical { .. } => {
+        ExprKind::ForAll { .. } | ExprKind::Exists { .. } | ExprKind::Logical { .. } => {
             to_latex_quantifiers(expr)
         }
-        Expression::SetOperation { .. }
-        | Expression::SetRelationExpr { .. }
-        | Expression::SetBuilder { .. }
-        | Expression::EmptySet
-        | Expression::PowerSet { .. }
-        | Expression::NumberSetExpr(_) => to_latex_set_ops(expr),
+        ExprKind::SetOperation { .. }
+        | ExprKind::SetRelationExpr { .. }
+        | ExprKind::SetBuilder { .. }
+        | ExprKind::EmptySet
+        | ExprKind::PowerSet { .. }
+        | ExprKind::NumberSetExpr(_) => to_latex_set_ops(expr),
         _ => unreachable!("to_latex_logic_sets called on non-logic/set expression"),
     }
 }
 
 pub(super) fn to_latex_relations(expr: &Expression) -> String {
-    match expr {
-        Expression::FunctionSignature {
+    match &expr.kind {
+        ExprKind::FunctionSignature {
             name,
             domain,
             codomain,
@@ -225,14 +225,14 @@ pub(super) fn to_latex_relations(expr: &Expression) -> String {
                 codomain.to_latex()
             )
         }
-        Expression::Composition { outer, inner } => {
+        ExprKind::Composition { outer, inner } => {
             format!("{} \\circ {}", outer.to_latex(), inner.to_latex())
         }
-        Expression::Differential { var } => format!("d{}", var),
-        Expression::WedgeProduct { left, right } => {
+        ExprKind::Differential { var } => format!("d{}", var),
+        ExprKind::WedgeProduct { left, right } => {
             format!(r"{} \wedge {}", left.to_latex(), right.to_latex())
         }
-        Expression::Relation { op, left, right } => {
+        ExprKind::Relation { op, left, right } => {
             format!("{} {} {}", left.to_latex(), op.to_latex(), right.to_latex())
         }
         _ => unreachable!("to_latex_relations called on non-relation expression"),

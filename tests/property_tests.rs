@@ -4,7 +4,7 @@
 //! This module uses proptest to generate arbitrary expressions and verify
 //! important properties hold across a wide range of inputs.
 
-use mathlex::ast::{BinaryOp, Expression, MathConstant, MathFloat, UnaryOp};
+use mathlex::ast::{BinaryOp, ExprKind, Expression, MathConstant, MathFloat, UnaryOp};
 use mathlex::parser::parse;
 use proptest::prelude::*;
 
@@ -15,18 +15,18 @@ use proptest::prelude::*;
 fn arb_expression() -> impl Strategy<Value = Expression> {
     let leaf = prop_oneof![
         // Integers in a reasonable range
-        (-1000i64..1000).prop_map(Expression::Integer),
+        (-1000i64..1000).prop_map(Expression::integer),
         // Floats in a reasonable range (avoiding NaN and infinity for now)
         (-1000.0f64..1000.0)
             .prop_filter("No NaN", |f| !f.is_nan())
-            .prop_map(|f| Expression::Float(MathFloat::from(f))),
+            .prop_map(|f| Expression::from(ExprKind::Float(MathFloat::from(f)))),
         // Single-letter variables
-        "[a-z]".prop_map(Expression::Variable),
+        "[a-z]".prop_map(Expression::variable),
         // Mathematical constants
         prop_oneof![
-            Just(Expression::Constant(MathConstant::Pi)),
-            Just(Expression::Constant(MathConstant::E)),
-            Just(Expression::Constant(MathConstant::I)),
+            Just(Expression::constant(MathConstant::Pi)),
+            Just(Expression::constant(MathConstant::E)),
+            Just(Expression::constant(MathConstant::I)),
         ],
     ];
 
@@ -38,25 +38,28 @@ fn arb_expression() -> impl Strategy<Value = Expression> {
             prop_oneof![
                 // Binary operations
                 (arb_binary_op(), inner.clone(), inner.clone()).prop_map(|(op, left, right)| {
-                    Expression::Binary {
+                    Expression::from(ExprKind::Binary {
                         op,
                         left: Box::new(left),
                         right: Box::new(right),
-                    }
+                    })
                 }),
                 // Unary operations
-                (arb_unary_op(), inner.clone()).prop_map(|(op, operand)| Expression::Unary {
-                    op,
-                    operand: Box::new(operand),
+                (arb_unary_op(), inner.clone()).prop_map(|(op, operand)| {
+                    Expression::from(ExprKind::Unary {
+                        op,
+                        operand: Box::new(operand),
+                    })
                 }),
                 // Functions with 1-2 arguments
                 (
                     arb_function_name(),
                     prop::collection::vec(inner.clone(), 1..=2)
                 )
-                    .prop_map(|(name, args)| Expression::Function { name, args }),
+                    .prop_map(|(name, args)| Expression::from(ExprKind::Function { name, args }),),
                 // Vectors with 1-3 elements
-                prop::collection::vec(inner.clone(), 1..=3).prop_map(Expression::Vector),
+                prop::collection::vec(inner.clone(), 1..=3)
+                    .prop_map(|elems| Expression::from(ExprKind::Vector(elems))),
             ]
         },
     )
@@ -227,7 +230,7 @@ proptest! {
     #[test]
     fn prop_substitute_non_matching_identity(expr in arb_expression()) {
         let non_existent_var = "nonexistent_variable_xyz";
-        let replacement = Expression::Integer(999);
+        let replacement = Expression::integer(999);
 
         let result = expr.substitute(non_existent_var, &replacement);
         prop_assert_eq!(expr, result);
@@ -238,14 +241,14 @@ proptest! {
     /// Applying negation twice should increase depth by 2.
     #[test]
     fn prop_double_negation_depth(expr in arb_expression()) {
-        let neg_once = Expression::Unary {
+        let neg_once: Expression = ExprKind::Unary {
             op: UnaryOp::Neg,
             operand: Box::new(expr.clone()),
-        };
-        let neg_twice = Expression::Unary {
+        }.into();
+        let neg_twice: Expression = ExprKind::Unary {
             op: UnaryOp::Neg,
             operand: Box::new(neg_once.clone()),
-        };
+        }.into();
 
         prop_assert_eq!(neg_once.depth(), expr.depth() + 1);
         prop_assert_eq!(neg_twice.depth(), expr.depth() + 2);
@@ -261,11 +264,11 @@ proptest! {
         right in arb_expression(),
         op in arb_binary_op()
     ) {
-        let binary = Expression::Binary {
+        let binary: Expression = ExprKind::Binary {
             op,
             left: Box::new(left.clone()),
             right: Box::new(right.clone()),
-        };
+        }.into();
 
         let expected_depth = 1 + left.depth().max(right.depth());
         prop_assert_eq!(binary.depth(), expected_depth);
@@ -281,11 +284,11 @@ proptest! {
         right in arb_expression(),
         op in arb_binary_op()
     ) {
-        let binary = Expression::Binary {
+        let binary: Expression = ExprKind::Binary {
             op,
             left: Box::new(left.clone()),
             right: Box::new(right.clone()),
-        };
+        }.into();
 
         let expected_count = 1 + left.node_count() + right.node_count();
         prop_assert_eq!(binary.node_count(), expected_count);
@@ -296,7 +299,7 @@ proptest! {
     /// A vector's depth should be 1 + maximum depth of its elements.
     #[test]
     fn prop_vector_depth(elements in prop::collection::vec(arb_expression(), 1..=5)) {
-        let vector = Expression::Vector(elements.clone());
+        let vector: Expression = ExprKind::Vector(elements.clone()).into();
 
         let max_element_depth = elements.iter().map(|e| e.depth()).max().unwrap_or(0);
         let expected_depth = if elements.is_empty() { 1 } else { 1 + max_element_depth };
@@ -309,7 +312,7 @@ proptest! {
     /// A vector's node count should be 1 + sum of all element node counts.
     #[test]
     fn prop_vector_node_count(elements in prop::collection::vec(arb_expression(), 1..=5)) {
-        let vector = Expression::Vector(elements.clone());
+        let vector: Expression = ExprKind::Vector(elements.clone()).into();
 
         let element_count_sum: usize = elements.iter().map(|e| e.node_count()).sum();
         let expected_count = 1 + element_count_sum;
@@ -425,19 +428,19 @@ proptest! {
 
 #[test]
 fn test_empty_vector_depth() {
-    let expr = Expression::Vector(vec![]);
+    let expr: Expression = ExprKind::Vector(vec![]).into();
     assert_eq!(expr.depth(), 1);
 }
 
 #[test]
 fn test_empty_vector_node_count() {
-    let expr = Expression::Vector(vec![]);
+    let expr: Expression = ExprKind::Vector(vec![]).into();
     assert_eq!(expr.node_count(), 1);
 }
 
 #[test]
 fn test_single_variable_find_variables() {
-    let expr = Expression::Variable("x".to_string());
+    let expr = Expression::variable("x".to_string());
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 1);
     assert!(vars.contains("x"));
@@ -445,19 +448,19 @@ fn test_single_variable_find_variables() {
 
 #[test]
 fn test_no_functions_in_leaf() {
-    let expr = Expression::Integer(42);
+    let expr = Expression::integer(42);
     assert_eq!(expr.find_functions().len(), 0);
 }
 
 #[test]
 fn test_no_constants_in_integer() {
-    let expr = Expression::Integer(42);
+    let expr = Expression::integer(42);
     assert_eq!(expr.find_constants().len(), 0);
 }
 
 #[test]
 fn test_pi_constant_found() {
-    let expr = Expression::Constant(MathConstant::Pi);
+    let expr = Expression::constant(MathConstant::Pi);
     let consts = expr.find_constants();
     assert_eq!(consts.len(), 1);
     assert!(consts.contains(&MathConstant::Pi));
@@ -465,19 +468,19 @@ fn test_pi_constant_found() {
 
 #[test]
 fn test_display_integer() {
-    let expr = Expression::Integer(42);
+    let expr = Expression::integer(42);
     assert_eq!(format!("{}", expr), "42");
 }
 
 #[test]
 fn test_display_variable() {
-    let expr = Expression::Variable("x".to_string());
+    let expr = Expression::variable("x".to_string());
     assert_eq!(format!("{}", expr), "x");
 }
 
 #[test]
 fn test_clone_integer() {
-    let expr = Expression::Integer(42);
+    let expr = Expression::integer(42);
     let cloned = expr.clone();
     assert_eq!(expr, cloned);
 }
@@ -487,8 +490,8 @@ fn test_hash_equal_expressions() {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
 
-    let expr1 = Expression::Integer(42);
-    let expr2 = Expression::Integer(42);
+    let expr1 = Expression::integer(42);
+    let expr2 = Expression::integer(42);
 
     let mut hasher1 = DefaultHasher::new();
     expr1.hash(&mut hasher1);

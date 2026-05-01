@@ -1,6 +1,6 @@
 //! Helpers for collecting variable names from an expression tree.
 
-use crate::ast::Expression;
+use crate::ast::{ExprKind, Expression};
 use std::collections::HashSet;
 
 use super::walker::for_each_child;
@@ -8,41 +8,41 @@ use super::walker::for_each_child;
 /// Collect all variable names (including index/bound variables) into `vars`.
 pub(super) fn cv_core(expr: &Expression, vars: &mut HashSet<String>) {
     // Extract variable names from the current node
-    match expr {
-        Expression::Variable(name) => {
+    match &expr.kind {
+        ExprKind::Variable(name) => {
             vars.insert(name.clone());
         }
-        Expression::Derivative { var, .. }
-        | Expression::PartialDerivative { var, .. }
-        | Expression::Integral { var, .. }
-        | Expression::ClosedIntegral { var, .. } => {
+        ExprKind::Derivative { var, .. }
+        | ExprKind::PartialDerivative { var, .. }
+        | ExprKind::Integral { var, .. }
+        | ExprKind::ClosedIntegral { var, .. } => {
             vars.insert(var.clone());
         }
-        Expression::MultipleIntegral { vars: ivars, .. } => {
+        ExprKind::MultipleIntegral { vars: ivars, .. } => {
             for v in ivars {
                 vars.insert(v.clone());
             }
         }
-        Expression::Limit { var, .. } => {
+        ExprKind::Limit { var, .. } => {
             vars.insert(var.clone());
         }
-        Expression::Sum { index, .. } | Expression::Product { index, .. } => {
+        ExprKind::Sum { index, .. } | ExprKind::Product { index, .. } => {
             vars.insert(index.clone());
         }
-        Expression::ForAll { variable, .. } | Expression::Exists { variable, .. } => {
+        ExprKind::ForAll { variable, .. } | ExprKind::Exists { variable, .. } => {
             vars.insert(variable.clone());
         }
-        Expression::SetBuilder { variable, .. } => {
+        ExprKind::SetBuilder { variable, .. } => {
             vars.insert(variable.clone());
         }
-        Expression::Tensor { indices, .. }
-        | Expression::KroneckerDelta { indices }
-        | Expression::LeviCivita { indices } => {
+        ExprKind::Tensor { indices, .. }
+        | ExprKind::KroneckerDelta { indices }
+        | ExprKind::LeviCivita { indices } => {
             for idx in indices {
                 vars.insert(idx.name.clone());
             }
         }
-        Expression::Differential { var } => {
+        ExprKind::Differential { var } => {
             vars.insert(var.clone());
         }
         _ => {}
@@ -54,22 +54,22 @@ pub(super) fn cv_core(expr: &Expression, vars: &mut HashSet<String>) {
 /// Check whether `expr` contains a variable with the given `name`.
 pub(super) fn cv_contains(expr: &Expression, name: &str) -> bool {
     // Check the current node for a matching variable name
-    let found = match expr {
-        Expression::Variable(n) => n == name,
-        Expression::Derivative { var, .. }
-        | Expression::PartialDerivative { var, .. }
-        | Expression::Integral { var, .. }
-        | Expression::ClosedIntegral { var, .. }
-        | Expression::Limit { var, .. } => var == name,
-        Expression::MultipleIntegral { vars, .. } => vars.iter().any(|v| v == name),
-        Expression::Sum { index, .. } | Expression::Product { index, .. } => index == name,
-        Expression::ForAll { variable, .. }
-        | Expression::Exists { variable, .. }
-        | Expression::SetBuilder { variable, .. } => variable == name,
-        Expression::Tensor { indices, .. }
-        | Expression::KroneckerDelta { indices }
-        | Expression::LeviCivita { indices } => indices.iter().any(|idx| idx.name == name),
-        Expression::Differential { var } => var == name,
+    let found = match &expr.kind {
+        ExprKind::Variable(n) => n == name,
+        ExprKind::Derivative { var, .. }
+        | ExprKind::PartialDerivative { var, .. }
+        | ExprKind::Integral { var, .. }
+        | ExprKind::ClosedIntegral { var, .. }
+        | ExprKind::Limit { var, .. } => var == name,
+        ExprKind::MultipleIntegral { vars, .. } => vars.iter().any(|v| v == name),
+        ExprKind::Sum { index, .. } | ExprKind::Product { index, .. } => index == name,
+        ExprKind::ForAll { variable, .. }
+        | ExprKind::Exists { variable, .. }
+        | ExprKind::SetBuilder { variable, .. } => variable == name,
+        ExprKind::Tensor { indices, .. }
+        | ExprKind::KroneckerDelta { indices }
+        | ExprKind::LeviCivita { indices } => indices.iter().any(|idx| idx.name == name),
+        ExprKind::Differential { var } => var == name,
         _ => false,
     };
     if found {

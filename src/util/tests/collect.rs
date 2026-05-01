@@ -1,19 +1,21 @@
-use crate::ast::{BinaryOp, Direction, Expression, IntegralBounds, MathConstant, UnaryOp};
+use crate::ast::{
+    BinaryOp, Direction, ExprKind, Expression, IntegralBounds, MathConstant, UnaryOp,
+};
 
 // Tests for find_variables
 
 #[test]
 fn test_find_variables_leaf_nodes() {
-    let expr = Expression::Integer(42);
+    let expr = Expression::integer(42);
     assert_eq!(expr.find_variables().len(), 0);
 
-    let expr = Expression::Float(crate::ast::MathFloat::from(3.14));
+    let expr = Expression::float(crate::ast::MathFloat::from(3.14));
     assert_eq!(expr.find_variables().len(), 0);
 
-    let expr = Expression::Constant(MathConstant::Pi);
+    let expr = Expression::constant(MathConstant::Pi);
     assert_eq!(expr.find_variables().len(), 0);
 
-    let expr = Expression::Variable("x".to_string());
+    let expr = Expression::variable("x".to_string());
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 1);
     assert!(vars.contains("x"));
@@ -21,11 +23,12 @@ fn test_find_variables_leaf_nodes() {
 
 #[test]
 fn test_find_variables_binary() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Variable("y".to_string())),
-    };
+        left: Box::new(Expression::variable("x".to_string())),
+        right: Box::new(Expression::variable("y".to_string())),
+    }
+    .into();
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 2);
     assert!(vars.contains("x"));
@@ -34,11 +37,12 @@ fn test_find_variables_binary() {
 
 #[test]
 fn test_find_variables_duplicate() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Variable("x".to_string())),
-    };
+        left: Box::new(Expression::variable("x".to_string())),
+        right: Box::new(Expression::variable("x".to_string())),
+    }
+    .into();
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 1);
     assert!(vars.contains("x"));
@@ -46,10 +50,11 @@ fn test_find_variables_duplicate() {
 
 #[test]
 fn test_find_variables_rational() {
-    let expr = Expression::Rational {
-        numerator: Box::new(Expression::Variable("x".to_string())),
-        denominator: Box::new(Expression::Variable("y".to_string())),
-    };
+    let expr: Expression = ExprKind::Rational {
+        numerator: Box::new(Expression::variable("x".to_string())),
+        denominator: Box::new(Expression::variable("y".to_string())),
+    }
+    .into();
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 2);
     assert!(vars.contains("x"));
@@ -58,10 +63,11 @@ fn test_find_variables_rational() {
 
 #[test]
 fn test_find_variables_complex() {
-    let expr = Expression::Complex {
-        real: Box::new(Expression::Variable("a".to_string())),
-        imaginary: Box::new(Expression::Variable("b".to_string())),
-    };
+    let expr: Expression = ExprKind::Complex {
+        real: Box::new(Expression::variable("a".to_string())),
+        imaginary: Box::new(Expression::variable("b".to_string())),
+    }
+    .into();
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 2);
     assert!(vars.contains("a"));
@@ -70,10 +76,11 @@ fn test_find_variables_complex() {
 
 #[test]
 fn test_find_variables_unary() {
-    let expr = Expression::Unary {
+    let expr: Expression = ExprKind::Unary {
         op: UnaryOp::Neg,
-        operand: Box::new(Expression::Variable("x".to_string())),
-    };
+        operand: Box::new(Expression::variable("x".to_string())),
+    }
+    .into();
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 1);
     assert!(vars.contains("x"));
@@ -81,13 +88,14 @@ fn test_find_variables_unary() {
 
 #[test]
 fn test_find_variables_function() {
-    let expr = Expression::Function {
+    let expr: Expression = ExprKind::Function {
         name: "sin".to_string(),
         args: vec![
-            Expression::Variable("x".to_string()),
-            Expression::Variable("y".to_string()),
+            Expression::variable("x".to_string()),
+            Expression::variable("y".to_string()),
         ],
-    };
+    }
+    .into();
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 2);
     assert!(vars.contains("x"));
@@ -96,11 +104,12 @@ fn test_find_variables_function() {
 
 #[test]
 fn test_find_variables_derivative() {
-    let expr = Expression::Derivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr: Expression = ExprKind::Derivative {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
         order: 1,
-    };
+    }
+    .into();
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 2);
     assert!(vars.contains("f"));
@@ -109,14 +118,15 @@ fn test_find_variables_derivative() {
 
 #[test]
 fn test_find_variables_integral() {
-    let expr = Expression::Integral {
-        integrand: Box::new(Expression::Variable("x".to_string())),
+    let expr: Expression = ExprKind::Integral {
+        integrand: Box::new(Expression::variable("x".to_string())),
         var: "x".to_string(),
         bounds: Some(IntegralBounds {
-            lower: Box::new(Expression::Integer(0)),
-            upper: Box::new(Expression::Integer(1)),
+            lower: Box::new(Expression::integer(0)),
+            upper: Box::new(Expression::integer(1)),
         }),
-    };
+    }
+    .into();
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 1);
     assert!(vars.contains("x"));
@@ -124,14 +134,15 @@ fn test_find_variables_integral() {
 
 #[test]
 fn test_find_variables_integral_with_variable_bounds() {
-    let expr = Expression::Integral {
-        integrand: Box::new(Expression::Variable("x".to_string())),
+    let expr: Expression = ExprKind::Integral {
+        integrand: Box::new(Expression::variable("x".to_string())),
         var: "x".to_string(),
         bounds: Some(IntegralBounds {
-            lower: Box::new(Expression::Variable("a".to_string())),
-            upper: Box::new(Expression::Variable("b".to_string())),
+            lower: Box::new(Expression::variable("a".to_string())),
+            upper: Box::new(Expression::variable("b".to_string())),
         }),
-    };
+    }
+    .into();
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 3);
     assert!(vars.contains("x"));
@@ -141,12 +152,13 @@ fn test_find_variables_integral_with_variable_bounds() {
 
 #[test]
 fn test_find_variables_limit() {
-    let expr = Expression::Limit {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr: Expression = ExprKind::Limit {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
-        to: Box::new(Expression::Integer(0)),
+        to: Box::new(Expression::integer(0)),
         direction: Direction::Both,
-    };
+    }
+    .into();
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 2);
     assert!(vars.contains("f"));
@@ -155,12 +167,13 @@ fn test_find_variables_limit() {
 
 #[test]
 fn test_find_variables_sum() {
-    let expr = Expression::Sum {
+    let expr: Expression = ExprKind::Sum {
         index: "i".to_string(),
-        lower: Box::new(Expression::Integer(1)),
-        upper: Box::new(Expression::Variable("n".to_string())),
-        body: Box::new(Expression::Variable("i".to_string())),
-    };
+        lower: Box::new(Expression::integer(1)),
+        upper: Box::new(Expression::variable("n".to_string())),
+        body: Box::new(Expression::variable("i".to_string())),
+    }
+    .into();
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 2);
     assert!(vars.contains("i"));
@@ -169,11 +182,12 @@ fn test_find_variables_sum() {
 
 #[test]
 fn test_find_variables_vector() {
-    let expr = Expression::Vector(vec![
-        Expression::Variable("x".to_string()),
-        Expression::Variable("y".to_string()),
-        Expression::Variable("z".to_string()),
-    ]);
+    let expr: Expression = ExprKind::Vector(vec![
+        Expression::variable("x".to_string()),
+        Expression::variable("y".to_string()),
+        Expression::variable("z".to_string()),
+    ])
+    .into();
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 3);
     assert!(vars.contains("x"));
@@ -183,16 +197,17 @@ fn test_find_variables_vector() {
 
 #[test]
 fn test_find_variables_matrix() {
-    let expr = Expression::Matrix(vec![
+    let expr: Expression = ExprKind::Matrix(vec![
         vec![
-            Expression::Variable("a".to_string()),
-            Expression::Variable("b".to_string()),
+            Expression::variable("a".to_string()),
+            Expression::variable("b".to_string()),
         ],
         vec![
-            Expression::Variable("c".to_string()),
-            Expression::Variable("d".to_string()),
+            Expression::variable("c".to_string()),
+            Expression::variable("d".to_string()),
         ],
-    ]);
+    ])
+    .into();
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 4);
     assert!(vars.contains("a"));
@@ -203,10 +218,11 @@ fn test_find_variables_matrix() {
 
 #[test]
 fn test_find_variables_equation() {
-    let expr = Expression::Equation {
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Variable("y".to_string())),
-    };
+    let expr: Expression = ExprKind::Equation {
+        left: Box::new(Expression::variable("x".to_string())),
+        right: Box::new(Expression::variable("y".to_string())),
+    }
+    .into();
     let vars = expr.find_variables();
     assert_eq!(vars.len(), 2);
     assert!(vars.contains("x"));
@@ -217,16 +233,17 @@ fn test_find_variables_equation() {
 
 #[test]
 fn test_find_functions_leaf_nodes() {
-    let expr = Expression::Variable("x".to_string());
+    let expr = Expression::variable("x".to_string());
     assert_eq!(expr.find_functions().len(), 0);
 }
 
 #[test]
 fn test_find_functions_simple() {
-    let expr = Expression::Function {
+    let expr: Expression = ExprKind::Function {
         name: "sin".to_string(),
-        args: vec![Expression::Variable("x".to_string())],
-    };
+        args: vec![Expression::variable("x".to_string())],
+    }
+    .into();
     let funcs = expr.find_functions();
     assert_eq!(funcs.len(), 1);
     assert!(funcs.contains("sin"));
@@ -234,17 +251,24 @@ fn test_find_functions_simple() {
 
 #[test]
 fn test_find_functions_multiple() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Function {
-            name: "sin".to_string(),
-            args: vec![Expression::Variable("x".to_string())],
-        }),
-        right: Box::new(Expression::Function {
-            name: "cos".to_string(),
-            args: vec![Expression::Variable("y".to_string())],
-        }),
-    };
+        left: Box::new(
+            ExprKind::Function {
+                name: "sin".to_string(),
+                args: vec![Expression::variable("x".to_string())],
+            }
+            .into(),
+        ),
+        right: Box::new(
+            ExprKind::Function {
+                name: "cos".to_string(),
+                args: vec![Expression::variable("y".to_string())],
+            }
+            .into(),
+        ),
+    }
+    .into();
     let funcs = expr.find_functions();
     assert_eq!(funcs.len(), 2);
     assert!(funcs.contains("sin"));
@@ -253,13 +277,15 @@ fn test_find_functions_multiple() {
 
 #[test]
 fn test_find_functions_nested() {
-    let expr = Expression::Function {
+    let expr: Expression = ExprKind::Function {
         name: "sin".to_string(),
-        args: vec![Expression::Function {
+        args: vec![ExprKind::Function {
             name: "cos".to_string(),
-            args: vec![Expression::Variable("x".to_string())],
-        }],
-    };
+            args: vec![Expression::variable("x".to_string())],
+        }
+        .into()],
+    }
+    .into();
     let funcs = expr.find_functions();
     assert_eq!(funcs.len(), 2);
     assert!(funcs.contains("sin"));
@@ -268,17 +294,24 @@ fn test_find_functions_nested() {
 
 #[test]
 fn test_find_functions_duplicate() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Function {
-            name: "sin".to_string(),
-            args: vec![Expression::Variable("x".to_string())],
-        }),
-        right: Box::new(Expression::Function {
-            name: "sin".to_string(),
-            args: vec![Expression::Variable("y".to_string())],
-        }),
-    };
+        left: Box::new(
+            ExprKind::Function {
+                name: "sin".to_string(),
+                args: vec![Expression::variable("x".to_string())],
+            }
+            .into(),
+        ),
+        right: Box::new(
+            ExprKind::Function {
+                name: "sin".to_string(),
+                args: vec![Expression::variable("y".to_string())],
+            }
+            .into(),
+        ),
+    }
+    .into();
     let funcs = expr.find_functions();
     assert_eq!(funcs.len(), 1);
     assert!(funcs.contains("sin"));
@@ -286,14 +319,18 @@ fn test_find_functions_duplicate() {
 
 #[test]
 fn test_find_functions_in_integral() {
-    let expr = Expression::Integral {
-        integrand: Box::new(Expression::Function {
-            name: "sin".to_string(),
-            args: vec![Expression::Variable("x".to_string())],
-        }),
+    let expr: Expression = ExprKind::Integral {
+        integrand: Box::new(
+            ExprKind::Function {
+                name: "sin".to_string(),
+                args: vec![Expression::variable("x".to_string())],
+            }
+            .into(),
+        ),
         var: "x".to_string(),
         bounds: None,
-    };
+    }
+    .into();
     let funcs = expr.find_functions();
     assert_eq!(funcs.len(), 1);
     assert!(funcs.contains("sin"));
@@ -303,17 +340,18 @@ fn test_find_functions_in_integral() {
 
 #[test]
 fn test_find_constants_none() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Integer(1)),
-    };
+        left: Box::new(Expression::variable("x".to_string())),
+        right: Box::new(Expression::integer(1)),
+    }
+    .into();
     assert_eq!(expr.find_constants().len(), 0);
 }
 
 #[test]
 fn test_find_constants_single() {
-    let expr = Expression::Constant(MathConstant::Pi);
+    let expr = Expression::constant(MathConstant::Pi);
     let consts = expr.find_constants();
     assert_eq!(consts.len(), 1);
     assert!(consts.contains(&MathConstant::Pi));
@@ -321,11 +359,12 @@ fn test_find_constants_single() {
 
 #[test]
 fn test_find_constants_multiple() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Constant(MathConstant::Pi)),
-        right: Box::new(Expression::Constant(MathConstant::E)),
-    };
+        left: Box::new(Expression::constant(MathConstant::Pi)),
+        right: Box::new(Expression::constant(MathConstant::E)),
+    }
+    .into();
     let consts = expr.find_constants();
     assert_eq!(consts.len(), 2);
     assert!(consts.contains(&MathConstant::Pi));
@@ -334,11 +373,12 @@ fn test_find_constants_multiple() {
 
 #[test]
 fn test_find_constants_duplicate() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Constant(MathConstant::Pi)),
-        right: Box::new(Expression::Constant(MathConstant::Pi)),
-    };
+        left: Box::new(Expression::constant(MathConstant::Pi)),
+        right: Box::new(Expression::constant(MathConstant::Pi)),
+    }
+    .into();
     let consts = expr.find_constants();
     assert_eq!(consts.len(), 1);
     assert!(consts.contains(&MathConstant::Pi));
@@ -346,13 +386,14 @@ fn test_find_constants_duplicate() {
 
 #[test]
 fn test_find_constants_all_types() {
-    let expr = Expression::Vector(vec![
-        Expression::Constant(MathConstant::Pi),
-        Expression::Constant(MathConstant::E),
-        Expression::Constant(MathConstant::I),
-        Expression::Constant(MathConstant::Infinity),
-        Expression::Constant(MathConstant::NegInfinity),
-    ]);
+    let expr: Expression = ExprKind::Vector(vec![
+        Expression::constant(MathConstant::Pi),
+        Expression::constant(MathConstant::E),
+        Expression::constant(MathConstant::I),
+        Expression::constant(MathConstant::Infinity),
+        Expression::constant(MathConstant::NegInfinity),
+    ])
+    .into();
     let consts = expr.find_constants();
     assert_eq!(consts.len(), 5);
     assert!(consts.contains(&MathConstant::Pi));
@@ -364,12 +405,13 @@ fn test_find_constants_all_types() {
 
 #[test]
 fn test_find_constants_in_limit() {
-    let expr = Expression::Limit {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr: Expression = ExprKind::Limit {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
-        to: Box::new(Expression::Constant(MathConstant::Infinity)),
+        to: Box::new(Expression::constant(MathConstant::Infinity)),
         direction: Direction::Both,
-    };
+    }
+    .into();
     let consts = expr.find_constants();
     assert_eq!(consts.len(), 1);
     assert!(consts.contains(&MathConstant::Infinity));
@@ -379,52 +421,61 @@ fn test_find_constants_in_limit() {
 
 #[test]
 fn test_contains_variable_present() {
-    let expr = Expression::Variable("x".to_string());
+    let expr = Expression::variable("x".to_string());
     assert!(expr.contains_variable("x"));
 }
 
 #[test]
 fn test_contains_variable_absent() {
-    let expr = Expression::Variable("x".to_string());
+    let expr = Expression::variable("x".to_string());
     assert!(!expr.contains_variable("y"));
 }
 
 #[test]
 fn test_contains_variable_in_binary() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Integer(1)),
-    };
+        left: Box::new(Expression::variable("x".to_string())),
+        right: Box::new(Expression::integer(1)),
+    }
+    .into();
     assert!(expr.contains_variable("x"));
     assert!(!expr.contains_variable("y"));
 }
 
 #[test]
 fn test_contains_variable_deeply_nested() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Mul,
-        left: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Integer(1)),
-            right: Box::new(Expression::Integer(2)),
-        }),
-        right: Box::new(Expression::Function {
-            name: "sin".to_string(),
-            args: vec![Expression::Variable("x".to_string())],
-        }),
-    };
+        left: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::integer(1)),
+                right: Box::new(Expression::integer(2)),
+            }
+            .into(),
+        ),
+        right: Box::new(
+            ExprKind::Function {
+                name: "sin".to_string(),
+                args: vec![Expression::variable("x".to_string())],
+            }
+            .into(),
+        ),
+    }
+    .into();
     assert!(expr.contains_variable("x"));
     assert!(!expr.contains_variable("y"));
 }
 
 #[test]
 fn test_contains_variable_in_derivative() {
-    let expr = Expression::Derivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr: Expression = ExprKind::Derivative {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
         order: 1,
-    };
+    }
+    .into();
     assert!(expr.contains_variable("x"));
     assert!(expr.contains_variable("f"));
     assert!(!expr.contains_variable("y"));
@@ -432,8 +483,8 @@ fn test_contains_variable_in_derivative() {
 
 #[test]
 fn test_contains_variable_leaf_types() {
-    assert!(!Expression::Integer(42).contains_variable("x"));
-    assert!(!Expression::Constant(MathConstant::Pi).contains_variable("x"));
-    assert!(!Expression::EmptySet.contains_variable("x"));
-    assert!(!Expression::Nabla.contains_variable("x"));
+    assert!(!Expression::integer(42).contains_variable("x"));
+    assert!(!Expression::constant(MathConstant::Pi).contains_variable("x"));
+    assert!(!Expression::empty_set().contains_variable("x"));
+    assert!(!Expression::nabla().contains_variable("x"));
 }

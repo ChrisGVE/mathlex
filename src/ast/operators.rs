@@ -22,25 +22,26 @@
 /// ## Examples
 ///
 /// ```
-/// use mathlex::ast::{BinaryOp, Expression};
+/// use mathlex::ast::{BinaryOp, ExprKind, Expression};
 ///
 /// let add = BinaryOp::Add;  // +
 /// let pow = BinaryOp::Pow;  // ^
 /// assert_ne!(add, pow);
 ///
 /// // Right-associative power: 2^3^4 is 2^(3^4)
-/// let expr = Expression::Binary {
+/// let expr: Expression = ExprKind::Binary {
 ///     op: BinaryOp::Pow,
-///     left: Box::new(Expression::Integer(2)),
-///     right: Box::new(Expression::Binary {
+///     left: Box::new(Expression::integer(2)),
+///     right: Box::new(ExprKind::Binary {
 ///         op: BinaryOp::Pow,
-///         left: Box::new(Expression::Integer(3)),
-///         right: Box::new(Expression::Integer(4)),
-///     }),
-/// };
+///         left: Box::new(Expression::integer(3)),
+///         right: Box::new(Expression::integer(4)),
+///     }.into()),
+/// }.into();
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "kind", content = "value"))]
 pub enum BinaryOp {
     /// Addition operator (+)
     Add,
@@ -89,28 +90,29 @@ pub enum BinaryOp {
 /// ## Examples
 ///
 /// ```
-/// use mathlex::ast::{UnaryOp, Expression};
+/// use mathlex::ast::{UnaryOp, ExprKind, Expression};
 ///
 /// // Negation: -5
-/// let neg_expr = Expression::Unary {
+/// let neg_expr = ExprKind::Unary {
 ///     op: UnaryOp::Neg,
-///     operand: Box::new(Expression::Integer(5)),
+///     operand: Box::new(Expression::integer(5)),
 /// };
 ///
 /// // Factorial: n!
-/// let fact_expr = Expression::Unary {
+/// let fact_expr = ExprKind::Unary {
 ///     op: UnaryOp::Factorial,
-///     operand: Box::new(Expression::Variable("n".to_string())),
+///     operand: Box::new(Expression::variable("n".to_string())),
 /// };
 ///
 /// // Transpose: A'
-/// let transpose_expr = Expression::Unary {
+/// let transpose_expr = ExprKind::Unary {
 ///     op: UnaryOp::Transpose,
-///     operand: Box::new(Expression::Variable("A".to_string())),
+///     operand: Box::new(Expression::variable("A".to_string())),
 /// };
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "kind", content = "value"))]
 pub enum UnaryOp {
     /// Negation operator (-)
     Neg,
@@ -141,6 +143,7 @@ pub enum UnaryOp {
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "kind", content = "value"))]
 pub enum Direction {
     /// Approach from the left (values less than the limit point)
     Left,
@@ -168,6 +171,7 @@ pub enum Direction {
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "kind", content = "value"))]
 pub enum InequalityOp {
     /// Less than (<)
     Lt,
@@ -188,6 +192,7 @@ pub enum InequalityOp {
 /// Logical operators for propositional logic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "kind", content = "value"))]
 pub enum LogicalOp {
     /// Logical conjunction (∧)
     And,
@@ -218,6 +223,7 @@ pub enum LogicalOp {
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "kind", content = "value"))]
 pub enum RelationOp {
     /// Similarity relation (~)
     Similar,

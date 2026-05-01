@@ -16,18 +16,18 @@
 //! ## Examples
 //!
 //! ```
-//! use mathlex::ast::{Expression, BinaryOp, MathConstant};
+//! use mathlex::ast::{Expression, ExprKind, BinaryOp, MathConstant};
 //!
 //! // Create expression: 2 * π * x
-//! let expr = Expression::Binary {
+//! let expr: Expression = ExprKind::Binary {
 //!     op: BinaryOp::Mul,
-//!     left: Box::new(Expression::Binary {
+//!     left: Box::new(ExprKind::Binary {
 //!         op: BinaryOp::Mul,
-//!         left: Box::new(Expression::Integer(2)),
-//!         right: Box::new(Expression::Constant(MathConstant::Pi)),
-//!     }),
-//!     right: Box::new(Expression::Variable("x".to_string())),
-//! };
+//!         left: Box::new(Expression::integer(2)),
+//!         right: Box::new(Expression::constant(MathConstant::Pi)),
+//!     }.into()),
+//!     right: Box::new(Expression::variable("x".to_string())),
+//! }.into();
 //!
 //! // Query the expression
 //! assert_eq!(expr.find_variables().len(), 1); // {x}

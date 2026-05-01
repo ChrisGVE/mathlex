@@ -16,7 +16,7 @@ use super::types::{ParseError, ParseResult};
 ///
 /// // Successful parse with no errors
 /// let output = ParseOutput {
-///     expression: Some(Expression::Integer(42)),
+///     expression: Some(Expression::integer(42)),
 ///     errors: vec![],
 /// };
 /// assert!(output.is_ok());

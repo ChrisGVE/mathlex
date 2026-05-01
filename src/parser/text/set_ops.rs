@@ -10,38 +10,42 @@ impl TextParser {
                 Token::Union => {
                     self.next();
                     let right = self.parse_relation()?;
-                    left = Expression::SetOperation {
+                    left = ExprKind::SetOperation {
                         op: SetOp::Union,
                         left: Box::new(left),
                         right: Box::new(right),
-                    };
+                    }
+                    .into();
                 }
                 Token::Intersect => {
                     self.next();
                     let right = self.parse_relation()?;
-                    left = Expression::SetOperation {
+                    left = ExprKind::SetOperation {
                         op: SetOp::Intersection,
                         left: Box::new(left),
                         right: Box::new(right),
-                    };
+                    }
+                    .into();
                 }
                 Token::In => {
                     self.next();
                     let right = self.parse_relation()?;
-                    left = Expression::SetRelationExpr {
+                    left = ExprKind::SetRelationExpr {
                         relation: SetRelation::In,
                         element: Box::new(left),
                         set: Box::new(right),
-                    };
+                    }
+                    .into();
                 }
                 Token::NotIn => {
                     self.next();
                     let right = self.parse_relation()?;
-                    left = Expression::SetRelationExpr {
+                    left = ExprKind::SetRelationExpr {
                         relation: SetRelation::NotIn,
                         element: Box::new(left),
                         set: Box::new(right),
-                    };
+                    }
+                    .into();
                 }
                 _ => break,
             }
@@ -83,15 +87,17 @@ impl TextParser {
                     }
                 }
                 return Ok(match rel_op {
-                    None => Expression::Equation {
+                    None => ExprKind::Equation {
                         left: Box::new(left),
                         right: Box::new(right),
-                    },
-                    Some(op) => Expression::Inequality {
+                    }
+                    .into(),
+                    Some(op) => ExprKind::Inequality {
                         op,
                         left: Box::new(left),
                         right: Box::new(right),
-                    },
+                    }
+                    .into(),
                 });
             }
         }

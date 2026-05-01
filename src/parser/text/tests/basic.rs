@@ -5,15 +5,15 @@ use super::*;
 #[test]
 fn test_parse_integer() {
     let expr = parse("42").unwrap();
-    assert_eq!(expr, Expression::Integer(42));
+    assert_eq!(expr, Expression::integer(42));
 }
 
 #[test]
 fn test_parse_negative_integer() {
     let expr = parse("-17").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Unary {
+        expr.kind,
+        ExprKind::Unary {
             op: UnaryOp::Neg,
             ..
         }
@@ -23,57 +23,57 @@ fn test_parse_negative_integer() {
 #[test]
 fn test_parse_float() {
     let expr = parse("3.14").unwrap();
-    assert!(matches!(expr, Expression::Float(_)));
+    assert!(matches!(expr.kind, ExprKind::Float(_)));
 }
 
 #[test]
 fn test_parse_variable() {
     let expr = parse("x").unwrap();
-    assert_eq!(expr, Expression::Variable("x".to_string()));
+    assert_eq!(expr, Expression::variable("x".to_string()));
 }
 
 #[test]
 fn test_parse_constant_pi() {
     let expr = parse("pi").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::Pi));
+    assert_eq!(expr, Expression::constant(MathConstant::Pi));
 }
 
 #[test]
 fn test_parse_constant_e() {
     let expr = parse("e").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::E));
+    assert_eq!(expr, Expression::constant(MathConstant::E));
 }
 
 #[test]
 fn test_parse_constant_i() {
     let expr = parse("i").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::I));
+    assert_eq!(expr, Expression::constant(MathConstant::I));
 }
 
 #[test]
 fn test_parse_constant_inf() {
     let expr = parse("inf").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::Infinity));
+    assert_eq!(expr, Expression::constant(MathConstant::Infinity));
 }
 
 #[test]
 fn test_parse_constant_neg_inf() {
     let expr = parse("-inf").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::NegInfinity));
+    assert_eq!(expr, Expression::constant(MathConstant::NegInfinity));
 }
 
 #[test]
 fn test_parse_neg_unicode_infinity() {
     let expr = parse("-\u{221E}").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::NegInfinity));
+    assert_eq!(expr, Expression::constant(MathConstant::NegInfinity));
 }
 
 #[test]
 fn test_parse_simple_addition() {
     let expr = parse("2 + 3").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Binary {
+        expr.kind,
+        ExprKind::Binary {
             op: BinaryOp::Add,
             ..
         }
@@ -84,8 +84,8 @@ fn test_parse_simple_addition() {
 fn test_parse_simple_subtraction() {
     let expr = parse("5 - 3").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Binary {
+        expr.kind,
+        ExprKind::Binary {
             op: BinaryOp::Sub,
             ..
         }
@@ -96,8 +96,8 @@ fn test_parse_simple_subtraction() {
 fn test_parse_simple_multiplication() {
     let expr = parse("2 * 3").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Binary {
+        expr.kind,
+        ExprKind::Binary {
             op: BinaryOp::Mul,
             ..
         }
@@ -108,8 +108,8 @@ fn test_parse_simple_multiplication() {
 fn test_parse_simple_division() {
     let expr = parse("6 / 2").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Binary {
+        expr.kind,
+        ExprKind::Binary {
             op: BinaryOp::Div,
             ..
         }
@@ -120,8 +120,8 @@ fn test_parse_simple_division() {
 fn test_parse_modulo() {
     let expr = parse("7 % 3").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Binary {
+        expr.kind,
+        ExprKind::Binary {
             op: BinaryOp::Mod,
             ..
         }
@@ -132,8 +132,8 @@ fn test_parse_modulo() {
 fn test_parse_power() {
     let expr = parse("2 ^ 3").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Binary {
+        expr.kind,
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             ..
         }
@@ -143,16 +143,16 @@ fn test_parse_power() {
 #[test]
 fn test_operator_precedence_mul_over_add() {
     let expr = parse("2 + 3 * 4").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Add,
             left,
             right,
         } => {
-            assert!(matches!(*left, Expression::Integer(2)));
+            assert!(matches!(left.kind, ExprKind::Integer(2)));
             assert!(matches!(
-                *right,
-                Expression::Binary {
+                right.kind,
+                ExprKind::Binary {
                     op: BinaryOp::Mul,
                     ..
                 }
@@ -165,16 +165,16 @@ fn test_operator_precedence_mul_over_add() {
 #[test]
 fn test_operator_precedence_power_over_mul() {
     let expr = parse("2 * 3 ^ 4").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Mul,
             left,
             right,
         } => {
-            assert!(matches!(*left, Expression::Integer(2)));
+            assert!(matches!(left.kind, ExprKind::Integer(2)));
             assert!(matches!(
-                *right,
-                Expression::Binary {
+                right.kind,
+                ExprKind::Binary {
                     op: BinaryOp::Pow,
                     ..
                 }
@@ -187,16 +187,16 @@ fn test_operator_precedence_power_over_mul() {
 #[test]
 fn test_power_right_associative() {
     let expr = parse("2 ^ 3 ^ 4").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             left,
             right,
         } => {
-            assert!(matches!(*left, Expression::Integer(2)));
+            assert!(matches!(left.kind, ExprKind::Integer(2)));
             assert!(matches!(
-                *right,
-                Expression::Binary {
+                right.kind,
+                ExprKind::Binary {
                     op: BinaryOp::Pow,
                     ..
                 }
@@ -210,8 +210,8 @@ fn test_power_right_associative() {
 fn test_parse_double_star_power() {
     let expr = parse("2**3").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Binary {
+        expr.kind,
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             ..
         }
@@ -221,14 +221,14 @@ fn test_parse_double_star_power() {
 #[test]
 fn test_double_star_with_variable() {
     let expr = parse("x**2").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Variable("x".to_string()));
-            assert_eq!(*right, Expression::Integer(2));
+            assert_eq!(**left, Expression::variable("x".to_string()));
+            assert_eq!(**right, Expression::integer(2));
         }
         _ => panic!("Expected power"),
     }
@@ -237,16 +237,16 @@ fn test_double_star_with_variable() {
 #[test]
 fn test_double_star_right_associative() {
     let expr = parse("2**3**4").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             left,
             right,
         } => {
-            assert!(matches!(*left, Expression::Integer(2)));
+            assert!(matches!(left.kind, ExprKind::Integer(2)));
             assert!(matches!(
-                *right,
-                Expression::Binary {
+                right.kind,
+                ExprKind::Binary {
                     op: BinaryOp::Pow,
                     ..
                 }
@@ -259,16 +259,16 @@ fn test_double_star_right_associative() {
 #[test]
 fn test_star_vs_double_star_in_expression() {
     let expr = parse("2*3**4").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Mul,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Integer(2));
+            assert_eq!(**left, Expression::integer(2));
             assert!(matches!(
-                *right,
-                Expression::Binary {
+                right.kind,
+                ExprKind::Binary {
                     op: BinaryOp::Pow,
                     ..
                 }
@@ -281,16 +281,16 @@ fn test_star_vs_double_star_in_expression() {
 #[test]
 fn test_mixed_caret_and_double_star() {
     let expr = parse("2^3**4").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             left,
             right,
         } => {
-            assert!(matches!(*left, Expression::Integer(2)));
+            assert!(matches!(left.kind, ExprKind::Integer(2)));
             assert!(matches!(
-                *right,
-                Expression::Binary {
+                right.kind,
+                ExprKind::Binary {
                     op: BinaryOp::Pow,
                     ..
                 }
@@ -303,20 +303,20 @@ fn test_mixed_caret_and_double_star() {
 #[test]
 fn test_parentheses_override_precedence() {
     let expr = parse("(2 + 3) * 4").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Mul,
             left,
             right,
         } => {
             assert!(matches!(
-                *left,
-                Expression::Binary {
+                left.kind,
+                ExprKind::Binary {
                     op: BinaryOp::Add,
                     ..
                 }
             ));
-            assert!(matches!(*right, Expression::Integer(4)));
+            assert!(matches!(right.kind, ExprKind::Integer(4)));
         }
         _ => panic!("Expected multiplication at top level"),
     }
@@ -326,8 +326,8 @@ fn test_parentheses_override_precedence() {
 fn test_unary_negation() {
     let expr = parse("-5").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Unary {
+        expr.kind,
+        ExprKind::Unary {
             op: UnaryOp::Neg,
             ..
         }
@@ -338,8 +338,8 @@ fn test_unary_negation() {
 fn test_unary_positive() {
     let expr = parse("+5").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Unary {
+        expr.kind,
+        ExprKind::Unary {
             op: UnaryOp::Pos,
             ..
         }
@@ -350,8 +350,8 @@ fn test_unary_positive() {
 fn test_factorial() {
     let expr = parse("5!").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Unary {
+        expr.kind,
+        ExprKind::Unary {
             op: UnaryOp::Factorial,
             ..
         }
@@ -361,14 +361,14 @@ fn test_factorial() {
 #[test]
 fn test_double_factorial() {
     let expr = parse("5!!").unwrap();
-    match expr {
-        Expression::Unary {
+    match &expr.kind {
+        ExprKind::Unary {
             op: UnaryOp::Factorial,
             operand,
         } => {
             assert!(matches!(
-                *operand,
-                Expression::Unary {
+                operand.kind,
+                ExprKind::Unary {
                     op: UnaryOp::Factorial,
                     ..
                 }
@@ -387,8 +387,8 @@ fn test_function_call_no_args_errors() {
 #[test]
 fn test_function_call_one_arg() {
     let expr = parse("sin(x)").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sin");
             assert_eq!(args.len(), 1);
         }
@@ -399,8 +399,8 @@ fn test_function_call_one_arg() {
 #[test]
 fn test_function_call_multiple_args() {
     let expr = parse("max(1, 2, 3)").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "max");
             assert_eq!(args.len(), 3);
         }
@@ -411,10 +411,10 @@ fn test_function_call_multiple_args() {
 #[test]
 fn test_nested_function_calls() {
     let expr = parse("sin(cos(x))").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sin");
-            assert!(matches!(args[0], Expression::Function { .. }));
+            assert!(matches!(args[0].kind, ExprKind::Function { .. }));
         }
         _ => panic!("Expected function call"),
     }
@@ -423,26 +423,26 @@ fn test_nested_function_calls() {
 #[test]
 fn test_complex_expression() {
     let expr = parse("(2 + 3) * sin(x) - 4^2").unwrap();
-    assert!(matches!(expr, Expression::Binary { .. }));
+    assert!(matches!(expr.kind, ExprKind::Binary { .. }));
 }
 
 #[test]
 fn test_nested_parentheses() {
     let expr = parse("((2 + 3) * (4 + 5))").unwrap();
-    assert!(matches!(expr, Expression::Binary { .. }));
+    assert!(matches!(expr.kind, ExprKind::Binary { .. }));
 }
 
 #[test]
 fn test_multiple_unary_operators() {
     let expr = parse("--5").unwrap();
-    match expr {
-        Expression::Unary {
+    match &expr.kind {
+        ExprKind::Unary {
             op: UnaryOp::Neg,
             operand,
         } => {
             assert!(matches!(
-                *operand,
-                Expression::Unary {
+                operand.kind,
+                ExprKind::Unary {
                     op: UnaryOp::Neg,
                     ..
                 }
@@ -494,32 +494,32 @@ fn test_extra_closing_parenthesis() {
 fn test_parse_nan_lowercase() {
     // "nan" should parse as Constant(NaN)
     let expr = parse("nan").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::NaN));
+    assert_eq!(expr, Expression::constant(MathConstant::NaN));
 }
 
 #[test]
 fn test_parse_nan_mixed_case() {
     // "NaN" should parse as Constant(NaN)
     let expr = parse("NaN").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::NaN));
+    assert_eq!(expr, Expression::constant(MathConstant::NaN));
 }
 
 #[test]
 fn test_nan_not_a_variable() {
     // "nan" must be a constant, not a Variable node
     let expr = parse("nan").unwrap();
-    assert!(!matches!(expr, Expression::Variable(_)));
+    assert!(!matches!(expr.kind, ExprKind::Variable(_)));
 }
 
 #[test]
 fn test_nan_in_expression() {
     // x + nan should produce Binary with NaN on right
     let expr = parse("x + nan").unwrap();
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Add);
-            assert_eq!(*left, Expression::Variable("x".to_string()));
-            assert_eq!(*right, Expression::Constant(MathConstant::NaN));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(*op, BinaryOp::Add);
+            assert_eq!(**left, Expression::variable("x".to_string()));
+            assert_eq!(**right, Expression::constant(MathConstant::NaN));
         }
         _ => panic!("Expected binary expression"),
     }
@@ -527,6 +527,6 @@ fn test_nan_in_expression() {
 
 #[test]
 fn test_nan_display() {
-    let expr = Expression::Constant(MathConstant::NaN);
+    let expr = Expression::constant(MathConstant::NaN);
     assert_eq!(format!("{}", expr), "NaN");
 }

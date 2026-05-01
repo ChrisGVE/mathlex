@@ -143,6 +143,7 @@ impl fmt::Display for MathFloat {
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "kind", content = "value"))]
 pub enum MathConstant {
     /// The mathematical constant π (pi), approximately 3.14159...
     Pi,

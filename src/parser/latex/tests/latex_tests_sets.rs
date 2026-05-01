@@ -1,6 +1,6 @@
 //! Tests for set theory parsing in LaTeX.
 
-use crate::ast::{Expression, SetOp, SetRelation};
+use crate::ast::{ExprKind, Expression, SetOp, SetRelation};
 use crate::parser::parse_latex;
 
 // ============================================================
@@ -10,11 +10,11 @@ use crate::parser::parse_latex;
 #[test]
 fn test_set_union() {
     let expr = parse_latex(r"A \cup B").unwrap();
-    match expr {
-        Expression::SetOperation { op, left, right } => {
-            assert_eq!(op, SetOp::Union);
-            assert_eq!(*left, Expression::Variable("A".to_string()));
-            assert_eq!(*right, Expression::Variable("B".to_string()));
+    match &expr.kind {
+        ExprKind::SetOperation { op, left, right } => {
+            assert_eq!(*op, SetOp::Union);
+            assert_eq!(**left, Expression::variable("A".to_string()));
+            assert_eq!(**right, Expression::variable("B".to_string()));
         }
         _ => panic!("Expected SetOperation Union, got {:?}", expr),
     }
@@ -23,11 +23,11 @@ fn test_set_union() {
 #[test]
 fn test_set_intersection() {
     let expr = parse_latex(r"A \cap B").unwrap();
-    match expr {
-        Expression::SetOperation { op, left, right } => {
-            assert_eq!(op, SetOp::Intersection);
-            assert_eq!(*left, Expression::Variable("A".to_string()));
-            assert_eq!(*right, Expression::Variable("B".to_string()));
+    match &expr.kind {
+        ExprKind::SetOperation { op, left, right } => {
+            assert_eq!(*op, SetOp::Intersection);
+            assert_eq!(**left, Expression::variable("A".to_string()));
+            assert_eq!(**right, Expression::variable("B".to_string()));
         }
         _ => panic!("Expected SetOperation Intersection, got {:?}", expr),
     }
@@ -36,11 +36,11 @@ fn test_set_intersection() {
 #[test]
 fn test_set_difference() {
     let expr = parse_latex(r"A \setminus B").unwrap();
-    match expr {
-        Expression::SetOperation { op, left, right } => {
-            assert_eq!(op, SetOp::Difference);
-            assert_eq!(*left, Expression::Variable("A".to_string()));
-            assert_eq!(*right, Expression::Variable("B".to_string()));
+    match &expr.kind {
+        ExprKind::SetOperation { op, left, right } => {
+            assert_eq!(*op, SetOp::Difference);
+            assert_eq!(**left, Expression::variable("A".to_string()));
+            assert_eq!(**right, Expression::variable("B".to_string()));
         }
         _ => panic!("Expected SetOperation Difference, got {:?}", expr),
     }
@@ -53,15 +53,15 @@ fn test_set_difference() {
 #[test]
 fn test_subset() {
     let expr = parse_latex(r"A \subset B").unwrap();
-    match expr {
-        Expression::SetRelationExpr {
+    match &expr.kind {
+        ExprKind::SetRelationExpr {
             relation,
             element,
             set,
         } => {
-            assert_eq!(relation, SetRelation::Subset);
-            assert_eq!(*element, Expression::Variable("A".to_string()));
-            assert_eq!(*set, Expression::Variable("B".to_string()));
+            assert_eq!(*relation, SetRelation::Subset);
+            assert_eq!(**element, Expression::variable("A".to_string()));
+            assert_eq!(**set, Expression::variable("B".to_string()));
         }
         _ => panic!("Expected SetRelationExpr Subset, got {:?}", expr),
     }
@@ -70,15 +70,15 @@ fn test_subset() {
 #[test]
 fn test_subseteq() {
     let expr = parse_latex(r"A \subseteq B").unwrap();
-    match expr {
-        Expression::SetRelationExpr {
+    match &expr.kind {
+        ExprKind::SetRelationExpr {
             relation,
             element,
             set,
         } => {
-            assert_eq!(relation, SetRelation::SubsetEq);
-            assert_eq!(*element, Expression::Variable("A".to_string()));
-            assert_eq!(*set, Expression::Variable("B".to_string()));
+            assert_eq!(*relation, SetRelation::SubsetEq);
+            assert_eq!(**element, Expression::variable("A".to_string()));
+            assert_eq!(**set, Expression::variable("B".to_string()));
         }
         _ => panic!("Expected SetRelationExpr SubsetEq, got {:?}", expr),
     }
@@ -87,15 +87,15 @@ fn test_subseteq() {
 #[test]
 fn test_superset() {
     let expr = parse_latex(r"A \supset B").unwrap();
-    match expr {
-        Expression::SetRelationExpr {
+    match &expr.kind {
+        ExprKind::SetRelationExpr {
             relation,
             element,
             set,
         } => {
-            assert_eq!(relation, SetRelation::Superset);
-            assert_eq!(*element, Expression::Variable("A".to_string()));
-            assert_eq!(*set, Expression::Variable("B".to_string()));
+            assert_eq!(*relation, SetRelation::Superset);
+            assert_eq!(**element, Expression::variable("A".to_string()));
+            assert_eq!(**set, Expression::variable("B".to_string()));
         }
         _ => panic!("Expected SetRelationExpr Superset, got {:?}", expr),
     }
@@ -104,15 +104,15 @@ fn test_superset() {
 #[test]
 fn test_supseteq() {
     let expr = parse_latex(r"A \supseteq B").unwrap();
-    match expr {
-        Expression::SetRelationExpr {
+    match &expr.kind {
+        ExprKind::SetRelationExpr {
             relation,
             element,
             set,
         } => {
-            assert_eq!(relation, SetRelation::SupersetEq);
-            assert_eq!(*element, Expression::Variable("A".to_string()));
-            assert_eq!(*set, Expression::Variable("B".to_string()));
+            assert_eq!(*relation, SetRelation::SupersetEq);
+            assert_eq!(**element, Expression::variable("A".to_string()));
+            assert_eq!(**set, Expression::variable("B".to_string()));
         }
         _ => panic!("Expected SetRelationExpr SupersetEq, got {:?}", expr),
     }
@@ -125,13 +125,13 @@ fn test_supseteq() {
 #[test]
 fn test_emptyset() {
     let expr = parse_latex(r"\emptyset").unwrap();
-    assert_eq!(expr, Expression::EmptySet);
+    assert_eq!(expr, Expression::empty_set());
 }
 
 #[test]
 fn test_varnothing() {
     let expr = parse_latex(r"\varnothing").unwrap();
-    assert_eq!(expr, Expression::EmptySet);
+    assert_eq!(expr, Expression::empty_set());
 }
 
 // ============================================================
@@ -141,9 +141,9 @@ fn test_varnothing() {
 #[test]
 fn test_powerset_parens() {
     let expr = parse_latex(r"\mathcal{P}(A)").unwrap();
-    match expr {
-        Expression::PowerSet { set } => {
-            assert_eq!(*set, Expression::Variable("A".to_string()));
+    match &expr.kind {
+        ExprKind::PowerSet { set } => {
+            assert_eq!(**set, Expression::variable("A".to_string()));
         }
         _ => panic!("Expected PowerSet, got {:?}", expr),
     }
@@ -152,9 +152,9 @@ fn test_powerset_parens() {
 #[test]
 fn test_powerset_braces() {
     let expr = parse_latex(r"\mathcal{P}{A}").unwrap();
-    match expr {
-        Expression::PowerSet { set } => {
-            assert_eq!(*set, Expression::Variable("A".to_string()));
+    match &expr.kind {
+        ExprKind::PowerSet { set } => {
+            assert_eq!(**set, Expression::variable("A".to_string()));
         }
         _ => panic!("Expected PowerSet, got {:?}", expr),
     }
@@ -168,16 +168,16 @@ fn test_powerset_braces() {
 fn test_intersection_higher_than_union() {
     // Intersection binds tighter: A \cup B \cap C = A \cup (B \cap C)
     let expr = parse_latex(r"A \cup B \cap C").unwrap();
-    match expr {
-        Expression::SetOperation {
+    match &expr.kind {
+        ExprKind::SetOperation {
             op: SetOp::Union,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Variable("A".to_string()));
+            assert_eq!(**left, Expression::variable("A".to_string()));
             // Right should be B \cap C
-            match *right {
-                Expression::SetOperation {
+            match &right.kind {
+                ExprKind::SetOperation {
                     op: SetOp::Intersection,
                     ..
                 } => {}
@@ -192,16 +192,16 @@ fn test_intersection_higher_than_union() {
 fn test_union_left_associative() {
     // A \cup B \cup C = (A \cup B) \cup C
     let expr = parse_latex(r"A \cup B \cup C").unwrap();
-    match expr {
-        Expression::SetOperation {
+    match &expr.kind {
+        ExprKind::SetOperation {
             op: SetOp::Union,
             left,
             right,
         } => {
-            assert_eq!(*right, Expression::Variable("C".to_string()));
+            assert_eq!(**right, Expression::variable("C".to_string()));
             // Left should be A \cup B
-            match *left {
-                Expression::SetOperation {
+            match &left.kind {
+                ExprKind::SetOperation {
                     op: SetOp::Union, ..
                 } => {}
                 _ => panic!("Expected Union as left operand"),
@@ -219,16 +219,16 @@ fn test_union_left_associative() {
 fn test_set_operations_with_membership() {
     // x \in A \cup B
     let expr = parse_latex(r"x \in A \cup B").unwrap();
-    match expr {
-        Expression::SetRelationExpr {
+    match &expr.kind {
+        ExprKind::SetRelationExpr {
             relation: SetRelation::In,
             element,
             set,
         } => {
-            assert_eq!(*element, Expression::Variable("x".to_string()));
+            assert_eq!(**element, Expression::variable("x".to_string()));
             // Set should be A \cup B
-            match *set {
-                Expression::SetOperation {
+            match &set.kind {
+                ExprKind::SetOperation {
                     op: SetOp::Union, ..
                 } => {}
                 _ => panic!("Expected Union as set operand"),
@@ -242,15 +242,15 @@ fn test_set_operations_with_membership() {
 fn test_subset_of_union() {
     // A \subset B \cup C
     let expr = parse_latex(r"A \subset B \cup C").unwrap();
-    match expr {
-        Expression::SetRelationExpr {
+    match &expr.kind {
+        ExprKind::SetRelationExpr {
             relation: SetRelation::Subset,
             element,
             set,
         } => {
-            assert_eq!(*element, Expression::Variable("A".to_string()));
-            match *set {
-                Expression::SetOperation {
+            assert_eq!(**element, Expression::variable("A".to_string()));
+            match &set.kind {
+                ExprKind::SetOperation {
                     op: SetOp::Union, ..
                 } => {}
                 _ => panic!("Expected Union as set operand"),
@@ -264,16 +264,16 @@ fn test_subset_of_union() {
 fn test_difference_with_intersection() {
     // A \setminus B \cap C = A \setminus (B \cap C)
     let expr = parse_latex(r"A \setminus B \cap C").unwrap();
-    match expr {
-        Expression::SetOperation {
+    match &expr.kind {
+        ExprKind::SetOperation {
             op: SetOp::Difference,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Variable("A".to_string()));
+            assert_eq!(**left, Expression::variable("A".to_string()));
             // Right should be B \cap C
-            match *right {
-                Expression::SetOperation {
+            match &right.kind {
+                ExprKind::SetOperation {
                     op: SetOp::Intersection,
                     ..
                 } => {}
@@ -288,14 +288,14 @@ fn test_difference_with_intersection() {
 fn test_emptyset_in_union() {
     // \emptyset \cup A
     let expr = parse_latex(r"\emptyset \cup A").unwrap();
-    match expr {
-        Expression::SetOperation {
+    match &expr.kind {
+        ExprKind::SetOperation {
             op: SetOp::Union,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::EmptySet);
-            assert_eq!(*right, Expression::Variable("A".to_string()));
+            assert_eq!(**left, Expression::empty_set());
+            assert_eq!(**right, Expression::variable("A".to_string()));
         }
         _ => panic!("Expected Union with EmptySet, got {:?}", expr),
     }

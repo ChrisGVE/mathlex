@@ -1,7 +1,7 @@
 use mathlex::{
-    parse, parse_latex, parse_with_config, BinaryOp, ContextSource, Direction, Expression,
-    ExpressionMetadata, InequalityOp, IntegralBounds, MathConstant, MathType, ParseError,
-    ParserConfig, Position, Span, UnaryOp,
+    parse, parse_latex, parse_with_config, BinaryOp, ContextSource, Direction, ExprKind,
+    Expression, ExpressionMetadata, InequalityOp, IntegralBounds, MathConstant, MathType,
+    ParseError, ParserConfig, Position, Span, UnaryOp,
 };
 
 #[test]
@@ -51,8 +51,8 @@ fn test_parser_config_clone() {
 fn test_parse_simple() {
     let expr = parse("2 + 3").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Binary {
+        expr.kind,
+        ExprKind::Binary {
             op: BinaryOp::Add,
             ..
         }
@@ -63,8 +63,8 @@ fn test_parse_simple() {
 fn test_parse_latex_simple() {
     let expr = parse_latex(r"\frac{1}{2}").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Binary {
+        expr.kind,
+        ExprKind::Binary {
             op: BinaryOp::Div,
             ..
         }
@@ -76,8 +76,8 @@ fn test_parse_with_config_default() {
     let config = ParserConfig::default();
     let expr = parse_with_config("sin(x) + 2", &config).unwrap();
     assert!(matches!(
-        expr,
-        Expression::Binary {
+        expr.kind,
+        ExprKind::Binary {
             op: BinaryOp::Add,
             ..
         }
@@ -92,8 +92,8 @@ fn test_parse_with_config_custom() {
     };
     let expr = parse_with_config("2 + 3", &config).unwrap();
     assert!(matches!(
-        expr,
-        Expression::Binary {
+        expr.kind,
+        ExprKind::Binary {
             op: BinaryOp::Add,
             ..
         }
@@ -103,15 +103,15 @@ fn test_parse_with_config_custom() {
 #[test]
 fn test_all_type_exports() {
     // Ensure all required types are exported
-    let _expr: Expression = Expression::Integer(42);
+    let _expr: Expression = Expression::integer(42);
     let _op: BinaryOp = BinaryOp::Add;
     let _unary: UnaryOp = UnaryOp::Neg;
     let _const: MathConstant = MathConstant::Pi;
     let _dir: Direction = Direction::Both;
     let _ineq: InequalityOp = InequalityOp::Lt;
     let _bounds: IntegralBounds = IntegralBounds {
-        lower: Box::new(Expression::Integer(0)),
-        upper: Box::new(Expression::Integer(1)),
+        lower: Box::new(Expression::integer(0)),
+        upper: Box::new(Expression::integer(1)),
     };
     let _pos: Position = Position::start();
     let _span: Span = Span::start();

@@ -13,11 +13,12 @@ impl TextParser {
             };
             self.next();
             let right = self.parse_multiplicative()?;
-            left = Expression::Binary {
+            left = ExprKind::Binary {
                 op,
                 left: Box::new(left),
                 right: Box::new(right),
-            };
+            }
+            .into();
         }
         Ok(left)
     }
@@ -38,18 +39,20 @@ impl TextParser {
             if let Some(op) = op {
                 self.next();
                 let right = self.parse_unary()?;
-                left = Expression::Binary {
+                left = ExprKind::Binary {
                     op,
                     left: Box::new(left),
                     right: Box::new(right),
-                };
+                }
+                .into();
             } else if self.should_insert_implicit_mult(&left) {
                 let right = self.parse_unary()?;
-                left = Expression::Binary {
+                left = ExprKind::Binary {
                     op: BinaryOp::Mul,
                     left: Box::new(left),
                     right: Box::new(right),
-                };
+                }
+                .into();
             } else {
                 break;
             }
@@ -68,14 +71,15 @@ impl TextParser {
                 self.next();
                 let operand = self.parse_unary()?;
                 if matches!(op, UnaryOp::Neg)
-                    && matches!(operand, Expression::Constant(MathConstant::Infinity))
+                    && matches!(operand.kind, ExprKind::Constant(MathConstant::Infinity))
                 {
-                    return Ok(Expression::Constant(MathConstant::NegInfinity));
+                    return Ok(Expression::constant(MathConstant::NegInfinity).into());
                 }
-                return Ok(Expression::Unary {
+                return Ok(ExprKind::Unary {
                     op,
                     operand: Box::new(operand),
-                });
+                }
+                .into());
             }
         }
         self.parse_power()
@@ -86,11 +90,12 @@ impl TextParser {
         if self.check(&Token::Caret) || self.check(&Token::DoubleStar) {
             self.next();
             let right = self.parse_power()?;
-            Ok(Expression::Binary {
+            Ok(ExprKind::Binary {
                 op: BinaryOp::Pow,
                 left: Box::new(left),
                 right: Box::new(right),
-            })
+            }
+            .into())
         } else {
             Ok(left)
         }
@@ -100,10 +105,11 @@ impl TextParser {
         let mut expr = self.parse_primary()?;
         while self.check(&Token::Bang) {
             self.next();
-            expr = Expression::Unary {
+            expr = ExprKind::Unary {
                 op: UnaryOp::Factorial,
                 operand: Box::new(expr),
-            };
+            }
+            .into();
         }
         Ok(expr)
     }

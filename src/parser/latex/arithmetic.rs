@@ -14,21 +14,23 @@ impl LatexParser {
                 LatexToken::Cup => {
                     self.next(); // consume \cup
                     let right = self.parse_multiplicative()?;
-                    left = Expression::SetOperation {
+                    left = ExprKind::SetOperation {
                         op: SetOp::Union,
                         left: Box::new(left),
                         right: Box::new(right),
-                    };
+                    }
+                    .into();
                     continue;
                 }
                 LatexToken::Setminus => {
                     self.next(); // consume \setminus
                     let right = self.parse_multiplicative()?;
-                    left = Expression::SetOperation {
+                    left = ExprKind::SetOperation {
                         op: SetOp::Difference,
                         left: Box::new(left),
                         right: Box::new(right),
-                    };
+                    }
+                    .into();
                     continue;
                 }
                 _ => {}
@@ -45,11 +47,12 @@ impl LatexParser {
 
             self.next(); // consume operator
             let right = self.parse_multiplicative()?;
-            left = Expression::Binary {
+            left = ExprKind::Binary {
                 op,
                 left: Box::new(left),
                 right: Box::new(right),
-            };
+            }
+            .into();
         }
 
         Ok(left)
@@ -66,42 +69,47 @@ impl LatexParser {
             LatexToken::Circ => {
                 self.next();
                 let right = self.parse_power()?;
-                Ok(Ok(Expression::Composition {
+                Ok(Ok(ExprKind::Composition {
                     outer: Box::new(left),
                     inner: Box::new(right),
-                }))
+                }
+                .into()))
             }
             LatexToken::Bullet => {
                 self.next();
                 let right = self.parse_power()?;
-                Ok(Ok(Expression::DotProduct {
+                Ok(Ok(ExprKind::DotProduct {
                     left: Box::new(left),
                     right: Box::new(right),
-                }))
+                }
+                .into()))
             }
             LatexToken::Otimes => {
                 self.next();
                 let right = self.parse_power()?;
-                Ok(Ok(Expression::OuterProduct {
+                Ok(Ok(ExprKind::OuterProduct {
                     left: Box::new(left),
                     right: Box::new(right),
-                }))
+                }
+                .into()))
             }
             LatexToken::Wedge => {
                 self.next();
                 let right = self.parse_power()?;
-                Ok(Ok(Expression::WedgeProduct {
+                Ok(Ok(ExprKind::WedgeProduct {
                     left: Box::new(left),
                     right: Box::new(right),
-                }))
+                }
+                .into()))
             }
             LatexToken::Cross => {
                 self.next();
                 let right = self.parse_power()?;
-                Ok(Ok(Expression::CrossProduct {
+                Ok(Ok(ExprKind::CrossProduct {
                     left: Box::new(left),
                     right: Box::new(right),
-                }))
+                }
+                .into()))
             }
             _ => Ok(Err(left)),
         }
@@ -119,11 +127,12 @@ impl LatexParser {
             if matches!(token, LatexToken::Cap) {
                 self.next();
                 let right = self.parse_power()?;
-                left = Expression::SetOperation {
+                left = ExprKind::SetOperation {
                     op: SetOp::Intersection,
                     left: Box::new(left),
                     right: Box::new(right),
-                };
+                }
+                .into();
                 continue;
             }
 
@@ -160,11 +169,12 @@ impl LatexParser {
             }
 
             let right = self.parse_power()?;
-            left = Expression::Binary {
+            left = ExprKind::Binary {
                 op,
                 left: Box::new(left),
                 right: Box::new(right),
-            };
+            }
+            .into();
         }
 
         Ok(left)
@@ -175,12 +185,12 @@ impl LatexParser {
     pub(super) fn should_insert_implicit_mult(&self, left: &Expression) -> bool {
         // Only insert implicit mult when left is a simple variable, number, constant, or differential
         let is_valid_left = matches!(
-            left,
-            Expression::Variable(_)
-                | Expression::Integer(_)
-                | Expression::Float(_)
-                | Expression::Constant(_)
-                | Expression::Differential { .. }
+            left.kind,
+            ExprKind::Variable(_)
+                | ExprKind::Integer(_)
+                | ExprKind::Float(_)
+                | ExprKind::Constant(_)
+                | ExprKind::Differential { .. }
         );
         if !is_valid_left {
             return false;
@@ -271,27 +281,30 @@ impl LatexParser {
             // Check for transpose before consuming the exponent
             if self.is_transpose_exponent() {
                 self.consume_transpose_exponent();
-                return Ok(Expression::Unary {
+                return Ok(ExprKind::Unary {
                     op: crate::ast::UnaryOp::Transpose,
                     operand: Box::new(base),
-                });
+                }
+                .into());
             }
 
             let exponent = self.parse_braced_or_atom()?;
 
             // Normalize e^{...} to exp(...)
-            if matches!(base, Expression::Constant(MathConstant::E)) {
-                return Ok(Expression::Function {
+            if matches!(base.kind, ExprKind::Constant(MathConstant::E)) {
+                return Ok(ExprKind::Function {
                     name: "exp".to_string(),
                     args: vec![exponent],
-                });
+                }
+                .into());
             }
 
-            base = Expression::Binary {
+            base = ExprKind::Binary {
                 op: BinaryOp::Pow,
                 left: Box::new(base),
                 right: Box::new(exponent),
-            };
+            }
+            .into();
         }
 
         // Handle subscript (append to variable name if base is a variable)
@@ -300,11 +313,11 @@ impl LatexParser {
             let subscript = self.parse_braced_or_atom()?;
 
             // Convert base to variable with subscript
-            base = match base {
-                Expression::Variable(name) => {
+            base = match &base.kind {
+                ExprKind::Variable(name) => {
                     // Format: var_subscript
                     let subscript_str = self.expression_to_subscript_string(&subscript)?;
-                    Expression::Variable(format!("{}_{}", name, subscript_str))
+                    ExprKind::Variable(format!("{}_{}", name, subscript_str)).into()
                 }
                 _ => {
                     return Err(ParseError::invalid_subscript(

@@ -12,16 +12,17 @@ impl LatexParser {
                 let var_ch = *var_ch;
                 self.next(); // consume 'd'
                 self.next(); // consume variable letter
-                return Ok(Expression::Differential {
+                return Ok(ExprKind::Differential {
                     var: var_ch.to_string(),
-                });
+                }
+                .into());
             }
         }
         self.next();
         if ch == 'e' || ch == 'i' {
             Ok(self.resolve_letter(ch, false))
         } else {
-            Ok(Expression::Variable(ch.to_string()))
+            Ok(Expression::variable(ch.to_string()).into())
         }
     }
 
@@ -37,7 +38,7 @@ impl LatexParser {
             _ => return None,
         };
         self.next();
-        Some(Expression::NumberSetExpr(set))
+        Some(Expression::number_set(set).into())
     }
 
     /// Parses vector notation, nabla, multiple/closed integrals, and matrix environments.
@@ -129,19 +130,20 @@ impl LatexParser {
                 } else {
                     self.parse_power()?
                 };
-                Ok(Expression::PowerSet { set: Box::new(set) })
+                Ok(ExprKind::PowerSet { set: Box::new(set) }.into())
             }
             LatexToken::EmptySet => {
                 self.next();
-                Ok(Expression::EmptySet)
+                Ok(ExprKind::EmptySet.into())
             }
             LatexToken::Lnot => {
                 self.next();
                 let operand = self.parse_power()?;
-                Ok(Expression::Logical {
+                Ok(ExprKind::Logical {
                     op: crate::ast::LogicalOp::Not,
                     operands: vec![operand],
-                })
+                }
+                .into())
             }
             LatexToken::ForAll => {
                 self.next();
@@ -200,38 +202,41 @@ impl LatexParser {
                 self.next();
                 let expr = self.parse_expression()?;
                 self.consume(LatexToken::Pipe)?;
-                Ok(Expression::Function {
+                Ok(ExprKind::Function {
                     name: "abs".to_string(),
                     args: vec![expr],
-                })
+                }
+                .into())
             }
             LatexToken::Minus => {
                 self.next();
                 let operand = self.parse_power()?;
-                if matches!(operand, Expression::Constant(MathConstant::Infinity)) {
-                    Ok(Expression::Constant(MathConstant::NegInfinity))
+                if matches!(operand.kind, ExprKind::Constant(MathConstant::Infinity)) {
+                    Ok(Expression::constant(MathConstant::NegInfinity).into())
                 } else {
-                    Ok(Expression::Unary {
+                    Ok(ExprKind::Unary {
                         op: crate::ast::UnaryOp::Neg,
                         operand: Box::new(operand),
-                    })
+                    }
+                    .into())
                 }
             }
             LatexToken::Plus => {
                 self.next();
                 let operand = self.parse_power()?;
-                Ok(Expression::Unary {
+                Ok(ExprKind::Unary {
                     op: crate::ast::UnaryOp::Pos,
                     operand: Box::new(operand),
-                })
+                }
+                .into())
             }
             LatexToken::Infty => {
                 self.next();
-                Ok(Expression::Constant(MathConstant::Infinity))
+                Ok(Expression::constant(MathConstant::Infinity).into())
             }
             LatexToken::NaNConstant => {
                 self.next();
-                Ok(Expression::Constant(MathConstant::NaN))
+                Ok(Expression::constant(MathConstant::NaN).into())
             }
             // All remaining tokens are handled by the extended helper.
             // Pass the already-cloned token to avoid re-borrowing self.

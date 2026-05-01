@@ -1,7 +1,8 @@
 //! Advanced formatting helpers: calculus, linear algebra, logic/sets, relations.
 
 use crate::ast::{
-    Direction, Expression, LogicalOp, NumberSet, SetOp, SetRelation, TensorIndex, VectorNotation,
+    Direction, ExprKind, Expression, LogicalOp, NumberSet, SetOp, SetRelation, TensorIndex,
+    VectorNotation,
 };
 use std::fmt;
 
@@ -60,22 +61,22 @@ fn fmt_closed_integral(
 /// Format calculus expressions: Derivative, PartialDerivative, Integral,
 /// MultipleIntegral, ClosedIntegral, Limit, Sum, Product.
 pub(crate) fn fmt_calculus(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match expr {
-        Expression::Derivative { expr, var, order } => {
+    match &expr.kind {
+        ExprKind::Derivative { expr, var, order } => {
             if *order == 1 {
                 write!(f, "d/d{}({})", var, expr)
             } else {
                 write!(f, "d^{}/d{}^{}({})", order, var, order, expr)
             }
         }
-        Expression::PartialDerivative { expr, var, order } => {
+        ExprKind::PartialDerivative { expr, var, order } => {
             if *order == 1 {
                 write!(f, "∂/∂{}({})", var, expr)
             } else {
                 write!(f, "∂^{}/∂{}^{}({})", order, var, order, expr)
             }
         }
-        Expression::Integral {
+        ExprKind::Integral {
             integrand,
             var,
             bounds,
@@ -86,19 +87,19 @@ pub(crate) fn fmt_calculus(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt
                 write!(f, "int({}, d{})", integrand, var)
             }
         }
-        Expression::MultipleIntegral {
+        ExprKind::MultipleIntegral {
             dimension,
             integrand,
             bounds,
             vars,
         } => fmt_multiple_integral(dimension, integrand, bounds, vars, f),
-        Expression::ClosedIntegral {
+        ExprKind::ClosedIntegral {
             dimension,
             integrand,
             surface,
             var,
         } => fmt_closed_integral(dimension, integrand, surface, var, f),
-        Expression::Limit {
+        ExprKind::Limit {
             expr,
             var,
             to,
@@ -111,13 +112,13 @@ pub(crate) fn fmt_calculus(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt
             };
             write!(f, "lim({}->{}{})({})", var, to, dir_str, expr)
         }
-        Expression::Sum {
+        ExprKind::Sum {
             index,
             lower,
             upper,
             body,
         } => write!(f, "sum({}={}, {}, {})", index, lower, upper, body),
-        Expression::Product {
+        ExprKind::Product {
             index,
             lower,
             upper,
@@ -138,8 +139,8 @@ fn fmt_tensor_indices(indices: &[TensorIndex], f: &mut fmt::Formatter<'_>) -> fm
 /// Determinant, Trace, Rank, ConjugateTranspose, MatrixInverse,
 /// Tensor, KroneckerDelta, LeviCivita.
 pub(crate) fn fmt_linear_algebra(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match expr {
-        Expression::Vector(elements) => {
+    match &expr.kind {
+        ExprKind::Vector(elements) => {
             write!(f, "[")?;
             for (i, elem) in elements.iter().enumerate() {
                 if i > 0 {
@@ -149,7 +150,7 @@ pub(crate) fn fmt_linear_algebra(expr: &Expression, f: &mut fmt::Formatter<'_>) 
             }
             write!(f, "]")
         }
-        Expression::Matrix(rows) => {
+        ExprKind::Matrix(rows) => {
             write!(f, "[")?;
             for (i, row) in rows.iter().enumerate() {
                 if i > 0 {
@@ -166,7 +167,7 @@ pub(crate) fn fmt_linear_algebra(expr: &Expression, f: &mut fmt::Formatter<'_>) 
             }
             write!(f, "]")
         }
-        Expression::MarkedVector { name, notation } => {
+        ExprKind::MarkedVector { name, notation } => {
             let prefix = match notation {
                 VectorNotation::Bold => "[bold]",
                 VectorNotation::Arrow | VectorNotation::Hat | VectorNotation::Plain => "",
@@ -179,28 +180,28 @@ pub(crate) fn fmt_linear_algebra(expr: &Expression, f: &mut fmt::Formatter<'_>) 
             };
             write!(f, "{}{}{}", prefix, name, suffix)
         }
-        Expression::DotProduct { left, right } => write!(f, "{} · {}", left, right),
-        Expression::CrossProduct { left, right } => write!(f, "{} × {}", left, right),
-        Expression::OuterProduct { left, right } => write!(f, "{} ⊗ {}", left, right),
-        Expression::Gradient { expr } => write!(f, "∇{}", expr),
-        Expression::Divergence { field } => write!(f, "∇·{}", field),
-        Expression::Curl { field } => write!(f, "∇×{}", field),
-        Expression::Laplacian { expr } => write!(f, "∇²{}", expr),
-        Expression::Nabla => write!(f, "∇"),
-        Expression::Determinant { matrix } => write!(f, "det({})", matrix),
-        Expression::Trace { matrix } => write!(f, "tr({})", matrix),
-        Expression::Rank { matrix } => write!(f, "rank({})", matrix),
-        Expression::ConjugateTranspose { matrix } => write!(f, "{}†", matrix),
-        Expression::MatrixInverse { matrix } => write!(f, "{}⁻¹", matrix),
-        Expression::Tensor { name, indices } => {
+        ExprKind::DotProduct { left, right } => write!(f, "{} · {}", left, right),
+        ExprKind::CrossProduct { left, right } => write!(f, "{} × {}", left, right),
+        ExprKind::OuterProduct { left, right } => write!(f, "{} ⊗ {}", left, right),
+        ExprKind::Gradient { expr } => write!(f, "∇{}", expr),
+        ExprKind::Divergence { field } => write!(f, "∇·{}", field),
+        ExprKind::Curl { field } => write!(f, "∇×{}", field),
+        ExprKind::Laplacian { expr } => write!(f, "∇²{}", expr),
+        ExprKind::Nabla => write!(f, "∇"),
+        ExprKind::Determinant { matrix } => write!(f, "det({})", matrix),
+        ExprKind::Trace { matrix } => write!(f, "tr({})", matrix),
+        ExprKind::Rank { matrix } => write!(f, "rank({})", matrix),
+        ExprKind::ConjugateTranspose { matrix } => write!(f, "{}†", matrix),
+        ExprKind::MatrixInverse { matrix } => write!(f, "{}⁻¹", matrix),
+        ExprKind::Tensor { name, indices } => {
             write!(f, "{}", name)?;
             fmt_tensor_indices(indices, f)
         }
-        Expression::KroneckerDelta { indices } => {
+        ExprKind::KroneckerDelta { indices } => {
             write!(f, "δ")?;
             fmt_tensor_indices(indices, f)
         }
-        Expression::LeviCivita { indices } => {
+        ExprKind::LeviCivita { indices } => {
             write!(f, "ε")?;
             fmt_tensor_indices(indices, f)
         }
@@ -210,8 +211,8 @@ pub(crate) fn fmt_linear_algebra(expr: &Expression, f: &mut fmt::Formatter<'_>) 
 
 /// Format quantifier expressions (ForAll, Exists).  Used only by `fmt_logic_sets`.
 fn fmt_quantifiers(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match expr {
-        Expression::ForAll {
+    match &expr.kind {
+        ExprKind::ForAll {
             variable,
             domain,
             body,
@@ -222,7 +223,7 @@ fn fmt_quantifiers(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt::Result
                 write!(f, "∀{}: {}", variable, body)
             }
         }
-        Expression::Exists {
+        ExprKind::Exists {
             variable,
             domain,
             body,
@@ -242,8 +243,8 @@ fn fmt_quantifiers(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt::Result
 /// Format set-membership and set-operation expressions.  Used only by
 /// `fmt_logic_sets`.
 fn fmt_set_ops(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match expr {
-        Expression::NumberSetExpr(set) => {
+    match &expr.kind {
+        ExprKind::NumberSetExpr(set) => {
             let symbol = match set {
                 NumberSet::Natural => "ℕ",
                 NumberSet::Integer => "ℤ",
@@ -254,7 +255,7 @@ fn fmt_set_ops(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             };
             write!(f, "{}", symbol)
         }
-        Expression::SetOperation { op, left, right } => {
+        ExprKind::SetOperation { op, left, right } => {
             let symbol = match op {
                 SetOp::Union => "∪",
                 SetOp::Intersection => "∩",
@@ -264,7 +265,7 @@ fn fmt_set_ops(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             };
             write!(f, "{} {} {}", left, symbol, right)
         }
-        Expression::SetRelationExpr {
+        ExprKind::SetRelationExpr {
             relation,
             element,
             set,
@@ -279,7 +280,7 @@ fn fmt_set_ops(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             };
             write!(f, "{} {} {}", element, symbol, set)
         }
-        Expression::SetBuilder {
+        ExprKind::SetBuilder {
             variable,
             domain,
             predicate,
@@ -290,8 +291,8 @@ fn fmt_set_ops(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(f, "{{{} | {}}}", variable, predicate)
             }
         }
-        Expression::EmptySet => write!(f, "∅"),
-        Expression::PowerSet { set } => write!(f, "𝒫({})", set),
+        ExprKind::EmptySet => write!(f, "∅"),
+        ExprKind::PowerSet { set } => write!(f, "𝒫({})", set),
         _ => unreachable!("fmt_set_ops called on non-set-op"),
     }
 }
@@ -300,11 +301,11 @@ fn fmt_set_ops(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 /// Logical, SetOperation, SetRelationExpr, SetBuilder, NumberSetExpr,
 /// EmptySet, PowerSet.
 pub(crate) fn fmt_logic_sets(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match expr {
-        Expression::Equation { left, right } => write!(f, "{} = {}", left, right),
-        Expression::Inequality { op, left, right } => write!(f, "{} {} {}", left, op, right),
-        Expression::ForAll { .. } | Expression::Exists { .. } => fmt_quantifiers(expr, f),
-        Expression::Logical { op, operands } => match op {
+    match &expr.kind {
+        ExprKind::Equation { left, right } => write!(f, "{} = {}", left, right),
+        ExprKind::Inequality { op, left, right } => write!(f, "{} {} {}", left, op, right),
+        ExprKind::ForAll { .. } | ExprKind::Exists { .. } => fmt_quantifiers(expr, f),
+        ExprKind::Logical { op, operands } => match op {
             LogicalOp::Not => {
                 if operands.len() == 1 {
                     write!(f, "{}{}", op, operands[0])
@@ -322,12 +323,12 @@ pub(crate) fn fmt_logic_sets(expr: &Expression, f: &mut fmt::Formatter<'_>) -> f
                 Ok(())
             }
         },
-        Expression::NumberSetExpr(_)
-        | Expression::SetOperation { .. }
-        | Expression::SetRelationExpr { .. }
-        | Expression::SetBuilder { .. }
-        | Expression::EmptySet
-        | Expression::PowerSet { .. } => fmt_set_ops(expr, f),
+        ExprKind::NumberSetExpr(_)
+        | ExprKind::SetOperation { .. }
+        | ExprKind::SetRelationExpr { .. }
+        | ExprKind::SetBuilder { .. }
+        | ExprKind::EmptySet
+        | ExprKind::PowerSet { .. } => fmt_set_ops(expr, f),
         _ => unreachable!("fmt_logic_sets called on non-logic-sets"),
     }
 }
@@ -335,16 +336,16 @@ pub(crate) fn fmt_logic_sets(expr: &Expression, f: &mut fmt::Formatter<'_>) -> f
 /// Format relational/misc expressions: FunctionSignature, Composition,
 /// Differential, WedgeProduct, Relation.
 pub(crate) fn fmt_relations(expr: &Expression, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match expr {
-        Expression::FunctionSignature {
+    match &expr.kind {
+        ExprKind::FunctionSignature {
             name,
             domain,
             codomain,
         } => write!(f, "{}: {} → {}", name, domain, codomain),
-        Expression::Composition { outer, inner } => write!(f, "{} ∘ {}", outer, inner),
-        Expression::Differential { var } => write!(f, "d{}", var),
-        Expression::WedgeProduct { left, right } => write!(f, "{} ∧ {}", left, right),
-        Expression::Relation { op, left, right } => write!(f, "{} {} {}", left, op, right),
+        ExprKind::Composition { outer, inner } => write!(f, "{} ∘ {}", outer, inner),
+        ExprKind::Differential { var } => write!(f, "d{}", var),
+        ExprKind::WedgeProduct { left, right } => write!(f, "{} ∧ {}", left, right),
+        ExprKind::Relation { op, left, right } => write!(f, "{} {} {}", left, op, right),
         _ => unreachable!("fmt_relations called on non-relation"),
     }
 }

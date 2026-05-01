@@ -1,15 +1,15 @@
-use mathlex::ast::{Expression, NumberSet, RelationOp};
+use mathlex::ast::{ExprKind, NumberSet, RelationOp};
 use mathlex::latex::ToLatex;
 use mathlex::parser::parse_latex;
 
 #[test]
 fn test_parse_similar_relation() {
     let expr = parse_latex(r"a \sim b").unwrap();
-    match expr {
-        Expression::Relation { op, left, right } => {
-            assert_eq!(op, RelationOp::Similar);
-            assert!(matches!(*left, Expression::Variable(_)));
-            assert!(matches!(*right, Expression::Variable(_)));
+    match &expr.kind {
+        ExprKind::Relation { op, left, right } => {
+            assert_eq!(*op, RelationOp::Similar);
+            assert!(matches!(left.kind, ExprKind::Variable(_)));
+            assert!(matches!(right.kind, ExprKind::Variable(_)));
         }
         _ => panic!("Expected Relation expression"),
     }
@@ -18,9 +18,9 @@ fn test_parse_similar_relation() {
 #[test]
 fn test_parse_equivalent_relation() {
     let expr = parse_latex(r"x \equiv y").unwrap();
-    match expr {
-        Expression::Relation { op, .. } => {
-            assert_eq!(op, RelationOp::Equivalent);
+    match &expr.kind {
+        ExprKind::Relation { op, .. } => {
+            assert_eq!(*op, RelationOp::Equivalent);
         }
         _ => panic!("Expected Relation expression"),
     }
@@ -29,9 +29,9 @@ fn test_parse_equivalent_relation() {
 #[test]
 fn test_parse_congruent_relation() {
     let expr = parse_latex(r"a \cong b").unwrap();
-    match expr {
-        Expression::Relation { op, .. } => {
-            assert_eq!(op, RelationOp::Congruent);
+    match &expr.kind {
+        ExprKind::Relation { op, .. } => {
+            assert_eq!(*op, RelationOp::Congruent);
         }
         _ => panic!("Expected Relation expression"),
     }
@@ -40,9 +40,9 @@ fn test_parse_congruent_relation() {
 #[test]
 fn test_parse_approx_relation() {
     let expr = parse_latex(r"3.14 \approx \pi").unwrap();
-    match expr {
-        Expression::Relation { op, .. } => {
-            assert_eq!(op, RelationOp::Approx);
+    match &expr.kind {
+        ExprKind::Relation { op, .. } => {
+            assert_eq!(*op, RelationOp::Approx);
         }
         _ => panic!("Expected Relation expression"),
     }
@@ -51,10 +51,10 @@ fn test_parse_approx_relation() {
 #[test]
 fn test_parse_function_composition() {
     let expr = parse_latex(r"f \circ g").unwrap();
-    match expr {
-        Expression::Composition { outer, inner } => {
-            assert!(matches!(*outer, Expression::Variable(_)));
-            assert!(matches!(*inner, Expression::Variable(_)));
+    match &expr.kind {
+        ExprKind::Composition { outer, inner } => {
+            assert!(matches!(outer.kind, ExprKind::Variable(_)));
+            assert!(matches!(inner.kind, ExprKind::Variable(_)));
         }
         _ => panic!("Expected Composition expression"),
     }
@@ -63,20 +63,20 @@ fn test_parse_function_composition() {
 #[test]
 fn test_parse_function_signature_reals() {
     let expr = parse_latex(r"f: \mathbb{R} \to \mathbb{R}").unwrap();
-    match expr {
-        Expression::FunctionSignature {
+    match &expr.kind {
+        ExprKind::FunctionSignature {
             name,
             domain,
             codomain,
         } => {
             assert_eq!(name, "f");
             assert!(matches!(
-                *domain,
-                Expression::NumberSetExpr(NumberSet::Real)
+                domain.kind,
+                ExprKind::NumberSetExpr(NumberSet::Real)
             ));
             assert!(matches!(
-                *codomain,
-                Expression::NumberSetExpr(NumberSet::Real)
+                codomain.kind,
+                ExprKind::NumberSetExpr(NumberSet::Real)
             ));
         }
         _ => panic!("Expected FunctionSignature expression"),
@@ -86,20 +86,20 @@ fn test_parse_function_signature_reals() {
 #[test]
 fn test_parse_function_signature_complex() {
     let expr = parse_latex(r"g: \mathbb{C} \to \mathbb{R}").unwrap();
-    match expr {
-        Expression::FunctionSignature {
+    match &expr.kind {
+        ExprKind::FunctionSignature {
             name,
             domain,
             codomain,
         } => {
             assert_eq!(name, "g");
             assert!(matches!(
-                *domain,
-                Expression::NumberSetExpr(NumberSet::Complex)
+                domain.kind,
+                ExprKind::NumberSetExpr(NumberSet::Complex)
             ));
             assert!(matches!(
-                *codomain,
-                Expression::NumberSetExpr(NumberSet::Real)
+                codomain.kind,
+                ExprKind::NumberSetExpr(NumberSet::Real)
             ));
         }
         _ => panic!("Expected FunctionSignature expression"),

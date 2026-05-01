@@ -27,11 +27,11 @@ impl TextParser {
             Token::Identifier(_) => self.parse_identifier_token(),
             Token::Pi => {
                 self.next();
-                Ok(Expression::Constant(MathConstant::Pi))
+                Ok(Expression::constant(MathConstant::Pi).into())
             }
             Token::Infinity => {
                 self.next();
-                Ok(Expression::Constant(MathConstant::Infinity))
+                Ok(Expression::constant(MathConstant::Infinity).into())
             }
             Token::Sqrt => self.parse_sqrt_token(),
             Token::Dot
@@ -55,8 +55,8 @@ impl TextParser {
     pub(super) fn parse_number_token(&mut self) -> ParseResult<Expression> {
         let token = self.next().expect("caller checked token exists");
         match token.value {
-            Token::Integer(n) => Ok(Expression::Integer(n)),
-            Token::Float(f) => Ok(Expression::Float(MathFloat::from(f))),
+            Token::Integer(n) => Ok(Expression::integer(n).into()),
+            Token::Float(f) => Ok(Expression::float(MathFloat::from(f)).into()),
             _ => unreachable!("caller guarantees Integer or Float token"),
         }
     }
@@ -161,10 +161,11 @@ impl TextParser {
         } else {
             self.parse_primary()?
         };
-        Ok(Expression::Function {
+        Ok(ExprKind::Function {
             name: "sqrt".to_string(),
             args: vec![arg],
-        })
+        }
+        .into())
     }
 
     pub(super) fn parse_vector_token(&mut self) -> ParseResult<Expression> {
@@ -204,10 +205,11 @@ impl TextParser {
             args.push(self.parse_expression()?);
         }
         self.consume(Token::RParen)?;
-        Ok(Expression::Function {
+        Ok(ExprKind::Function {
             name: normalize_function_name(&name).to_string(),
             args,
-        })
+        }
+        .into())
     }
 
     pub(super) fn parse_binary_vector_op(&mut self, op_name: &str) -> ParseResult<Expression> {
@@ -217,8 +219,8 @@ impl TextParser {
         let right = Box::new(self.parse_expression()?);
         self.consume(Token::RParen)?;
         match op_name {
-            "dot" => Ok(Expression::DotProduct { left, right }),
-            "cross" => Ok(Expression::CrossProduct { left, right }),
+            "dot" => Ok(ExprKind::DotProduct { left, right }.into()),
+            "cross" => Ok(ExprKind::CrossProduct { left, right }.into()),
             _ => unreachable!(),
         }
     }
@@ -233,22 +235,22 @@ impl TextParser {
             Box::new(self.parse_primary()?)
         };
         match op_name {
-            "grad" => Ok(Expression::Gradient { expr: arg }),
-            "div" => Ok(Expression::Divergence { field: arg }),
-            "curl" => Ok(Expression::Curl { field: arg }),
-            "laplacian" => Ok(Expression::Laplacian { expr: arg }),
+            "grad" => Ok(ExprKind::Gradient { expr: arg }.into()),
+            "div" => Ok(ExprKind::Divergence { field: arg }.into()),
+            "curl" => Ok(ExprKind::Curl { field: arg }.into()),
+            "laplacian" => Ok(ExprKind::Laplacian { expr: arg }.into()),
             _ => unreachable!(),
         }
     }
 
     pub(super) fn identifier_to_expression(&self, name: String) -> Expression {
         match name.as_str() {
-            "pi" => Expression::Constant(MathConstant::Pi),
-            "e" => Expression::Constant(MathConstant::E),
-            "i" => Expression::Constant(MathConstant::I),
-            "inf" => Expression::Constant(MathConstant::Infinity),
-            "nan" | "NaN" => Expression::Constant(MathConstant::NaN),
-            _ => Expression::Variable(name),
+            "pi" => ExprKind::Constant(MathConstant::Pi).into(),
+            "e" => ExprKind::Constant(MathConstant::E).into(),
+            "i" => ExprKind::Constant(MathConstant::I).into(),
+            "inf" => ExprKind::Constant(MathConstant::Infinity).into(),
+            "nan" | "NaN" => ExprKind::Constant(MathConstant::NaN).into(),
+            _ => ExprKind::Variable(name).into(),
         }
     }
 }

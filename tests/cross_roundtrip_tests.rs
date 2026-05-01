@@ -447,7 +447,7 @@ mod latex_to_text_advanced {
 // 1. Factorial: n! — LaTeX parser does not support '!' postfix operator
 // 2. e^x normalization: text 'e' is Constant(E), LaTeX normalizes e^x to exp(x)
 // 3. Prime notation: y' has empty var — no LaTeX equivalent for implicit var
-// 4. Integrals: LaTeX \int produces Expression::Integral, no text equivalent yet
+// 4. Integrals: LaTeX \int produces ExprKind::Integral, no text equivalent yet
 // 5. Sums/Products: LaTeX \sum/\prod have no text equivalent yet
 // 6. Limits: LaTeX \lim has no text equivalent yet
 // 7. Vectors/Matrices: LaTeX \begin{pmatrix} has no text equivalent

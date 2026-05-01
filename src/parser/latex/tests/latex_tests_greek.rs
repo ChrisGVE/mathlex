@@ -16,7 +16,7 @@ fn test_lowercase_greek_letters() {
         let expr = parse_latex(&input).unwrap();
         assert_eq!(
             expr,
-            Expression::Variable(letter.to_string()),
+            Expression::variable(letter.to_string()),
             "Failed to parse \\{}",
             letter
         );
@@ -34,7 +34,7 @@ fn test_uppercase_greek_letters() {
         let expr = parse_latex(&input).unwrap();
         assert_eq!(
             expr,
-            Expression::Variable(letter.to_string()),
+            Expression::variable(letter.to_string()),
             "Failed to parse \\{}",
             letter
         );
@@ -44,62 +44,62 @@ fn test_uppercase_greek_letters() {
 #[test]
 fn test_greek_letter_with_single_digit_subscript() {
     let expr = parse_latex(r"\alpha_1").unwrap();
-    assert_eq!(expr, Expression::Variable("alpha_1".to_string()));
+    assert_eq!(expr, Expression::variable("alpha_1".to_string()));
 
     let expr = parse_latex(r"\beta_2").unwrap();
-    assert_eq!(expr, Expression::Variable("beta_2".to_string()));
+    assert_eq!(expr, Expression::variable("beta_2".to_string()));
 
     let expr = parse_latex(r"\gamma_i").unwrap();
-    assert_eq!(expr, Expression::Variable("gamma_i".to_string()));
+    assert_eq!(expr, Expression::variable("gamma_i".to_string()));
 }
 
 #[test]
 fn test_greek_letter_with_multi_digit_subscript() {
     let expr = parse_latex(r"\alpha_{12}").unwrap();
-    assert_eq!(expr, Expression::Variable("alpha_12".to_string()));
+    assert_eq!(expr, Expression::variable("alpha_12".to_string()));
 
     let expr = parse_latex(r"\beta_{123}").unwrap();
-    assert_eq!(expr, Expression::Variable("beta_123".to_string()));
+    assert_eq!(expr, Expression::variable("beta_123".to_string()));
 
     // Note: "max" as a subscript parses as a variable, not separate letters
     // This test verifies current behavior - subscripts can only be simple integers or single variables
     let expr = parse_latex(r"\gamma_m").unwrap();
-    assert_eq!(expr, Expression::Variable("gamma_m".to_string()));
+    assert_eq!(expr, Expression::variable("gamma_m".to_string()));
 }
 
 #[test]
 fn test_uppercase_greek_with_subscript() {
     let expr = parse_latex(r"\Gamma_1").unwrap();
-    assert_eq!(expr, Expression::Variable("Gamma_1".to_string()));
+    assert_eq!(expr, Expression::variable("Gamma_1".to_string()));
 
     let expr = parse_latex(r"\Delta_{12}").unwrap();
-    assert_eq!(expr, Expression::Variable("Delta_12".to_string()));
+    assert_eq!(expr, Expression::variable("Delta_12".to_string()));
 }
 
 #[test]
 fn test_greek_letters_in_expression() {
     // α + β
     let expr = parse_latex(r"\alpha + \beta").unwrap();
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Add);
-            assert_eq!(*left, Expression::Variable("alpha".to_string()));
-            assert_eq!(*right, Expression::Variable("beta".to_string()));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(*op, BinaryOp::Add);
+            assert_eq!(**left, Expression::variable("alpha".to_string()));
+            assert_eq!(**right, Expression::variable("beta".to_string()));
         }
         _ => panic!("Expected binary expression"),
     }
 
     // γ * δ^2
     let expr = parse_latex(r"\gamma * \delta^2").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Mul,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Variable("gamma".to_string()));
-            match *right {
-                Expression::Binary {
+            assert_eq!(**left, Expression::variable("gamma".to_string()));
+            match &right.kind {
+                ExprKind::Binary {
                     op: BinaryOp::Pow, ..
                 } => {}
                 _ => panic!("Expected power"),
@@ -112,15 +112,15 @@ fn test_greek_letters_in_expression() {
 #[test]
 fn test_pi_is_constant_not_variable() {
     let expr = parse_latex(r"\pi").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::Pi));
+    assert_eq!(expr, Expression::constant(MathConstant::Pi));
 
     // pi in expressions
     let expr = parse_latex(r"2 * \pi").unwrap();
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Mul);
-            assert_eq!(*left, Expression::Integer(2));
-            assert_eq!(*right, Expression::Constant(MathConstant::Pi));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(*op, BinaryOp::Mul);
+            assert_eq!(**left, Expression::integer(2));
+            assert_eq!(**right, Expression::constant(MathConstant::Pi));
         }
         _ => panic!("Expected binary expression"),
     }
@@ -129,15 +129,15 @@ fn test_pi_is_constant_not_variable() {
 #[test]
 fn test_infinity_constant() {
     let expr = parse_latex(r"\infty").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::Infinity));
+    assert_eq!(expr, Expression::constant(MathConstant::Infinity));
 
     // Test in expressions
     let expr = parse_latex(r"x + \infty").unwrap();
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Add);
-            assert_eq!(*left, Expression::Variable("x".to_string()));
-            assert_eq!(*right, Expression::Constant(MathConstant::Infinity));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(*op, BinaryOp::Add);
+            assert_eq!(**left, Expression::variable("x".to_string()));
+            assert_eq!(**right, Expression::constant(MathConstant::Infinity));
         }
         _ => panic!("Expected binary expression"),
     }
@@ -214,22 +214,22 @@ fn test_complex_expression_with_greek_letters() {
     let expr = parse_latex(input).unwrap();
 
     // Verify structure
-    match &expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Add,
             left,
             right,
         } => {
-            assert_eq!(**left, Expression::Variable("alpha".to_string()));
-            match &**right {
-                Expression::Binary {
+            assert_eq!(**left, Expression::variable("alpha".to_string()));
+            match &right.kind {
+                ExprKind::Binary {
                     op: BinaryOp::Mul,
                     left,
                     right,
                 } => {
-                    assert_eq!(**left, Expression::Variable("beta".to_string()));
-                    match &**right {
-                        Expression::Binary {
+                    assert_eq!(**left, Expression::variable("beta".to_string()));
+                    match &right.kind {
+                        ExprKind::Binary {
                             op: BinaryOp::Pow, ..
                         } => {}
                         _ => panic!("Expected power"),

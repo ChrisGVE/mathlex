@@ -1,6 +1,6 @@
 //! Shared precedence and parenthesization logic for Display and ToLatex.
 
-use super::{BinaryOp, Expression, UnaryOp};
+use super::{BinaryOp, ExprKind, Expression, UnaryOp};
 
 /// Get the precedence level of a binary operator.
 ///
@@ -20,8 +20,8 @@ pub(crate) fn precedence(op: BinaryOp) -> u8 {
 /// - The child is on the right side of a non-commutative operation with equal precedence
 /// - The child is a unary prefix operator used as the base of a power
 pub(crate) fn needs_parens(child: &Expression, parent_op: BinaryOp, is_right: bool) -> bool {
-    match child {
-        Expression::Binary { op: child_op, .. } => {
+    match &child.kind {
+        ExprKind::Binary { op: child_op, .. } => {
             let parent_prec = precedence(parent_op);
             let child_prec = precedence(*child_op);
 
@@ -46,7 +46,7 @@ pub(crate) fn needs_parens(child: &Expression, parent_op: BinaryOp, is_right: bo
         }
         // Unary prefix operators (Neg, Pos) need parens when used as base of power
         // because -1^2 parses as -(1^2), not (-1)^2
-        Expression::Unary { op, .. } => {
+        ExprKind::Unary { op, .. } => {
             matches!(
                 (parent_op, op, is_right),
                 (BinaryOp::Pow, UnaryOp::Neg | UnaryOp::Pos, false)

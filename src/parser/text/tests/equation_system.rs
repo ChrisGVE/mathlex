@@ -6,8 +6,8 @@ use super::*;
 fn test_two_equations() {
     let exprs = parse_equation_system("x + y = 5; 2*x - y = 1").unwrap();
     assert_eq!(exprs.len(), 2);
-    assert!(matches!(exprs[0], Expression::Equation { .. }));
-    assert!(matches!(exprs[1], Expression::Equation { .. }));
+    assert!(matches!(exprs[0].kind, ExprKind::Equation { .. }));
+    assert!(matches!(exprs[1].kind, ExprKind::Equation { .. }));
 }
 
 #[test]

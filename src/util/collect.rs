@@ -17,14 +17,14 @@ impl Expression {
     /// # Examples
     ///
     /// ```
-    /// use mathlex::ast::{Expression, BinaryOp};
+    /// use mathlex::ast::{ExprKind, Expression, BinaryOp};
     ///
     /// // x + y
-    /// let expr = Expression::Binary {
+    /// let expr: Expression = ExprKind::Binary {
     ///     op: BinaryOp::Add,
-    ///     left: Box::new(Expression::Variable("x".to_string())),
-    ///     right: Box::new(Expression::Variable("y".to_string())),
-    /// };
+    ///     left: Box::new(Expression::variable("x".to_string())),
+    ///     right: Box::new(Expression::variable("y".to_string())),
+    /// }.into();
     ///
     /// let vars = expr.find_variables();
     /// assert_eq!(vars.len(), 2);
@@ -49,20 +49,20 @@ impl Expression {
     /// # Examples
     ///
     /// ```
-    /// use mathlex::ast::{Expression, BinaryOp};
+    /// use mathlex::ast::{ExprKind, Expression, BinaryOp};
     ///
     /// // sin(x) + cos(y)
-    /// let expr = Expression::Binary {
+    /// let expr: Expression = ExprKind::Binary {
     ///     op: BinaryOp::Add,
-    ///     left: Box::new(Expression::Function {
+    ///     left: Box::new(ExprKind::Function {
     ///         name: "sin".to_string(),
-    ///         args: vec![Expression::Variable("x".to_string())],
-    ///     }),
-    ///     right: Box::new(Expression::Function {
+    ///         args: vec![Expression::variable("x".to_string())],
+    ///     }.into()),
+    ///     right: Box::new(ExprKind::Function {
     ///         name: "cos".to_string(),
-    ///         args: vec![Expression::Variable("y".to_string())],
-    ///     }),
-    /// };
+    ///         args: vec![Expression::variable("y".to_string())],
+    ///     }.into()),
+    /// }.into();
     ///
     /// let funcs = expr.find_functions();
     /// assert_eq!(funcs.len(), 2);
@@ -87,18 +87,18 @@ impl Expression {
     /// # Examples
     ///
     /// ```
-    /// use mathlex::ast::{Expression, MathConstant, BinaryOp};
+    /// use mathlex::ast::{ExprKind, Expression, MathConstant, BinaryOp};
     ///
     /// // 2 * π + e
-    /// let expr = Expression::Binary {
+    /// let expr: Expression = ExprKind::Binary {
     ///     op: BinaryOp::Add,
-    ///     left: Box::new(Expression::Binary {
+    ///     left: Box::new(ExprKind::Binary {
     ///         op: BinaryOp::Mul,
-    ///         left: Box::new(Expression::Integer(2)),
-    ///         right: Box::new(Expression::Constant(MathConstant::Pi)),
-    ///     }),
-    ///     right: Box::new(Expression::Constant(MathConstant::E)),
-    /// };
+    ///         left: Box::new(Expression::integer(2)),
+    ///         right: Box::new(Expression::constant(MathConstant::Pi)),
+    ///     }.into()),
+    ///     right: Box::new(Expression::constant(MathConstant::E)),
+    /// }.into();
     ///
     /// let consts = expr.find_constants();
     /// assert_eq!(consts.len(), 2);
@@ -124,14 +124,14 @@ impl Expression {
     /// # Examples
     ///
     /// ```
-    /// use mathlex::ast::{Expression, BinaryOp};
+    /// use mathlex::ast::{ExprKind, Expression, BinaryOp};
     ///
     /// // x + y
-    /// let expr = Expression::Binary {
+    /// let expr: Expression = ExprKind::Binary {
     ///     op: BinaryOp::Add,
-    ///     left: Box::new(Expression::Variable("x".to_string())),
-    ///     right: Box::new(Expression::Variable("y".to_string())),
-    /// };
+    ///     left: Box::new(Expression::variable("x".to_string())),
+    ///     right: Box::new(Expression::variable("y".to_string())),
+    /// }.into();
     ///
     /// assert!(expr.contains_variable("x"));
     /// assert!(expr.contains_variable("y"));

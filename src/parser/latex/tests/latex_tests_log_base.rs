@@ -6,12 +6,12 @@ use super::*;
 #[test]
 fn test_log_base_10_braced() {
     let expr = parse_latex(r"\log_{10}{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "log");
             assert_eq!(args.len(), 2);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
-            assert_eq!(args[1], Expression::Integer(10));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
+            assert_eq!(args[1], Expression::integer(10));
         }
         _ => panic!("Expected Function(log, [x, 10]), got {:?}", expr),
     }
@@ -20,12 +20,12 @@ fn test_log_base_10_braced() {
 #[test]
 fn test_log_base_2_braced() {
     let expr = parse_latex(r"\log_{2}{n}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "log");
             assert_eq!(args.len(), 2);
-            assert_eq!(args[0], Expression::Variable("n".to_string()));
-            assert_eq!(args[1], Expression::Integer(2));
+            assert_eq!(args[0], Expression::variable("n".to_string()));
+            assert_eq!(args[1], Expression::integer(2));
         }
         _ => panic!("Expected Function(log, [n, 2]), got {:?}", expr),
     }
@@ -34,11 +34,11 @@ fn test_log_base_2_braced() {
 #[test]
 fn test_log_no_base() {
     let expr = parse_latex(r"\log{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "log");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected Function(log, [x]), got {:?}", expr),
     }
@@ -47,11 +47,11 @@ fn test_log_no_base() {
 #[test]
 fn test_ln_no_base() {
     let expr = parse_latex(r"\ln{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "ln");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected Function(ln, [x]), got {:?}", expr),
     }
@@ -60,12 +60,12 @@ fn test_ln_no_base() {
 #[test]
 fn test_log_base_variable() {
     let expr = parse_latex(r"\log_{b}{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "log");
             assert_eq!(args.len(), 2);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
-            assert_eq!(args[1], Expression::Variable("b".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
+            assert_eq!(args[1], Expression::variable("b".to_string()));
         }
         _ => panic!("Expected Function(log, [x, b]), got {:?}", expr),
     }

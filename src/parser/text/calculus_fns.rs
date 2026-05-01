@@ -34,11 +34,12 @@ impl TextParser {
         };
 
         self.consume(Token::RParen)?;
-        Ok(Expression::Integral {
+        Ok(ExprKind::Integral {
             integrand: Box::new(integrand),
             var,
             bounds,
-        })
+        }
+        .into())
     }
 
     /// Parses `sum(expr, var, lower, upper)`.
@@ -54,12 +55,13 @@ impl TextParser {
         self.consume(Token::Comma)?;
         let upper = self.parse_expression()?;
         self.consume(Token::RParen)?;
-        Ok(Expression::Sum {
+        Ok(ExprKind::Sum {
             index,
             lower: Box::new(lower),
             upper: Box::new(upper),
             body: Box::new(body),
-        })
+        }
+        .into())
     }
 
     /// Parses `product(expr, var, lower, upper)`.
@@ -75,12 +77,13 @@ impl TextParser {
         self.consume(Token::Comma)?;
         let upper = self.parse_expression()?;
         self.consume(Token::RParen)?;
-        Ok(Expression::Product {
+        Ok(ExprKind::Product {
             index,
             lower: Box::new(lower),
             upper: Box::new(upper),
             body: Box::new(body),
-        })
+        }
+        .into())
     }
 
     /// Parses `limit(expr, var, point[, direction])`.
@@ -133,11 +136,12 @@ impl TextParser {
         };
 
         self.consume(Token::RParen)?;
-        Ok(Expression::Limit {
+        Ok(ExprKind::Limit {
             expr: Box::new(expr),
             var,
             to: Box::new(to),
             direction,
-        })
+        }
+        .into())
     }
 }
