@@ -37,9 +37,37 @@ use crate::parser::tokenizer::{tokenize, SpannedToken, Token};
 use crate::ParserConfig;
 
 mod arithmetic;
+mod calculus_fns;
+mod derivatives;
 mod expression;
 mod primary;
 mod set_ops;
+
+/// Splits a string like "2y" into (2, "y") — order prefix then remaining.
+/// Returns (0, s) if no leading digits.
+fn split_order_prefix(s: &str) -> (u32, &str) {
+    let digit_end = s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
+    if digit_end == 0 {
+        (0, s)
+    } else {
+        let order = s[..digit_end].parse::<u32>().unwrap_or(0);
+        (order, &s[digit_end..])
+    }
+}
+
+/// Splits a string like "x2" into (2, "x") — trailing order then remaining.
+/// Returns (0, s) if no trailing digits.
+fn split_order_suffix(s: &str) -> (u32, &str) {
+    let alpha_end = s
+        .find(|c: char| !c.is_ascii_alphabetic())
+        .unwrap_or(s.len());
+    if alpha_end == s.len() {
+        (0, s)
+    } else {
+        let order = s[alpha_end..].parse::<u32>().unwrap_or(0);
+        (order, &s[..alpha_end])
+    }
+}
 #[cfg(test)]
 mod tests;
 
@@ -117,15 +145,7 @@ pub fn parse_equation_system(input: &str) -> ParseResult<Vec<Expression>> {
 ///
 /// # Examples
 ///
-/// ```
-/// use mathlex::parser::text::parse_equation_system_with_config;
-/// use mathlex::{Expression, ParserConfig};
-///
-/// let config = ParserConfig::default();
-/// let exprs = parse_equation_system_with_config("x = 1; y = 2", &config).unwrap();
-/// assert_eq!(exprs.len(), 2);
-/// ```
-pub fn parse_equation_system_with_config(
+pub(crate) fn parse_equation_system_with_config(
     input: &str,
     config: &ParserConfig,
 ) -> ParseResult<Vec<Expression>> {
@@ -262,8 +282,7 @@ impl TextParser {
 
     fn parse_strict(mut self) -> ParseResult<Expression> {
         let expr = self.parse_expression()?;
-        if self.peek().is_some() {
-            let token = self.peek().unwrap();
+        if let Some(token) = self.peek() {
             return Err(ParseError::unexpected_token(
                 vec!["end of input"],
                 format!("{}", token.value),
@@ -279,8 +298,7 @@ impl TextParser {
             match self.parse_expression() {
                 Ok(expr) => {
                     parts.push(expr);
-                    if self.peek().is_some() {
-                        let token = self.peek().unwrap();
+                    if let Some(token) = self.peek() {
                         self.collected_errors.push(ParseError::unexpected_token(
                             vec!["end of input or operator"],
                             format!("{}", token.value),

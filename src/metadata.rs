@@ -19,6 +19,23 @@
 //! These types are provided as a foundation for consumers to build their own
 //! type inference systems on top of the AST.
 //!
+//! ## Downstream Integration Pattern
+//!
+//! Since `Expression` nodes do not carry metadata inline, consumers should
+//! maintain a separate side-table to associate metadata with expressions:
+//!
+//! ```ignore
+//! use std::collections::HashMap;
+//! use mathlex::metadata::ExpressionMetadata;
+//!
+//! // Consumers maintain a mapping from expression identity to metadata
+//! let mut metadata: HashMap<usize, ExpressionMetadata> = HashMap::new();
+//! ```
+//!
+//! This design keeps the AST lightweight and allows different consumers
+//! (e.g., thales for symbolic computation, NumericSwift for numerical evaluation)
+//! to attach their own metadata without modifying the shared AST types.
+//!
 //! ## Examples
 //!
 //! ```

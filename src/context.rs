@@ -2,6 +2,13 @@
 //!
 //! Provides tracking of semantic context across multiple related
 //! mathematical expressions.
+//!
+//! ## Downstream API
+//!
+//! `ExpressionContext` is designed for downstream consumers (thales, NumericSwift)
+//! to manage type information and variable declarations across expression systems.
+//! The binding methods (`push_binding`, `pop_binding`, `is_bound`) support future
+//! quantifier-aware parsing where bound variables need distinct treatment.
 
 use crate::ast::Expression;
 use crate::error::ParseResult;
@@ -162,13 +169,36 @@ impl ExpressionContext {
     }
 }
 
-/// Parse multiple expressions with shared context.
-#[allow(clippy::result_large_err)]
-pub fn parse_system(inputs: &[&str], config: &ParserConfig) -> ParseResult<Vec<Expression>> {
-    use crate::parse_latex;
+/// Input format for [`parse_system`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum InputFormat {
+    /// Parse inputs as LaTeX notation.
+    #[default]
+    Latex,
+    /// Parse inputs as plain text notation.
+    Text,
+}
 
-    let mut ctx = ExpressionContext::new();
-    ctx.number_system = config.number_system;
+/// Parse multiple expressions with shared context.
+///
+/// Each expression is parsed and analyzed to build up type context
+/// (vector/matrix/scalar declarations) that is available for inspection
+/// after parsing completes.
+///
+/// The `format` parameter selects the parser: [`InputFormat::Latex`] (default)
+/// or [`InputFormat::Text`].
+#[allow(clippy::result_large_err)]
+pub fn parse_system(
+    inputs: &[&str],
+    config: &ParserConfig,
+    format: InputFormat,
+) -> ParseResult<Vec<Expression>> {
+    let parse_fn: fn(&str) -> ParseResult<Expression> = match format {
+        InputFormat::Latex => crate::parse_latex,
+        InputFormat::Text => crate::parse,
+    };
+
+    let mut ctx = ExpressionContext::with_number_system(config.number_system);
     ctx.vectors = config.declared_vectors.clone();
     ctx.matrices = config.declared_matrices.clone();
     ctx.scalars = config.declared_scalars.clone();
@@ -176,7 +206,7 @@ pub fn parse_system(inputs: &[&str], config: &ParserConfig) -> ParseResult<Vec<E
     let mut results = Vec::new();
 
     for input in inputs {
-        let expr = parse_latex(input)?;
+        let expr = parse_fn(input)?;
         ctx.analyze_expression(&expr);
         results.push(expr);
     }
@@ -349,7 +379,7 @@ mod tests {
         let config = ParserConfig::default();
         let inputs = vec!["x + y", "2*x"];
 
-        let exprs = parse_system(&inputs, &config).unwrap();
+        let exprs = parse_system(&inputs, &config, InputFormat::Latex).unwrap();
         assert_eq!(exprs.len(), 2);
     }
 
@@ -360,7 +390,7 @@ mod tests {
 
         let inputs = vec![r"\nabla f", r"\mathbf{v}"];
 
-        let exprs = parse_system(&inputs, &config).unwrap();
+        let exprs = parse_system(&inputs, &config, InputFormat::Latex).unwrap();
         assert_eq!(exprs.len(), 2);
     }
 
@@ -369,7 +399,7 @@ mod tests {
         let config = ParserConfig::default();
         let inputs = vec!["x + y", "invalid $$$ syntax"];
 
-        let result = parse_system(&inputs, &config);
+        let result = parse_system(&inputs, &config, InputFormat::Latex);
         assert!(result.is_err());
     }
 
@@ -458,7 +488,7 @@ mod tests {
         let config = ParserConfig::default();
         let inputs = vec![r"\nabla f", r"\nabla \cdot \mathbf{F}", r"\mathbf{v}"];
 
-        let exprs = parse_system(&inputs, &config).unwrap();
+        let exprs = parse_system(&inputs, &config, InputFormat::Latex).unwrap();
         assert_eq!(exprs.len(), 3);
 
         // Verify expressions are parsed correctly

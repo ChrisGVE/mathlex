@@ -2,68 +2,11 @@
 
 mod advanced;
 
+pub(crate) use crate::ast::precedence::{needs_parens, precedence};
 pub(crate) use advanced::{fmt_calculus, fmt_linear_algebra, fmt_logic_sets, fmt_relations};
 
-use crate::ast::{BinaryOp, Expression, UnaryOp};
+use crate::ast::{Expression, UnaryOp};
 use std::fmt;
-
-/// Get the precedence level of a binary operator.
-///
-/// Lower numbers bind less tightly (evaluated later).
-///
-/// # Examples
-///
-/// ```ignore
-/// assert_eq!(precedence(BinaryOp::Add), 1);
-/// assert_eq!(precedence(BinaryOp::Mul), 2);
-/// assert_eq!(precedence(BinaryOp::Pow), 3);
-/// ```
-pub(crate) fn precedence(op: BinaryOp) -> u8 {
-    match op {
-        BinaryOp::Add | BinaryOp::Sub | BinaryOp::PlusMinus | BinaryOp::MinusPlus => 1,
-        BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => 2,
-        BinaryOp::Pow => 3,
-    }
-}
-
-/// Determine if an expression needs parentheses when used as a child of a binary operation.
-///
-/// Parentheses are needed when:
-/// - The child is a binary operation with lower precedence than the parent
-/// - The child is on the right side of a non-commutative operation with equal precedence
-///
-/// # Arguments
-///
-/// - `child`: The child expression
-/// - `parent_op`: The parent binary operator
-/// - `is_right`: Whether the child is the right operand
-pub(crate) fn needs_parens(child: &Expression, parent_op: BinaryOp, is_right: bool) -> bool {
-    match child {
-        Expression::Binary { op: child_op, .. } => {
-            let parent_prec = precedence(parent_op);
-            let child_prec = precedence(*child_op);
-
-            if child_prec < parent_prec {
-                return true;
-            }
-
-            if child_prec == parent_prec {
-                match (parent_op, *child_op) {
-                    // Power is right-associative: a^b^c means a^(b^c)
-                    (BinaryOp::Pow, BinaryOp::Pow) => return true,
-                    // Sub and Div are left-associative, so right side needs parens
-                    (BinaryOp::Sub, BinaryOp::Sub) | (BinaryOp::Div, BinaryOp::Div) => {
-                        return is_right
-                    }
-                    _ => {}
-                }
-            }
-
-            false
-        }
-        _ => false,
-    }
-}
 
 /// Format literal and value expressions: Integer, Float, Rational, Complex,
 /// Quaternion, Variable, Constant.

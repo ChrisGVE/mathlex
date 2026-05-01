@@ -1,9 +1,5 @@
-// Allow approx_constant - tests parse "3.14" which should give 3.14, not π
-#![allow(clippy::approx_constant)]
 // Allow large error variants - boxing would be a breaking API change
 #![allow(clippy::result_large_err)]
-// Allow unnecessary cast - swift-bridge macro generates these
-#![allow(clippy::unnecessary_cast)]
 
 //! # mathlex
 //!
@@ -290,10 +286,11 @@ pub mod ffi;
 
 // Re-export key types at crate root for convenience
 pub use ast::{
-    BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, LogicalOp, MathConstant,
-    UnaryOp, VectorNotation,
+    BinaryOp, Direction, Expression, IndexType, InequalityOp, IntegralBounds, LogicalOp,
+    MathConstant, MathFloat, MultipleBounds, NumberSet, RelationOp, SetOp, SetRelation,
+    TensorIndex, UnaryOp, VectorNotation,
 };
-pub use context::{parse_system, ExpressionContext};
+pub use context::{parse_system, ExpressionContext, InputFormat};
 pub use error::{ParseError, ParseErrorKind, ParseOutput, ParseResult, Position, Span};
 pub use latex::ToLatex;
 pub use metadata::{ContextSource, ExpressionMetadata, MathType};

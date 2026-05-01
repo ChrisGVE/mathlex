@@ -20,12 +20,12 @@ crate-type = ["staticlib", "cdylib", "lib"]
 swift-bridge = { version = "0.1", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
-ordered-float = { version = "4", features = ["serde"] }
+ordered-float = "4"
 
 [features]
 default = []
 ffi = ["swift-bridge"]
-serde = ["dep:serde", "dep:serde_json"]
+serde = ["dep:serde", "dep:serde_json", "ordered-float/serde"]
 
 [build-dependencies]
 swift-bridge-build = "0.1"

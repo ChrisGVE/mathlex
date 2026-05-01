@@ -35,7 +35,8 @@ mod suggestions;
 mod tests;
 mod types;
 
-pub use builder::ErrorBuilder;
+pub(crate) use builder::ErrorBuilder;
 pub use output::ParseOutput;
-pub use suggestions::{levenshtein, suggest_function};
+pub(crate) use suggestions::levenshtein;
+pub use suggestions::suggest_function;
 pub use types::{ParseError, ParseErrorKind, ParseResult, Position, Span};

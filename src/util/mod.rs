@@ -39,6 +39,7 @@
 mod collect_consts;
 mod collect_fns;
 mod collect_vars;
+pub(crate) mod walker;
 
 mod collect;
 mod fold;

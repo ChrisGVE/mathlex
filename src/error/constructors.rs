@@ -3,6 +3,21 @@
 use super::suggestions::suggest_function;
 use super::types::{ParseError, ParseErrorKind, Span};
 
+/// Generates a simple error constructor that wraps a single `Into<String>` field.
+macro_rules! simple_error_ctor {
+    ($name:ident, $kind:ident, $field:ident, $doc:expr) => {
+        #[doc = $doc]
+        pub fn $name<S: Into<String>>($field: S, span: Option<Span>) -> Self {
+            Self::new(
+                ParseErrorKind::$kind {
+                    $field: $field.into(),
+                },
+                span,
+            )
+        }
+    };
+}
+
 impl ParseError {
     /// Creates a new parse error.
     ///
@@ -162,42 +177,10 @@ impl ParseError {
         )
     }
 
-    /// Creates an invalid LaTeX command error.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use mathlex::error::ParseError;
-    ///
-    /// let error = ParseError::invalid_latex_command(r"\unknowncommand", None);
-    /// ```
-    pub fn invalid_latex_command<S>(command: S, span: Option<Span>) -> Self
-    where
-        S: Into<String>,
-    {
-        Self::new(
-            ParseErrorKind::InvalidLatexCommand {
-                command: command.into(),
-            },
-            span,
-        )
-    }
-
     /// Creates an unknown function error.
     ///
     /// Automatically adds a suggestion if a similar known function is found.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use mathlex::error::ParseError;
-    ///
-    /// let error = ParseError::unknown_function("unknownfunc", None);
-    /// ```
-    pub fn unknown_function<S>(name: S, span: Option<Span>) -> Self
-    where
-        S: Into<String>,
-    {
+    pub fn unknown_function<S: Into<String>>(name: S, span: Option<Span>) -> Self {
         let name_str = name.into();
         let suggestion = suggest_function(&name_str);
         let mut error = Self::new(ParseErrorKind::UnknownFunction { name: name_str }, span);
@@ -205,68 +188,30 @@ impl ParseError {
         error
     }
 
-    /// Creates an invalid subscript error.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use mathlex::error::ParseError;
-    ///
-    /// let error = ParseError::invalid_subscript("missing expression", None);
-    /// ```
-    pub fn invalid_subscript<S>(reason: S, span: Option<Span>) -> Self
-    where
-        S: Into<String>,
-    {
-        Self::new(
-            ParseErrorKind::InvalidSubscript {
-                reason: reason.into(),
-            },
-            span,
-        )
-    }
-
-    /// Creates an invalid superscript error.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use mathlex::error::ParseError;
-    ///
-    /// let error = ParseError::invalid_superscript("missing expression", None);
-    /// ```
-    pub fn invalid_superscript<S>(reason: S, span: Option<Span>) -> Self
-    where
-        S: Into<String>,
-    {
-        Self::new(
-            ParseErrorKind::InvalidSuperscript {
-                reason: reason.into(),
-            },
-            span,
-        )
-    }
-
-    /// Creates a malformed matrix error.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use mathlex::error::ParseError;
-    ///
-    /// let error = ParseError::malformed_matrix("inconsistent row lengths", None);
-    /// ```
-    pub fn malformed_matrix<S>(reason: S, span: Option<Span>) -> Self
-    where
-        S: Into<String>,
-    {
-        Self::new(
-            ParseErrorKind::MalformedMatrix {
-                reason: reason.into(),
-            },
-            span,
-        )
-    }
+    simple_error_ctor!(
+        invalid_latex_command,
+        InvalidLatexCommand,
+        command,
+        "Creates an invalid LaTeX command error."
+    );
+    simple_error_ctor!(
+        invalid_subscript,
+        InvalidSubscript,
+        reason,
+        "Creates an invalid subscript error."
+    );
+    simple_error_ctor!(
+        invalid_superscript,
+        InvalidSuperscript,
+        reason,
+        "Creates an invalid superscript error."
+    );
+    simple_error_ctor!(
+        malformed_matrix,
+        MalformedMatrix,
+        reason,
+        "Creates a malformed matrix error."
+    );
 
     /// Creates an empty expression error.
     ///

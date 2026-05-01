@@ -218,9 +218,7 @@ impl LatexParser {
     pub(super) fn parse_relation(&mut self) -> ParseResult<Expression> {
         let left = self.parse_additive()?;
 
-        if let Some((token, span)) = self.peek() {
-            let span = *span;
-
+        if let Some((token, _span)) = self.peek() {
             // Check similarity/equivalence/congruence/approximation relations
             if let Some(rel_op) = Self::match_math_relation(token) {
                 self.next();
@@ -250,8 +248,6 @@ impl LatexParser {
 
                 return Ok(Self::build_equation_or_ineq(rel_op, left, right));
             }
-
-            let _ = span; // suppress unused warning
         }
 
         Ok(left)
