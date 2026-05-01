@@ -7,6 +7,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-01
+
+### Breaking Changes
+
+- **`Expression` type restructured.** The public `Expression` type is now a
+  struct with two fields — `kind: ExprKind` and `annotations: AnnotationSet`
+  — rather than a flat enum. All match arms that previously destructured
+  `Expression::Variant { ... }` must be updated to `ExprKind::Variant { ... }`
+  and applied to `expr.kind`. Convenience constructors on `Expression`
+  (`Expression::integer`, `Expression::variable`, etc.) remain available.
+
+- **Serde format changed to adjacently-tagged.** The JSON wire format now uses
+  `{ "kind": "VariantName", "value": <payload> }` throughout. The previous
+  externally-tagged format (`{ "VariantName": <payload> }`) and bare-string
+  unit variants (e.g. `"Nabla"`) are no longer emitted or accepted. Any stored
+  JSON or hardcoded deserializers must be updated. See `docs/WIRE-FORMAT.md`
+  and the migration guide below.
+
+### Added
+
+- **`AnnotationSet` substrate.** Each `Expression` node now carries an
+  `AnnotationSet` — an ordered string-to-string metadata map. The field is
+  omitted from JSON when empty and defaults to empty on deserialization, so
+  existing documents round-trip without modification. The substrate is passed
+  through unchanged by thales v0.9.0; semantic consumption is planned for
+  thales v0.10.0.
+
+- **Golden fixtures and variant stability tests.** `tests/fixtures/serde/`
+  contains one canonical JSON file per `ExprKind` variant (53 total) plus a
+  `variant_manifest.txt`. CI verifies that round-tripping each fixture produces
+  bit-identical output, locking the wire format against accidental drift.
+
+- **`docs/WIRE-FORMAT.md`.** Normative wire-format reference covering all 53
+  variants, the `AnnotationSet` field, all nested enum kind values, and the
+  stability guarantee.
+
+### Migration Guide
+
+**Rust match arms.** Replace `Expression::Add { left, right }` with:
+
+```rust
+// before
+match expr {
+    Expression::Binary { op, left, right } => { ... }
+    Expression::Nabla => { ... }
+}
+
+// after
+match expr.kind {
+    ExprKind::Binary { op, left, right } => { ... }
+    ExprKind::Nabla => { ... }
+}
+```
+
+**JSON format.** Every node that previously serialized as
+`{ "VariantName": payload }` now serializes as
+`{ "kind": "VariantName", "value": payload }`. Unit variants that previously
+serialized as the bare string `"Nabla"` now serialize as `{ "kind": "Nabla" }`.
+
+```json
+// before (externally tagged)
+{ "Binary": { "op": "Add", "left": { "Integer": 1 }, "right": { "Integer": 2 } } }
+
+// after (adjacently tagged)
+{
+  "kind": "Binary",
+  "value": {
+    "op":    { "kind": "Add" },
+    "left":  { "kind": "Integer", "value": 1 },
+    "right": { "kind": "Integer", "value": 2 }
+  }
+}
+```
+
+Swift consumers that decoded the JSON via hand-written `Decodable` structs must
+update their `CodingKeys` and decoding logic to match the new shape. The
+integration example in `examples/numericswift-integration/` has been updated
+accordingly.
+
 ## [0.3.4] - 2026-04-09
 
 ### Added
@@ -141,7 +220,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI/CD with release automation
 - Comprehensive unit test suite (700+ tests)
 
-[Unreleased]: https://github.com/ChrisGVE/mathlex/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/ChrisGVE/mathlex/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ChrisGVE/mathlex/compare/v0.3.4...v0.4.0
+[0.3.4]: https://github.com/ChrisGVE/mathlex/compare/v0.3.3...v0.3.4
+[0.3.3]: https://github.com/ChrisGVE/mathlex/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/ChrisGVE/mathlex/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/ChrisGVE/mathlex/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ChrisGVE/mathlex/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ChrisGVE/mathlex/compare/v0.1.1...v0.2.0
