@@ -1,0 +1,9 @@
+{
+  "kind": "Rank",
+  "value": {
+    "matrix": {
+      "kind": "Variable",
+      "value": "A"
+    }
+  }
+}

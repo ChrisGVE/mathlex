@@ -1,0 +1,21 @@
+{
+  "kind": "Quaternion",
+  "value": {
+    "i": {
+      "kind": "Integer",
+      "value": 2
+    },
+    "j": {
+      "kind": "Integer",
+      "value": 3
+    },
+    "k": {
+      "kind": "Integer",
+      "value": 4
+    },
+    "real": {
+      "kind": "Integer",
+      "value": 1
+    }
+  }
+}

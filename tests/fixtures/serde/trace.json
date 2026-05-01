@@ -1,0 +1,9 @@
+{
+  "kind": "Trace",
+  "value": {
+    "matrix": {
+      "kind": "Variable",
+      "value": "A"
+    }
+  }
+}

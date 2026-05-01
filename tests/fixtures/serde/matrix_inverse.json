@@ -1,0 +1,9 @@
+{
+  "kind": "MatrixInverse",
+  "value": {
+    "matrix": {
+      "kind": "Variable",
+      "value": "A"
+    }
+  }
+}

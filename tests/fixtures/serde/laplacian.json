@@ -1,0 +1,9 @@
+{
+  "kind": "Laplacian",
+  "value": {
+    "expr": {
+      "kind": "Variable",
+      "value": "f"
+    }
+  }
+}

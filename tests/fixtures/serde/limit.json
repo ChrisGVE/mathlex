@@ -1,0 +1,25 @@
+{
+  "kind": "Limit",
+  "value": {
+    "direction": {
+      "kind": "Both"
+    },
+    "expr": {
+      "kind": "Function",
+      "value": {
+        "args": [
+          {
+            "kind": "Variable",
+            "value": "x"
+          }
+        ],
+        "name": "f"
+      }
+    },
+    "to": {
+      "kind": "Integer",
+      "value": 0
+    },
+    "var": "x"
+  }
+}

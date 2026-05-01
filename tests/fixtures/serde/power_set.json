@@ -1,0 +1,9 @@
+{
+  "kind": "PowerSet",
+  "value": {
+    "set": {
+      "kind": "Variable",
+      "value": "S"
+    }
+  }
+}

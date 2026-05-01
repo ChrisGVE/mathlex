@@ -1,0 +1,9 @@
+{
+  "kind": "ConjugateTranspose",
+  "value": {
+    "matrix": {
+      "kind": "Variable",
+      "value": "A"
+    }
+  }
+}

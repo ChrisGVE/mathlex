@@ -1,0 +1,18 @@
+{
+  "kind": "Logical",
+  "value": {
+    "op": {
+      "kind": "And"
+    },
+    "operands": [
+      {
+        "kind": "Variable",
+        "value": "p"
+      },
+      {
+        "kind": "Variable",
+        "value": "q"
+      }
+    ]
+  }
+}

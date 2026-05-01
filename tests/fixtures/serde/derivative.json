@@ -1,0 +1,19 @@
+{
+  "kind": "Derivative",
+  "value": {
+    "expr": {
+      "kind": "Function",
+      "value": {
+        "args": [
+          {
+            "kind": "Variable",
+            "value": "x"
+          }
+        ],
+        "name": "f"
+      }
+    },
+    "order": 1,
+    "var": "x"
+  }
+}

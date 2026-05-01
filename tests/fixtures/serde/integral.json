@@ -1,0 +1,20 @@
+{
+  "kind": "Integral",
+  "value": {
+    "bounds": {
+      "lower": {
+        "kind": "Integer",
+        "value": 0
+      },
+      "upper": {
+        "kind": "Integer",
+        "value": 1
+      }
+    },
+    "integrand": {
+      "kind": "Variable",
+      "value": "x"
+    },
+    "var": "x"
+  }
+}

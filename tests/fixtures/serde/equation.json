@@ -1,0 +1,13 @@
+{
+  "kind": "Equation",
+  "value": {
+    "left": {
+      "kind": "Variable",
+      "value": "x"
+    },
+    "right": {
+      "kind": "Integer",
+      "value": 5
+    }
+  }
+}

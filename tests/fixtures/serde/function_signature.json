@@ -1,0 +1,18 @@
+{
+  "kind": "FunctionSignature",
+  "value": {
+    "codomain": {
+      "kind": "NumberSetExpr",
+      "value": {
+        "kind": "Real"
+      }
+    },
+    "domain": {
+      "kind": "NumberSetExpr",
+      "value": {
+        "kind": "Real"
+      }
+    },
+    "name": "f"
+  }
+}

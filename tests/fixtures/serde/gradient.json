@@ -1,0 +1,21 @@
+{
+  "kind": "Gradient",
+  "value": {
+    "expr": {
+      "kind": "Function",
+      "value": {
+        "args": [
+          {
+            "kind": "Variable",
+            "value": "x"
+          },
+          {
+            "kind": "Variable",
+            "value": "y"
+          }
+        ],
+        "name": "f"
+      }
+    }
+  }
+}

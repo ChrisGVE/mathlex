@@ -1,0 +1,17 @@
+{
+  "kind": "WedgeProduct",
+  "value": {
+    "left": {
+      "kind": "Differential",
+      "value": {
+        "var": "x"
+      }
+    },
+    "right": {
+      "kind": "Differential",
+      "value": {
+        "var": "y"
+      }
+    }
+  }
+}

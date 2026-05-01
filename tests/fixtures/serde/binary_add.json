@@ -1,0 +1,16 @@
+{
+  "kind": "Binary",
+  "value": {
+    "left": {
+      "kind": "Integer",
+      "value": 1
+    },
+    "op": {
+      "kind": "Add"
+    },
+    "right": {
+      "kind": "Integer",
+      "value": 2
+    }
+  }
+}

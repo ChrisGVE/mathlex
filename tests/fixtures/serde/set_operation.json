@@ -1,0 +1,16 @@
+{
+  "kind": "SetOperation",
+  "value": {
+    "left": {
+      "kind": "Variable",
+      "value": "A"
+    },
+    "op": {
+      "kind": "Union"
+    },
+    "right": {
+      "kind": "Variable",
+      "value": "B"
+    }
+  }
+}

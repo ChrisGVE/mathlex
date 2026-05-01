@@ -1,0 +1,12 @@
+{
+  "kind": "Unary",
+  "value": {
+    "op": {
+      "kind": "Neg"
+    },
+    "operand": {
+      "kind": "Variable",
+      "value": "x"
+    }
+  }
+}
