@@ -681,3 +681,141 @@ fn relation() {
     .into();
     common::assert_golden(&expr, "relation");
 }
+
+// ── Nested / complex expressions ─────────────────────────────────────────────
+
+#[test]
+fn nested_polynomial() {
+    // x^2 + 2*x + 1  (nested Binary inside Binary)
+    let x_squared: Expression = ExprKind::Binary {
+        op: BinaryOp::Pow,
+        left: Box::new(Expression::variable("x")),
+        right: Box::new(Expression::integer(2)),
+    }
+    .into();
+    let two_x: Expression = ExprKind::Binary {
+        op: BinaryOp::Mul,
+        left: Box::new(Expression::integer(2)),
+        right: Box::new(Expression::variable("x")),
+    }
+    .into();
+    let x_squared_plus_2x: Expression = ExprKind::Binary {
+        op: BinaryOp::Add,
+        left: Box::new(x_squared),
+        right: Box::new(two_x),
+    }
+    .into();
+    let expr: Expression = ExprKind::Binary {
+        op: BinaryOp::Add,
+        left: Box::new(x_squared_plus_2x),
+        right: Box::new(Expression::integer(1)),
+    }
+    .into();
+    common::assert_golden(&expr, "nested_polynomial");
+}
+
+#[test]
+fn nested_trig_identity() {
+    // sin(x)^2 + cos(x)^2  (Function inside Binary inside Binary)
+    let sin_x: Expression = ExprKind::Function {
+        name: "sin".to_string(),
+        args: vec![Expression::variable("x")],
+    }
+    .into();
+    let cos_x: Expression = ExprKind::Function {
+        name: "cos".to_string(),
+        args: vec![Expression::variable("x")],
+    }
+    .into();
+    let sin_sq: Expression = ExprKind::Binary {
+        op: BinaryOp::Pow,
+        left: Box::new(sin_x),
+        right: Box::new(Expression::integer(2)),
+    }
+    .into();
+    let cos_sq: Expression = ExprKind::Binary {
+        op: BinaryOp::Pow,
+        left: Box::new(cos_x),
+        right: Box::new(Expression::integer(2)),
+    }
+    .into();
+    let expr: Expression = ExprKind::Binary {
+        op: BinaryOp::Add,
+        left: Box::new(sin_sq),
+        right: Box::new(cos_sq),
+    }
+    .into();
+    common::assert_golden(&expr, "nested_trig_identity");
+}
+
+#[test]
+fn nested_derivative_order2() {
+    // Second-order derivative of f with respect to x
+    let expr: Expression = ExprKind::Derivative {
+        expr: Box::new(
+            ExprKind::Function {
+                name: "f".to_string(),
+                args: vec![Expression::variable("x")],
+            }
+            .into(),
+        ),
+        var: "x".to_string(),
+        order: 2,
+    }
+    .into();
+    common::assert_golden(&expr, "nested_derivative_order2");
+}
+
+#[test]
+fn nested_integral_definite() {
+    // Definite integral from 0 to 1 of x dx
+    let expr: Expression = ExprKind::Integral {
+        integrand: Box::new(Expression::variable("x")),
+        var: "x".to_string(),
+        bounds: Some(IntegralBounds {
+            lower: Box::new(Expression::integer(0)),
+            upper: Box::new(Expression::integer(1)),
+        }),
+    }
+    .into();
+    common::assert_golden(&expr, "nested_integral_definite");
+}
+
+#[test]
+fn nested_matrix_2x2() {
+    // [[a, b], [c, d]]  — symbolic 2×2 matrix
+    let expr = Expression::matrix(vec![
+        vec![Expression::variable("a"), Expression::variable("b")],
+        vec![Expression::variable("c"), Expression::variable("d")],
+    ]);
+    common::assert_golden(&expr, "nested_matrix_2x2");
+}
+
+#[test]
+fn nested_sum_product() {
+    // sum from i=1 to n of i^2
+    let i_squared: Expression = ExprKind::Binary {
+        op: BinaryOp::Pow,
+        left: Box::new(Expression::variable("i")),
+        right: Box::new(Expression::integer(2)),
+    }
+    .into();
+    let expr: Expression = ExprKind::Sum {
+        index: "i".to_string(),
+        lower: Box::new(Expression::integer(1)),
+        upper: Box::new(Expression::variable("n")),
+        body: Box::new(i_squared),
+    }
+    .into();
+    common::assert_golden(&expr, "nested_sum_product");
+}
+
+#[test]
+fn nested_with_annotation() {
+    // Variable "x" annotated with unit = "meters"
+    use mathlex::ast::AnnotationSet;
+    let mut ann = AnnotationSet::default();
+    ann.insert("unit".to_string(), "meters".to_string());
+    let expr = Expression::with_annotations(ExprKind::Variable("x".to_string()), ann);
+    common::assert_golden(&expr, "nested_with_annotation");
+}

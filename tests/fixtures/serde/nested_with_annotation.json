@@ -1,0 +1,9 @@
+{
+  "kind": "Variable",
+  "value": "x",
+  "annotations": {
+    "entries": {
+      "unit": "meters"
+    }
+  }
+}

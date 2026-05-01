@@ -1,0 +1,56 @@
+{
+  "kind": "Binary",
+  "value": {
+    "left": {
+      "kind": "Binary",
+      "value": {
+        "left": {
+          "kind": "Function",
+          "value": {
+            "args": [
+              {
+                "kind": "Variable",
+                "value": "x"
+              }
+            ],
+            "name": "sin"
+          }
+        },
+        "op": {
+          "kind": "Pow"
+        },
+        "right": {
+          "kind": "Integer",
+          "value": 2
+        }
+      }
+    },
+    "op": {
+      "kind": "Add"
+    },
+    "right": {
+      "kind": "Binary",
+      "value": {
+        "left": {
+          "kind": "Function",
+          "value": {
+            "args": [
+              {
+                "kind": "Variable",
+                "value": "x"
+              }
+            ],
+            "name": "cos"
+          }
+        },
+        "op": {
+          "kind": "Pow"
+        },
+        "right": {
+          "kind": "Integer",
+          "value": 2
+        }
+      }
+    }
+  }
+}

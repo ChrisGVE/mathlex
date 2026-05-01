@@ -1,0 +1,25 @@
+{
+  "kind": "Matrix",
+  "value": [
+    [
+      {
+        "kind": "Variable",
+        "value": "a"
+      },
+      {
+        "kind": "Variable",
+        "value": "b"
+      }
+    ],
+    [
+      {
+        "kind": "Variable",
+        "value": "c"
+      },
+      {
+        "kind": "Variable",
+        "value": "d"
+      }
+    ]
+  ]
+}
