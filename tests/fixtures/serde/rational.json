@@ -1,0 +1,13 @@
+{
+  "kind": "Rational",
+  "value": {
+    "denominator": {
+      "kind": "Integer",
+      "value": 4
+    },
+    "numerator": {
+      "kind": "Integer",
+      "value": 3
+    }
+  }
+}

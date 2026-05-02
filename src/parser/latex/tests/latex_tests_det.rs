@@ -4,11 +4,11 @@ use super::*;
 #[test]
 fn test_det_braced_arg() {
     let expr = parse_latex(r"\det{A}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "det");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("A".to_string()));
+            assert_eq!(args[0], Expression::variable("A".to_string()));
         }
         _ => panic!("Expected Function(det, [A]), got {:?}", expr),
     }
@@ -17,11 +17,11 @@ fn test_det_braced_arg() {
 #[test]
 fn test_det_paren_arg() {
     let expr = parse_latex(r"\det(A)").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "det");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("A".to_string()));
+            assert_eq!(args[0], Expression::variable("A".to_string()));
         }
         _ => panic!("Expected Function(det, [A]), got {:?}", expr),
     }
@@ -30,11 +30,11 @@ fn test_det_paren_arg() {
 #[test]
 fn test_det_unbraced_arg() {
     let expr = parse_latex(r"\det A").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "det");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("A".to_string()));
+            assert_eq!(args[0], Expression::variable("A".to_string()));
         }
         _ => panic!("Expected Function(det, [A]), got {:?}", expr),
     }

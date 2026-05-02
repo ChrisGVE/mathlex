@@ -4,11 +4,11 @@ use super::*;
 #[test]
 fn test_sqrt_simple() {
     let expr = parse_latex(r"\sqrt{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -17,11 +17,11 @@ fn test_sqrt_simple() {
 #[test]
 fn test_sqrt_number() {
     let expr = parse_latex(r"\sqrt{2}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Integer(2));
+            assert_eq!(args[0], Expression::integer(2));
         }
         _ => panic!("Expected function call"),
     }
@@ -30,12 +30,12 @@ fn test_sqrt_number() {
 #[test]
 fn test_sqrt_float() {
     let expr = parse_latex(r"\sqrt{3.14}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
-            match &args[0] {
-                Expression::Float(f) => assert!((f.value() - 3.14).abs() < 1e-10),
+            match &args[0].kind {
+                ExprKind::Float(f) => assert!((f.value() - 3.14).abs() < 1e-10),
                 _ => panic!("Expected float"),
             }
         }
@@ -46,13 +46,13 @@ fn test_sqrt_float() {
 #[test]
 fn test_sqrt_expression_addition() {
     let expr = parse_latex(r"\sqrt{x+1}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
             assert!(matches!(
-                args[0],
-                Expression::Binary {
+                &args[0].kind,
+                ExprKind::Binary {
                     op: BinaryOp::Add,
                     ..
                 }
@@ -65,20 +65,20 @@ fn test_sqrt_expression_addition() {
 #[test]
 fn test_sqrt_expression_power() {
     let expr = parse_latex(r"\sqrt{x^2+1}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
             // Should be addition with power on left side
-            match &args[0] {
-                Expression::Binary {
+            match &args[0].kind {
+                ExprKind::Binary {
                     op: BinaryOp::Add,
                     left,
                     ..
                 } => {
                     assert!(matches!(
-                        **left,
-                        Expression::Binary {
+                        left.kind,
+                        ExprKind::Binary {
                             op: BinaryOp::Pow,
                             ..
                         }
@@ -94,13 +94,13 @@ fn test_sqrt_expression_power() {
 #[test]
 fn test_sqrt_expression_multiplication() {
     let expr = parse_latex(r"\sqrt{2*x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
             assert!(matches!(
-                args[0],
-                Expression::Binary {
+                &args[0].kind,
+                ExprKind::Binary {
                     op: BinaryOp::Mul,
                     ..
                 }
@@ -113,19 +113,19 @@ fn test_sqrt_expression_multiplication() {
 #[test]
 fn test_sqrt_nested() {
     let expr = parse_latex(r"\sqrt{\sqrt{x}}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
             // Inner should also be sqrt function
-            match &args[0] {
-                Expression::Function {
+            match &args[0].kind {
+                ExprKind::Function {
                     name: inner_name,
                     args: inner_args,
                 } => {
                     assert_eq!(inner_name, "sqrt");
                     assert_eq!(inner_args.len(), 1);
-                    assert_eq!(inner_args[0], Expression::Variable("x".to_string()));
+                    assert_eq!(inner_args[0], Expression::variable("x".to_string()));
                 }
                 _ => panic!("Expected nested sqrt function"),
             }
@@ -137,15 +137,15 @@ fn test_sqrt_nested() {
 #[test]
 fn test_sqrt_triple_nested() {
     let expr = parse_latex(r"\sqrt{\sqrt{\sqrt{x}}}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
             // Verify nesting depth of 3
-            match &args[0] {
-                Expression::Function { name: n1, args: a1 } if n1 == "sqrt" => match &a1[0] {
-                    Expression::Function { name: n2, args: a2 } if n2 == "sqrt" => {
-                        assert_eq!(a2[0], Expression::Variable("x".to_string()));
+            match &args[0].kind {
+                ExprKind::Function { name: n1, args: a1 } if n1 == "sqrt" => match &a1[0].kind {
+                    ExprKind::Function { name: n2, args: a2 } if n2 == "sqrt" => {
+                        assert_eq!(a2[0], Expression::variable("x".to_string()));
                     }
                     _ => panic!("Expected third level sqrt"),
                 },
@@ -159,12 +159,12 @@ fn test_sqrt_triple_nested() {
 #[test]
 fn test_root_nth_simple() {
     let expr = parse_latex(r"\sqrt[3]{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "root");
             assert_eq!(args.len(), 2);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
-            assert_eq!(args[1], Expression::Integer(3));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
+            assert_eq!(args[1], Expression::integer(3));
         }
         _ => panic!("Expected function call"),
     }
@@ -173,12 +173,12 @@ fn test_root_nth_simple() {
 #[test]
 fn test_root_fourth() {
     let expr = parse_latex(r"\sqrt[4]{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "root");
             assert_eq!(args.len(), 2);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
-            assert_eq!(args[1], Expression::Integer(4));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
+            assert_eq!(args[1], Expression::integer(4));
         }
         _ => panic!("Expected function call"),
     }
@@ -187,12 +187,12 @@ fn test_root_fourth() {
 #[test]
 fn test_root_variable_index() {
     let expr = parse_latex(r"\sqrt[n]{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "root");
             assert_eq!(args.len(), 2);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
-            assert_eq!(args[1], Expression::Variable("n".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
+            assert_eq!(args[1], Expression::variable("n".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -201,14 +201,14 @@ fn test_root_variable_index() {
 #[test]
 fn test_root_expression_index() {
     let expr = parse_latex(r"\sqrt[n+1]{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "root");
             assert_eq!(args.len(), 2);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
             assert!(matches!(
-                args[1],
-                Expression::Binary {
+                &args[1].kind,
+                ExprKind::Binary {
                     op: BinaryOp::Add,
                     ..
                 }
@@ -221,19 +221,19 @@ fn test_root_expression_index() {
 #[test]
 fn test_root_complex_radicand() {
     let expr = parse_latex(r"\sqrt[4]{x^3+2*x+1}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "root");
             assert_eq!(args.len(), 2);
             // Radicand should be a complex expression
             assert!(matches!(
-                args[0],
-                Expression::Binary {
+                &args[0].kind,
+                ExprKind::Binary {
                     op: BinaryOp::Add,
                     ..
                 }
             ));
-            assert_eq!(args[1], Expression::Integer(4));
+            assert_eq!(args[1], Expression::integer(4));
         }
         _ => panic!("Expected function call"),
     }
@@ -242,12 +242,12 @@ fn test_root_complex_radicand() {
 #[test]
 fn test_root_nested_in_sqrt() {
     let expr = parse_latex(r"\sqrt{\sqrt[3]{x}}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
-            match &args[0] {
-                Expression::Function {
+            match &args[0].kind {
+                ExprKind::Function {
                     name: inner_name,
                     args: inner_args,
                 } => {
@@ -264,12 +264,12 @@ fn test_root_nested_in_sqrt() {
 #[test]
 fn test_sqrt_in_root() {
     let expr = parse_latex(r"\sqrt[3]{\sqrt{x}}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "root");
             assert_eq!(args.len(), 2);
-            match &args[0] {
-                Expression::Function {
+            match &args[0].kind {
+                ExprKind::Function {
                     name: inner_name,
                     args: inner_args,
                 } => {
@@ -278,7 +278,7 @@ fn test_sqrt_in_root() {
                 }
                 _ => panic!("Expected nested sqrt function"),
             }
-            assert_eq!(args[1], Expression::Integer(3));
+            assert_eq!(args[1], Expression::integer(3));
         }
         _ => panic!("Expected function call"),
     }
@@ -288,15 +288,15 @@ fn test_sqrt_in_root() {
 fn test_sqrt_in_expression() {
     // Test: 1 + \sqrt{x}
     let expr = parse_latex(r"1 + \sqrt{x}").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Add,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Integer(1));
-            match *right {
-                Expression::Function { name, .. } => assert_eq!(name, "sqrt"),
+            assert_eq!(**left, Expression::integer(1));
+            match &right.kind {
+                ExprKind::Function { name, .. } => assert_eq!(name, "sqrt"),
                 _ => panic!("Expected sqrt function"),
             }
         }
@@ -307,13 +307,13 @@ fn test_sqrt_in_expression() {
 #[test]
 fn test_sqrt_with_fraction() {
     let expr = parse_latex(r"\sqrt{\frac{1}{2}}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
             assert!(matches!(
-                args[0],
-                Expression::Binary {
+                &args[0].kind,
+                ExprKind::Binary {
                     op: BinaryOp::Div,
                     ..
                 }
@@ -326,18 +326,18 @@ fn test_sqrt_with_fraction() {
 #[test]
 fn test_sqrt_of_sqrt_plus_one() {
     let expr = parse_latex(r"\sqrt{\sqrt{x}+1}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
-            match &args[0] {
-                Expression::Binary {
+            match &args[0].kind {
+                ExprKind::Binary {
                     op: BinaryOp::Add,
                     left,
                     right,
                 } => {
-                    assert!(matches!(**left, Expression::Function { .. }));
-                    assert_eq!(**right, Expression::Integer(1));
+                    assert!(matches!(left.kind, ExprKind::Function { .. }));
+                    assert_eq!(**right, Expression::integer(1));
                 }
                 _ => panic!("Expected addition"),
             }
@@ -350,15 +350,15 @@ fn test_sqrt_of_sqrt_plus_one() {
 fn test_multiple_roots() {
     // Test: \sqrt{x} + \sqrt[3]{y}
     let expr = parse_latex(r"\sqrt{x} + \sqrt[3]{y}").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Add,
             left,
             right,
-        } => match (*left, *right) {
+        } => match (&left.kind, &right.kind) {
             (
-                Expression::Function { name: n1, args: a1 },
-                Expression::Function { name: n2, args: a2 },
+                ExprKind::Function { name: n1, args: a1 },
+                ExprKind::Function { name: n2, args: a2 },
             ) => {
                 assert_eq!(n1, "sqrt");
                 assert_eq!(a1.len(), 1);
@@ -374,11 +374,11 @@ fn test_multiple_roots() {
 #[test]
 fn test_sqrt_with_greek_letter() {
     let expr = parse_latex(r"\sqrt{\alpha}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sqrt");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("alpha".to_string()));
+            assert_eq!(args[0], Expression::variable("alpha".to_string()));
         }
         _ => panic!("Expected function call"),
     }

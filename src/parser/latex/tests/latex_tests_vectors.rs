@@ -1,6 +1,6 @@
 //! Tests for vector notation parsing in LaTeX.
 
-use crate::ast::{Expression, VectorNotation};
+use crate::ast::{ExprKind, Expression, VectorNotation};
 use crate::parser::parse_latex;
 
 // ============================================================
@@ -10,10 +10,10 @@ use crate::parser::parse_latex;
 #[test]
 fn test_mathbf_braced() {
     let expr = parse_latex(r"\mathbf{v}").unwrap();
-    match expr {
-        Expression::MarkedVector { name, notation } => {
+    match &expr.kind {
+        ExprKind::MarkedVector { name, notation } => {
             assert_eq!(name, "v");
-            assert_eq!(notation, VectorNotation::Bold);
+            assert_eq!(*notation, VectorNotation::Bold);
         }
         _ => panic!("Expected MarkedVector, got {:?}", expr),
     }
@@ -22,10 +22,10 @@ fn test_mathbf_braced() {
 #[test]
 fn test_mathbf_greek() {
     let expr = parse_latex(r"\mathbf{\alpha}").unwrap();
-    match expr {
-        Expression::MarkedVector { name, notation } => {
+    match &expr.kind {
+        ExprKind::MarkedVector { name, notation } => {
             assert_eq!(name, "alpha");
-            assert_eq!(notation, VectorNotation::Bold);
+            assert_eq!(*notation, VectorNotation::Bold);
         }
         _ => panic!("Expected MarkedVector, got {:?}", expr),
     }
@@ -34,10 +34,10 @@ fn test_mathbf_greek() {
 #[test]
 fn test_boldsymbol() {
     let expr = parse_latex(r"\boldsymbol{F}").unwrap();
-    match expr {
-        Expression::MarkedVector { name, notation } => {
+    match &expr.kind {
+        ExprKind::MarkedVector { name, notation } => {
             assert_eq!(name, "F");
-            assert_eq!(notation, VectorNotation::Bold);
+            assert_eq!(*notation, VectorNotation::Bold);
         }
         _ => panic!("Expected MarkedVector, got {:?}", expr),
     }
@@ -46,10 +46,10 @@ fn test_boldsymbol() {
 #[test]
 fn test_vec_braced() {
     let expr = parse_latex(r"\vec{a}").unwrap();
-    match expr {
-        Expression::MarkedVector { name, notation } => {
+    match &expr.kind {
+        ExprKind::MarkedVector { name, notation } => {
             assert_eq!(name, "a");
-            assert_eq!(notation, VectorNotation::Arrow);
+            assert_eq!(*notation, VectorNotation::Arrow);
         }
         _ => panic!("Expected MarkedVector, got {:?}", expr),
     }
@@ -58,10 +58,10 @@ fn test_vec_braced() {
 #[test]
 fn test_vec_unbraced() {
     let expr = parse_latex(r"\vec a").unwrap();
-    match expr {
-        Expression::MarkedVector { name, notation } => {
+    match &expr.kind {
+        ExprKind::MarkedVector { name, notation } => {
             assert_eq!(name, "a");
-            assert_eq!(notation, VectorNotation::Arrow);
+            assert_eq!(*notation, VectorNotation::Arrow);
         }
         _ => panic!("Expected MarkedVector, got {:?}", expr),
     }
@@ -70,10 +70,10 @@ fn test_vec_unbraced() {
 #[test]
 fn test_overrightarrow() {
     let expr = parse_latex(r"\overrightarrow{AB}").unwrap();
-    match expr {
-        Expression::MarkedVector { name, notation } => {
+    match &expr.kind {
+        ExprKind::MarkedVector { name, notation } => {
             assert_eq!(name, "AB");
-            assert_eq!(notation, VectorNotation::Arrow);
+            assert_eq!(*notation, VectorNotation::Arrow);
         }
         _ => panic!("Expected MarkedVector, got {:?}", expr),
     }
@@ -82,10 +82,10 @@ fn test_overrightarrow() {
 #[test]
 fn test_hat_braced() {
     let expr = parse_latex(r"\hat{n}").unwrap();
-    match expr {
-        Expression::MarkedVector { name, notation } => {
+    match &expr.kind {
+        ExprKind::MarkedVector { name, notation } => {
             assert_eq!(name, "n");
-            assert_eq!(notation, VectorNotation::Hat);
+            assert_eq!(*notation, VectorNotation::Hat);
         }
         _ => panic!("Expected MarkedVector, got {:?}", expr),
     }
@@ -94,10 +94,10 @@ fn test_hat_braced() {
 #[test]
 fn test_hat_unbraced() {
     let expr = parse_latex(r"\hat x").unwrap();
-    match expr {
-        Expression::MarkedVector { name, notation } => {
+    match &expr.kind {
+        ExprKind::MarkedVector { name, notation } => {
             assert_eq!(name, "x");
-            assert_eq!(notation, VectorNotation::Hat);
+            assert_eq!(*notation, VectorNotation::Hat);
         }
         _ => panic!("Expected MarkedVector, got {:?}", expr),
     }
@@ -106,10 +106,10 @@ fn test_hat_unbraced() {
 #[test]
 fn test_underline() {
     let expr = parse_latex(r"\underline{v}").unwrap();
-    match expr {
-        Expression::MarkedVector { name, notation } => {
+    match &expr.kind {
+        ExprKind::MarkedVector { name, notation } => {
             assert_eq!(name, "v");
-            assert_eq!(notation, VectorNotation::Underline);
+            assert_eq!(*notation, VectorNotation::Underline);
         }
         _ => panic!("Expected MarkedVector, got {:?}", expr),
     }
@@ -122,9 +122,9 @@ fn test_underline() {
 #[test]
 fn test_gradient() {
     let expr = parse_latex(r"\nabla f").unwrap();
-    match expr {
-        Expression::Gradient { expr } => {
-            assert_eq!(*expr, Expression::Variable("f".to_string()));
+    match &expr.kind {
+        ExprKind::Gradient { expr } => {
+            assert_eq!(**expr, Expression::variable("f".to_string()));
         }
         _ => panic!("Expected Gradient, got {:?}", expr),
     }
@@ -133,9 +133,9 @@ fn test_gradient() {
 #[test]
 fn test_gradient_braced() {
     let expr = parse_latex(r"\nabla{f}").unwrap();
-    match expr {
-        Expression::Gradient { expr } => {
-            assert_eq!(*expr, Expression::Variable("f".to_string()));
+    match &expr.kind {
+        ExprKind::Gradient { expr } => {
+            assert_eq!(**expr, Expression::variable("f".to_string()));
         }
         _ => panic!("Expected Gradient, got {:?}", expr),
     }
@@ -144,9 +144,9 @@ fn test_gradient_braced() {
 #[test]
 fn test_divergence_cdot() {
     let expr = parse_latex(r"\nabla \cdot F").unwrap();
-    match expr {
-        Expression::Divergence { field } => {
-            assert_eq!(*field, Expression::Variable("F".to_string()));
+    match &expr.kind {
+        ExprKind::Divergence { field } => {
+            assert_eq!(**field, Expression::variable("F".to_string()));
         }
         _ => panic!("Expected Divergence, got {:?}", expr),
     }
@@ -155,9 +155,9 @@ fn test_divergence_cdot() {
 #[test]
 fn test_divergence_bullet() {
     let expr = parse_latex(r"\nabla \bullet F").unwrap();
-    match expr {
-        Expression::Divergence { field } => {
-            assert_eq!(*field, Expression::Variable("F".to_string()));
+    match &expr.kind {
+        ExprKind::Divergence { field } => {
+            assert_eq!(**field, Expression::variable("F".to_string()));
         }
         _ => panic!("Expected Divergence, got {:?}", expr),
     }
@@ -166,9 +166,9 @@ fn test_divergence_bullet() {
 #[test]
 fn test_curl() {
     let expr = parse_latex(r"\nabla \times F").unwrap();
-    match expr {
-        Expression::Curl { field } => {
-            assert_eq!(*field, Expression::Variable("F".to_string()));
+    match &expr.kind {
+        ExprKind::Curl { field } => {
+            assert_eq!(**field, Expression::variable("F".to_string()));
         }
         _ => panic!("Expected Curl, got {:?}", expr),
     }
@@ -177,9 +177,9 @@ fn test_curl() {
 #[test]
 fn test_laplacian() {
     let expr = parse_latex(r"\nabla^2 f").unwrap();
-    match expr {
-        Expression::Laplacian { expr } => {
-            assert_eq!(*expr, Expression::Variable("f".to_string()));
+    match &expr.kind {
+        ExprKind::Laplacian { expr } => {
+            assert_eq!(**expr, Expression::variable("f".to_string()));
         }
         _ => panic!("Expected Laplacian, got {:?}", expr),
     }
@@ -188,9 +188,9 @@ fn test_laplacian() {
 #[test]
 fn test_laplacian_braced() {
     let expr = parse_latex(r"\nabla^{2} f").unwrap();
-    match expr {
-        Expression::Laplacian { expr } => {
-            assert_eq!(*expr, Expression::Variable("f".to_string()));
+    match &expr.kind {
+        ExprKind::Laplacian { expr } => {
+            assert_eq!(**expr, Expression::variable("f".to_string()));
         }
         _ => panic!("Expected Laplacian, got {:?}", expr),
     }
@@ -203,10 +203,10 @@ fn test_laplacian_braced() {
 #[test]
 fn test_dot_product_bullet() {
     let expr = parse_latex(r"a \bullet b").unwrap();
-    match expr {
-        Expression::DotProduct { left, right } => {
-            assert_eq!(*left, Expression::Variable("a".to_string()));
-            assert_eq!(*right, Expression::Variable("b".to_string()));
+    match &expr.kind {
+        ExprKind::DotProduct { left, right } => {
+            assert_eq!(**left, Expression::variable("a".to_string()));
+            assert_eq!(**right, Expression::variable("b".to_string()));
         }
         _ => panic!("Expected DotProduct, got {:?}", expr),
     }
@@ -215,10 +215,10 @@ fn test_dot_product_bullet() {
 #[test]
 fn test_outer_product() {
     let expr = parse_latex(r"u \otimes v").unwrap();
-    match expr {
-        Expression::OuterProduct { left, right } => {
-            assert_eq!(*left, Expression::Variable("u".to_string()));
-            assert_eq!(*right, Expression::Variable("v".to_string()));
+    match &expr.kind {
+        ExprKind::OuterProduct { left, right } => {
+            assert_eq!(**left, Expression::variable("u".to_string()));
+            assert_eq!(**right, Expression::variable("v".to_string()));
         }
         _ => panic!("Expected OuterProduct, got {:?}", expr),
     }
@@ -227,14 +227,14 @@ fn test_outer_product() {
 #[test]
 fn test_vector_product_with_marked_vectors() {
     let expr = parse_latex(r"\mathbf{a} \bullet \mathbf{b}").unwrap();
-    match expr {
-        Expression::DotProduct { left, right } => match (*left, *right) {
+    match &expr.kind {
+        ExprKind::DotProduct { left, right } => match (&left.kind, &right.kind) {
             (
-                Expression::MarkedVector {
+                ExprKind::MarkedVector {
                     name: n1,
                     notation: VectorNotation::Bold,
                 },
-                Expression::MarkedVector {
+                ExprKind::MarkedVector {
                     name: n2,
                     notation: VectorNotation::Bold,
                 },
@@ -256,8 +256,8 @@ fn test_vector_product_with_marked_vectors() {
 fn test_gradient_of_scalar_product() {
     // \nabla (f * g) should parse as gradient of (f * g)
     let expr = parse_latex(r"\nabla f").unwrap();
-    match expr {
-        Expression::Gradient { .. } => {}
+    match &expr.kind {
+        ExprKind::Gradient { .. } => {}
         _ => panic!("Expected Gradient, got {:?}", expr),
     }
 }
@@ -265,18 +265,18 @@ fn test_gradient_of_scalar_product() {
 #[test]
 fn test_vector_in_expression() {
     let expr = parse_latex(r"\mathbf{v} + \mathbf{u}").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: crate::ast::BinaryOp::Add,
             left,
             right,
-        } => match (*left, *right) {
+        } => match (&left.kind, &right.kind) {
             (
-                Expression::MarkedVector {
+                ExprKind::MarkedVector {
                     name: n1,
                     notation: VectorNotation::Bold,
                 },
-                Expression::MarkedVector {
+                ExprKind::MarkedVector {
                     name: n2,
                     notation: VectorNotation::Bold,
                 },

@@ -1,0 +1,16 @@
+{
+  "kind": "Relation",
+  "value": {
+    "left": {
+      "kind": "Variable",
+      "value": "x"
+    },
+    "op": {
+      "kind": "Approx"
+    },
+    "right": {
+      "kind": "Variable",
+      "value": "y"
+    }
+  }
+}

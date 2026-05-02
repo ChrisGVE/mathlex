@@ -1,0 +1,25 @@
+{
+  "kind": "LeviCivita",
+  "value": {
+    "indices": [
+      {
+        "index_type": {
+          "kind": "Lower"
+        },
+        "name": "i"
+      },
+      {
+        "index_type": {
+          "kind": "Lower"
+        },
+        "name": "j"
+      },
+      {
+        "index_type": {
+          "kind": "Lower"
+        },
+        "name": "k"
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "kind": "KroneckerDelta",
+  "value": {
+    "indices": [
+      {
+        "index_type": {
+          "kind": "Lower"
+        },
+        "name": "i"
+      },
+      {
+        "index_type": {
+          "kind": "Lower"
+        },
+        "name": "j"
+      }
+    ]
+  }
+}

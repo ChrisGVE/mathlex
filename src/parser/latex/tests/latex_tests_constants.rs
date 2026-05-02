@@ -10,28 +10,28 @@ use super::*;
 fn test_explicit_mathrm_e() {
     // \mathrm{e} should always parse as Constant(E)
     let expr = parse_latex(r"\mathrm{e}").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::E));
+    assert_eq!(expr, Expression::constant(MathConstant::E));
 }
 
 #[test]
 fn test_explicit_mathrm_i() {
     // \mathrm{i} should always parse as Constant(I)
     let expr = parse_latex(r"\mathrm{i}").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::I));
+    assert_eq!(expr, Expression::constant(MathConstant::I));
 }
 
 #[test]
 fn test_imath() {
     // \imath should parse as Constant(I)
     let expr = parse_latex(r"\imath").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::I));
+    assert_eq!(expr, Expression::constant(MathConstant::I));
 }
 
 #[test]
 fn test_jmath() {
     // \jmath should parse as Constant(I) (engineering notation)
     let expr = parse_latex(r"\jmath").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::I));
+    assert_eq!(expr, Expression::constant(MathConstant::I));
 }
 
 // =============================================================================
@@ -42,25 +42,25 @@ fn test_jmath() {
 fn test_bare_e_is_constant() {
     // Unbound e defaults to Euler's number
     let expr = parse_latex("e").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::E));
+    assert_eq!(expr, Expression::constant(MathConstant::E));
 }
 
 #[test]
 fn test_bare_i_is_constant() {
     // Unbound i defaults to imaginary unit
     let expr = parse_latex("i").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::I));
+    assert_eq!(expr, Expression::constant(MathConstant::I));
 }
 
 #[test]
 fn test_e_in_expression() {
     // e + 1 should have Constant(E) on left
     let expr = parse_latex("e + 1").unwrap();
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Add);
-            assert_eq!(*left, Expression::Constant(MathConstant::E));
-            assert_eq!(*right, Expression::Integer(1));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(*op, BinaryOp::Add);
+            assert_eq!(**left, Expression::constant(MathConstant::E));
+            assert_eq!(**right, Expression::integer(1));
         }
         _ => panic!("Expected binary expression"),
     }
@@ -70,11 +70,11 @@ fn test_e_in_expression() {
 fn test_i_in_expression() {
     // 2 * i should have Constant(I) on right
     let expr = parse_latex("2 * i").unwrap();
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Mul);
-            assert_eq!(*left, Expression::Integer(2));
-            assert_eq!(*right, Expression::Constant(MathConstant::I));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(*op, BinaryOp::Mul);
+            assert_eq!(**left, Expression::integer(2));
+            assert_eq!(**right, Expression::constant(MathConstant::I));
         }
         _ => panic!("Expected binary expression"),
     }
@@ -88,18 +88,18 @@ fn test_i_in_expression() {
 fn test_sum_bound_i() {
     // \sum_{i=1}^n i -> i in body is Variable, not Constant
     let expr = parse_latex(r"\sum_{i=1}^{n} i").unwrap();
-    match expr {
-        Expression::Sum {
+    match &expr.kind {
+        ExprKind::Sum {
             index,
             lower,
             upper,
             body,
         } => {
             assert_eq!(index, "i");
-            assert_eq!(*lower, Expression::Integer(1));
-            assert_eq!(*upper, Expression::Variable("n".to_string()));
+            assert_eq!(**lower, Expression::integer(1));
+            assert_eq!(**upper, Expression::variable("n".to_string()));
             // The body i should be a Variable, not Constant(I)
-            assert_eq!(*body, Expression::Variable("i".to_string()));
+            assert_eq!(**body, Expression::variable("i".to_string()));
         }
         _ => panic!("Expected Sum variant"),
     }
@@ -109,18 +109,18 @@ fn test_sum_bound_i() {
 fn test_prod_bound_e() {
     // \prod_{e=1}^n e -> e in body is Variable, not Constant
     let expr = parse_latex(r"\prod_{e=1}^{n} e").unwrap();
-    match expr {
-        Expression::Product {
+    match &expr.kind {
+        ExprKind::Product {
             index,
             lower,
             upper,
             body,
         } => {
             assert_eq!(index, "e");
-            assert_eq!(*lower, Expression::Integer(1));
-            assert_eq!(*upper, Expression::Variable("n".to_string()));
+            assert_eq!(**lower, Expression::integer(1));
+            assert_eq!(**upper, Expression::variable("n".to_string()));
             // The body e should be a Variable, not Constant(E)
-            assert_eq!(*body, Expression::Variable("e".to_string()));
+            assert_eq!(**body, Expression::variable("e".to_string()));
         }
         _ => panic!("Expected Product variant"),
     }
@@ -130,11 +130,11 @@ fn test_prod_bound_e() {
 fn test_sum_with_e_and_i() {
     // \sum_{i=1}^n e -> i is bound (Variable), e is unbound (Constant)
     let expr = parse_latex(r"\sum_{i=1}^{n} e").unwrap();
-    match expr {
-        Expression::Sum { index, body, .. } => {
+    match &expr.kind {
+        ExprKind::Sum { index, body, .. } => {
             assert_eq!(index, "i");
             // e is NOT the index, so it should remain Constant(E)
-            assert_eq!(*body, Expression::Constant(MathConstant::E));
+            assert_eq!(**body, Expression::constant(MathConstant::E));
         }
         _ => panic!("Expected Sum variant"),
     }
@@ -144,14 +144,14 @@ fn test_sum_with_e_and_i() {
 fn test_sum_bound_i_in_multiplication() {
     // \sum_{i=1}^n 2*i -> i in body is Variable
     let expr = parse_latex(r"\sum_{i=1}^{n} 2 * i").unwrap();
-    match expr {
-        Expression::Sum { body, .. } => {
-            match *body {
-                Expression::Binary { op, left, right } => {
-                    assert_eq!(op, BinaryOp::Mul);
-                    assert_eq!(*left, Expression::Integer(2));
+    match &expr.kind {
+        ExprKind::Sum { body, .. } => {
+            match &body.kind {
+                ExprKind::Binary { op, left, right } => {
+                    assert_eq!(*op, BinaryOp::Mul);
+                    assert_eq!(**left, Expression::integer(2));
                     // i should be Variable, not Constant
-                    assert_eq!(*right, Expression::Variable("i".to_string()));
+                    assert_eq!(**right, Expression::variable("i".to_string()));
                 }
                 _ => panic!("Expected multiplication in body"),
             }
@@ -168,11 +168,11 @@ fn test_sum_bound_i_in_multiplication() {
 fn test_e_power_is_exp() {
     // e^x should normalize to Function("exp", [x])
     let expr = parse_latex("e^x").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "exp");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected Function variant"),
     }
@@ -182,12 +182,12 @@ fn test_e_power_is_exp() {
 fn test_e_power_braced() {
     // e^{x+1} should normalize to Function("exp", [x+1])
     let expr = parse_latex("e^{x+1}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "exp");
             assert_eq!(args.len(), 1);
-            match &args[0] {
-                Expression::Binary { op, .. } => {
+            match &args[0].kind {
+                ExprKind::Binary { op, .. } => {
                     assert_eq!(*op, BinaryOp::Add);
                 }
                 _ => panic!("Expected binary expression in exp argument"),
@@ -209,11 +209,11 @@ fn test_exp_and_e_power_equal() {
 fn test_explicit_mathrm_e_power() {
     // \mathrm{e}^x should also normalize to exp(x)
     let expr = parse_latex(r"\mathrm{e}^x").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "exp");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected Function variant"),
     }
@@ -223,15 +223,15 @@ fn test_explicit_mathrm_e_power() {
 fn test_euler_formula() {
     // e^{i\pi} should produce exp(Constant(I) * Constant(Pi))
     let expr = parse_latex(r"e^{i \pi}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "exp");
             assert_eq!(args.len(), 1);
-            match &args[0] {
-                Expression::Binary { op, left, right } => {
+            match &args[0].kind {
+                ExprKind::Binary { op, left, right } => {
                     assert_eq!(*op, BinaryOp::Mul);
-                    assert_eq!(**left, Expression::Constant(MathConstant::I));
-                    assert_eq!(**right, Expression::Constant(MathConstant::Pi));
+                    assert_eq!(**left, Expression::constant(MathConstant::I));
+                    assert_eq!(**right, Expression::constant(MathConstant::Pi));
                 }
                 _ => panic!("Expected multiplication in exp argument"),
             }
@@ -244,11 +244,11 @@ fn test_euler_formula() {
 fn test_e_without_power() {
     // e + 1 should keep e as Constant(E), no normalization
     let expr = parse_latex("e + 1").unwrap();
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Add);
-            assert_eq!(*left, Expression::Constant(MathConstant::E));
-            assert_eq!(*right, Expression::Integer(1));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(*op, BinaryOp::Add);
+            assert_eq!(**left, Expression::constant(MathConstant::E));
+            assert_eq!(**right, Expression::integer(1));
         }
         _ => panic!("Expected binary expression"),
     }
@@ -262,14 +262,14 @@ fn test_e_without_power() {
 fn test_subscript_e_is_variable() {
     // x_e should produce Variable("x_e"), the subscript 'e' is just a label
     let expr = parse_latex("x_e").unwrap();
-    assert_eq!(expr, Expression::Variable("x_e".to_string()));
+    assert_eq!(expr, Expression::variable("x_e".to_string()));
 }
 
 #[test]
 fn test_subscript_i_is_variable() {
     // x_i should produce Variable("x_i"), the subscript 'i' is just a label
     let expr = parse_latex("x_i").unwrap();
-    assert_eq!(expr, Expression::Variable("x_i".to_string()));
+    assert_eq!(expr, Expression::variable("x_i".to_string()));
 }
 
 #[test]
@@ -277,19 +277,19 @@ fn test_other_letters_are_variables() {
     // a, b, c, x, y, z should all be variables
     assert_eq!(
         parse_latex("a").unwrap(),
-        Expression::Variable("a".to_string())
+        Expression::variable("a".to_string())
     );
     assert_eq!(
         parse_latex("b").unwrap(),
-        Expression::Variable("b".to_string())
+        Expression::variable("b".to_string())
     );
     assert_eq!(
         parse_latex("x").unwrap(),
-        Expression::Variable("x".to_string())
+        Expression::variable("x".to_string())
     );
     assert_eq!(
         parse_latex("y").unwrap(),
-        Expression::Variable("y".to_string())
+        Expression::variable("y".to_string())
     );
 }
 
@@ -297,21 +297,21 @@ fn test_other_letters_are_variables() {
 fn test_complex_number_pattern() {
     // a + bi - both i's should be Constant(I)
     let expr = parse_latex("a + b * i").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Add,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Variable("a".to_string()));
-            match *right {
-                Expression::Binary {
+            assert_eq!(**left, Expression::variable("a".to_string()));
+            match &right.kind {
+                ExprKind::Binary {
                     op: BinaryOp::Mul,
                     left: ref b,
                     right: ref i,
                 } => {
-                    assert_eq!(**b, Expression::Variable("b".to_string()));
-                    assert_eq!(**i, Expression::Constant(MathConstant::I));
+                    assert_eq!(**b, Expression::variable("b".to_string()));
+                    assert_eq!(**i, Expression::constant(MathConstant::I));
                 }
                 _ => panic!("Expected multiplication"),
             }
@@ -325,21 +325,21 @@ fn test_nested_sum_scope() {
     // \sum_{i=1}^n \sum_{j=1}^m i*j
     // Both i and j should be Variables in the body
     let expr = parse_latex(r"\sum_{i=1}^{n} \sum_{j=1}^{m} i * j").unwrap();
-    match expr {
-        Expression::Sum {
+    match &expr.kind {
+        ExprKind::Sum {
             body: outer_body, ..
         } => {
             // outer_body is the inner sum
-            match *outer_body {
-                Expression::Sum {
+            match &outer_body.kind {
+                ExprKind::Sum {
                     body: inner_body, ..
                 } => {
                     // inner_body should be i * j with both as Variables
-                    match *inner_body {
-                        Expression::Binary { op, left, right } => {
-                            assert_eq!(op, BinaryOp::Mul);
-                            assert_eq!(*left, Expression::Variable("i".to_string()));
-                            assert_eq!(*right, Expression::Variable("j".to_string()));
+                    match &inner_body.kind {
+                        ExprKind::Binary { op, left, right } => {
+                            assert_eq!(*op, BinaryOp::Mul);
+                            assert_eq!(**left, Expression::variable("i".to_string()));
+                            assert_eq!(**right, Expression::variable("j".to_string()));
                         }
                         _ => panic!("Expected binary multiplication"),
                     }
@@ -368,16 +368,16 @@ fn test_mathrm_other_letter() {
 fn test_neg_infty_is_neg_infinity() {
     // -\infty should fold to Constant(NegInfinity)
     let expr = parse_latex(r"-\infty").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::NegInfinity));
+    assert_eq!(expr, Expression::constant(MathConstant::NegInfinity));
 }
 
 #[test]
 fn test_neg_infty_in_limit() {
     // \lim_{x \to -\infty} f(x) should have NegInfinity as the limit target
     let expr = parse_latex(r"\lim_{x \to -\infty} f(x)").unwrap();
-    match expr {
-        Expression::Limit { to, .. } => {
-            assert_eq!(*to, Expression::Constant(MathConstant::NegInfinity));
+    match &expr.kind {
+        ExprKind::Limit { to, .. } => {
+            assert_eq!(**to, Expression::constant(MathConstant::NegInfinity));
         }
         _ => panic!("Expected Limit variant"),
     }
@@ -387,14 +387,14 @@ fn test_neg_infty_in_limit() {
 fn test_neg_infty_in_integral_bound() {
     // \int_{-\infty}^{\infty} should have NegInfinity as lower bound
     let expr = parse_latex(r"\int_{-\infty}^{\infty} x dx").unwrap();
-    match expr {
-        Expression::Integral { bounds, .. } => {
-            let bounds = bounds.expect("Expected definite integral bounds");
+    match &expr.kind {
+        ExprKind::Integral { bounds, .. } => {
+            let bounds = bounds.as_ref().expect("Expected definite integral bounds");
             assert_eq!(
                 *bounds.lower,
-                Expression::Constant(MathConstant::NegInfinity)
+                Expression::constant(MathConstant::NegInfinity)
             );
-            assert_eq!(*bounds.upper, Expression::Constant(MathConstant::Infinity));
+            assert_eq!(*bounds.upper, Expression::constant(MathConstant::Infinity));
         }
         _ => panic!("Expected Integral variant"),
     }
@@ -404,7 +404,7 @@ fn test_neg_infty_in_integral_bound() {
 fn test_positive_infty_unchanged() {
     // \infty should remain Constant(Infinity), not NegInfinity
     let expr = parse_latex(r"\infty").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::Infinity));
+    assert_eq!(expr, Expression::constant(MathConstant::Infinity));
 }
 
 // =============================================================================
@@ -447,39 +447,39 @@ fn test_tokenize_jmath() {
 fn test_text_nan_uppercase() {
     // \text{NaN} should parse as Constant(NaN)
     let expr = parse_latex(r"\text{NaN}").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::NaN));
+    assert_eq!(expr, Expression::constant(MathConstant::NaN));
 }
 
 #[test]
 fn test_text_nan_lowercase() {
     // \text{nan} should parse as Constant(NaN)
     let expr = parse_latex(r"\text{nan}").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::NaN));
+    assert_eq!(expr, Expression::constant(MathConstant::NaN));
 }
 
 #[test]
 fn test_mathrm_nan_uppercase() {
     // \mathrm{NaN} should parse as Constant(NaN)
     let expr = parse_latex(r"\mathrm{NaN}").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::NaN));
+    assert_eq!(expr, Expression::constant(MathConstant::NaN));
 }
 
 #[test]
 fn test_mathrm_nan_lowercase() {
     // \mathrm{nan} should parse as Constant(NaN)
     let expr = parse_latex(r"\mathrm{nan}").unwrap();
-    assert_eq!(expr, Expression::Constant(MathConstant::NaN));
+    assert_eq!(expr, Expression::constant(MathConstant::NaN));
 }
 
 #[test]
 fn test_nan_in_expression() {
     // x + \text{NaN} should produce a binary with NaN on the right
     let expr = parse_latex(r"x + \text{NaN}").unwrap();
-    match expr {
-        Expression::Binary { op, left, right } => {
-            assert_eq!(op, BinaryOp::Add);
-            assert_eq!(*left, Expression::Variable("x".to_string()));
-            assert_eq!(*right, Expression::Constant(MathConstant::NaN));
+    match &expr.kind {
+        ExprKind::Binary { op, left, right } => {
+            assert_eq!(*op, BinaryOp::Add);
+            assert_eq!(**left, Expression::variable("x".to_string()));
+            assert_eq!(**right, Expression::constant(MathConstant::NaN));
         }
         _ => panic!("Expected binary expression"),
     }
@@ -509,7 +509,7 @@ fn test_tokenize_mathrm_nan() {
 #[test]
 fn test_nan_to_latex_roundtrip() {
     use crate::latex::ToLatex;
-    let expr = Expression::Constant(MathConstant::NaN);
+    let expr = Expression::constant(MathConstant::NaN);
     let latex = expr.to_latex();
     assert_eq!(latex, r"\text{NaN}");
     // Re-parse the LaTeX output — must round-trip.
@@ -519,7 +519,7 @@ fn test_nan_to_latex_roundtrip() {
 
 #[test]
 fn test_nan_display() {
-    let expr = Expression::Constant(MathConstant::NaN);
+    let expr = Expression::constant(MathConstant::NaN);
     assert_eq!(format!("{}", expr), "NaN");
 }
 

@@ -1,0 +1,30 @@
+{
+  "kind": "Sum",
+  "value": {
+    "body": {
+      "kind": "Binary",
+      "value": {
+        "left": {
+          "kind": "Variable",
+          "value": "i"
+        },
+        "op": {
+          "kind": "Pow"
+        },
+        "right": {
+          "kind": "Integer",
+          "value": 2
+        }
+      }
+    },
+    "index": "i",
+    "lower": {
+      "kind": "Integer",
+      "value": 1
+    },
+    "upper": {
+      "kind": "Variable",
+      "value": "n"
+    }
+  }
+}

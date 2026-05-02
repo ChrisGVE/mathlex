@@ -30,7 +30,7 @@
 //! ### Basic Parsing
 //!
 //! ```
-//! use mathlex::{parse, parse_latex, Expression, BinaryOp};
+//! use mathlex::{parse, parse_latex, Expression, ExprKind, BinaryOp};
 //!
 //! // Parse plain text
 //! let expr = parse("2*x + sin(y)").unwrap();
@@ -39,7 +39,7 @@
 //! let expr = parse_latex(r"\frac{1}{2}").unwrap();
 //!
 //! // Verify the parsed structure
-//! if let Expression::Binary { op: BinaryOp::Div, .. } = expr {
+//! if let ExprKind::Binary { op: BinaryOp::Div, .. } = expr.kind {
 //!     println!("Parsed as division");
 //! }
 //! ```
@@ -47,45 +47,45 @@
 //! ### Vector Calculus
 //!
 //! ```
-//! use mathlex::{parse_latex, Expression};
+//! use mathlex::{parse_latex, Expression, ExprKind};
 //!
 //! // Gradient operator
 //! let grad = parse_latex(r"\nabla f").unwrap();
-//! assert!(matches!(grad, Expression::Gradient { .. }));
+//! assert!(matches!(grad.kind, ExprKind::Gradient { .. }));
 //!
 //! // Divergence of a vector field
 //! let div = parse_latex(r"\nabla \cdot \mathbf{F}").unwrap();
-//! assert!(matches!(div, Expression::Divergence { .. }));
+//! assert!(matches!(div.kind, ExprKind::Divergence { .. }));
 //!
 //! // Curl (cross product with nabla)
 //! let curl = parse_latex(r"\nabla \times \mathbf{F}").unwrap();
-//! assert!(matches!(curl, Expression::Curl { .. }));
+//! assert!(matches!(curl.kind, ExprKind::Curl { .. }));
 //!
 //! // Laplacian
 //! let laplacian = parse_latex(r"\nabla^2 f").unwrap();
-//! assert!(matches!(laplacian, Expression::Laplacian { .. }));
+//! assert!(matches!(laplacian.kind, ExprKind::Laplacian { .. }));
 //! ```
 //!
 //! ### Vector Notation Styles
 //!
 //! ```
-//! use mathlex::{parse_latex, Expression, VectorNotation};
+//! use mathlex::{parse_latex, Expression, ExprKind, VectorNotation};
 //!
 //! // Bold vectors
 //! let bold = parse_latex(r"\mathbf{v}").unwrap();
-//! if let Expression::MarkedVector { notation, .. } = bold {
+//! if let ExprKind::MarkedVector { notation, .. } = bold.kind {
 //!     assert_eq!(notation, VectorNotation::Bold);
 //! }
 //!
 //! // Arrow vectors
 //! let arrow = parse_latex(r"\vec{a}").unwrap();
-//! if let Expression::MarkedVector { notation, .. } = arrow {
+//! if let ExprKind::MarkedVector { notation, .. } = arrow.kind {
 //!     assert_eq!(notation, VectorNotation::Arrow);
 //! }
 //!
 //! // Hat notation (unit vectors)
 //! let hat = parse_latex(r"\hat{n}").unwrap();
-//! if let Expression::MarkedVector { notation, .. } = hat {
+//! if let ExprKind::MarkedVector { notation, .. } = hat.kind {
 //!     assert_eq!(notation, VectorNotation::Hat);
 //! }
 //! ```
@@ -93,64 +93,64 @@
 //! ### Set Theory
 //!
 //! ```
-//! use mathlex::{parse_latex, Expression};
+//! use mathlex::{parse_latex, Expression, ExprKind};
 //!
 //! // Set union
 //! let union = parse_latex(r"A \cup B").unwrap();
-//! assert!(matches!(union, Expression::SetOperation { .. }));
+//! assert!(matches!(union.kind, ExprKind::SetOperation { .. }));
 //!
 //! // Set membership
 //! let membership = parse_latex(r"x \in A").unwrap();
-//! assert!(matches!(membership, Expression::SetRelationExpr { .. }));
+//! assert!(matches!(membership.kind, ExprKind::SetRelationExpr { .. }));
 //!
 //! // Universal quantifier
 //! let forall = parse_latex(r"\forall x P").unwrap();
-//! assert!(matches!(forall, Expression::ForAll { .. }));
+//! assert!(matches!(forall.kind, ExprKind::ForAll { .. }));
 //!
 //! // Logical connectives
 //! let and = parse_latex(r"P \land Q").unwrap();
-//! assert!(matches!(and, Expression::Logical { .. }));
+//! assert!(matches!(and.kind, ExprKind::Logical { .. }));
 //! ```
 //!
 //! ### Multiple Integrals
 //!
 //! ```
-//! use mathlex::{parse_latex, Expression};
+//! use mathlex::{parse_latex, Expression, ExprKind};
 //!
 //! // Double integral
 //! let double = parse_latex(r"\iint_R f dA").unwrap();
-//! if let Expression::MultipleIntegral { dimension, .. } = double {
+//! if let ExprKind::MultipleIntegral { dimension, .. } = double.kind {
 //!     assert_eq!(dimension, 2);
 //! }
 //!
 //! // Triple integral
 //! let triple = parse_latex(r"\iiint_V f dV").unwrap();
-//! if let Expression::MultipleIntegral { dimension, .. } = triple {
+//! if let ExprKind::MultipleIntegral { dimension, .. } = triple.kind {
 //!     assert_eq!(dimension, 3);
 //! }
 //!
 //! // Closed path integral
 //! let closed = parse_latex(r"\oint_C F dr").unwrap();
-//! assert!(matches!(closed, Expression::ClosedIntegral { .. }));
+//! assert!(matches!(closed.kind, ExprKind::ClosedIntegral { .. }));
 //! ```
 //!
 //! ### Quaternions
 //!
 //! ```
-//! use mathlex::{Expression, MathConstant};
+//! use mathlex::{Expression, ExprKind, MathConstant};
 //!
 //! // Quaternion basis vectors are available as constants
-//! let i = Expression::Constant(MathConstant::I);
-//! let j = Expression::Constant(MathConstant::J);
-//! let k = Expression::Constant(MathConstant::K);
+//! let i = Expression::constant(MathConstant::I);
+//! let j = Expression::constant(MathConstant::J);
+//! let k = Expression::constant(MathConstant::K);
 //!
 //! // Create quaternion expression programmatically
 //! // 1 + 2i + 3j + 4k
-//! let quat = Expression::Quaternion {
-//!     real: Box::new(Expression::Integer(1)),
-//!     i: Box::new(Expression::Integer(2)),
-//!     j: Box::new(Expression::Integer(3)),
-//!     k: Box::new(Expression::Integer(4)),
+//! let quat = ExprKind::Quaternion {
+//!     real: Box::new(Expression::integer(1)),
+//!     i: Box::new(Expression::integer(2)),
+//!     j: Box::new(Expression::integer(3)),
+//!     k: Box::new(Expression::integer(4)),
 //! };
 //! ```
 //!
@@ -188,11 +188,11 @@
 //!
 //! // 'e' as Euler's constant
 //! let euler = parse_latex(r"e").unwrap();
-//! assert_eq!(euler, Expression::Constant(MathConstant::E));
+//! assert_eq!(euler, Expression::constant(MathConstant::E));
 //!
 //! // 'i' as imaginary unit (when explicitly marked)
 //! let imag = parse_latex(r"\mathrm{i}").unwrap();
-//! assert_eq!(imag, Expression::Constant(MathConstant::I));
+//! assert_eq!(imag, Expression::constant(MathConstant::I));
 //! ```
 //!
 //! ## Parser Features
@@ -207,15 +207,15 @@
 //!
 //! // Simple subscript: x_i
 //! let simple = parse_latex(r"x_i").unwrap();
-//! assert_eq!(simple, Expression::Variable("x_i".to_string()));
+//! assert_eq!(simple, Expression::variable("x_i".to_string()));
 //!
 //! // Expression subscript: x_{i+1}
 //! let expr_sub = parse_latex(r"x_{i+1}").unwrap();
-//! assert_eq!(expr_sub, Expression::Variable("x_iplus1".to_string()));
+//! assert_eq!(expr_sub, Expression::variable("x_iplus1".to_string()));
 //!
 //! // Complex subscript: a_{n-1}
 //! let complex = parse_latex(r"a_{n-1}").unwrap();
-//! assert_eq!(complex, Expression::Variable("a_nminus1".to_string()));
+//! assert_eq!(complex, Expression::variable("a_nminus1".to_string()));
 //! ```
 //!
 //! Supported subscript operators: `+` (plus), `-` (minus), `*` (times), `/` (div), `^` (pow)
@@ -225,23 +225,23 @@
 //! Both explicit and standard derivative notations are supported:
 //!
 //! ```
-//! use mathlex::{parse_latex, Expression};
+//! use mathlex::{parse_latex, Expression, ExprKind};
 //!
 //! // Standard notation: d/dx followed by expression
 //! let standard = parse_latex(r"\frac{d}{dx}f").unwrap();
-//! assert!(matches!(standard, Expression::Derivative { .. }));
+//! assert!(matches!(standard.kind, ExprKind::Derivative { .. }));
 //!
 //! // Explicit multiplication marker: d/d*x (when variable needs explicit marker)
 //! let explicit = parse_latex(r"\frac{d}{d*x}f").unwrap();
-//! assert!(matches!(explicit, Expression::Derivative { .. }));
+//! assert!(matches!(explicit.kind, ExprKind::Derivative { .. }));
 //!
 //! // Partial derivatives: ∂/∂x followed by expression
 //! let partial = parse_latex(r"\frac{\partial}{\partial x}f").unwrap();
-//! assert!(matches!(partial, Expression::PartialDerivative { .. }));
+//! assert!(matches!(partial.kind, ExprKind::PartialDerivative { .. }));
 //!
 //! // Higher order: d²/dx² followed by expression
 //! let second = parse_latex(r"\frac{d^2}{dx^2}f").unwrap();
-//! if let Expression::Derivative { order, .. } = second {
+//! if let ExprKind::Derivative { order, .. } = second.kind {
 //!     assert_eq!(order, 2);
 //! }
 //! ```
@@ -286,9 +286,9 @@ pub mod ffi;
 
 // Re-export key types at crate root for convenience
 pub use ast::{
-    BinaryOp, Direction, Expression, IndexType, InequalityOp, IntegralBounds, LogicalOp,
-    MathConstant, MathFloat, MultipleBounds, NumberSet, RelationOp, SetOp, SetRelation,
-    TensorIndex, UnaryOp, VectorNotation,
+    AnnotationSet, BinaryOp, Direction, ExprKind, Expression, IndexType, InequalityOp,
+    IntegralBounds, LogicalOp, MathConstant, MathFloat, MultipleBounds, NumberSet, RelationOp,
+    SetOp, SetRelation, TensorIndex, UnaryOp, VectorNotation,
 };
 pub use context::{parse_system, ExpressionContext, InputFormat};
 pub use error::{ParseError, ParseErrorKind, ParseOutput, ParseResult, Position, Span};
@@ -464,7 +464,7 @@ impl Default for ParserConfig {
 /// ```
 ///
 /// ```
-/// use mathlex::{parse_with_config, ParserConfig, Expression, BinaryOp};
+/// use mathlex::{parse_with_config, ParserConfig, Expression, ExprKind, BinaryOp};
 ///
 /// let config = ParserConfig {
 ///     implicit_multiplication: true,
@@ -473,8 +473,8 @@ impl Default for ParserConfig {
 ///
 /// // Parse expression with implicit multiplication
 /// let expr = parse_with_config("2x", &config).unwrap();
-/// match expr {
-///     Expression::Binary { op: BinaryOp::Mul, .. } => println!("Parsed as multiplication"),
+/// match &expr.kind {
+///     ExprKind::Binary { op: BinaryOp::Mul, .. } => println!("Parsed as multiplication"),
 ///     _ => panic!("Unexpected expression type"),
 /// }
 /// ```

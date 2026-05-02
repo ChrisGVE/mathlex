@@ -1,4 +1,4 @@
-use mathlex::ast::{BinaryOp, Expression};
+use mathlex::ast::{BinaryOp, ExprKind, Expression};
 use mathlex::error::ParseOutput;
 
 // =============================================================================
@@ -8,7 +8,7 @@ use mathlex::error::ParseOutput;
 #[test]
 fn test_parse_output_is_ok_when_success() {
     let output = ParseOutput {
-        expression: Some(Expression::Integer(42)),
+        expression: Some(Expression::integer(42)),
         errors: vec![],
     };
     assert!(output.is_ok());
@@ -27,7 +27,7 @@ fn test_parse_output_not_ok_when_no_expression() {
 #[test]
 fn test_parse_output_not_ok_when_has_errors() {
     let output = ParseOutput {
-        expression: Some(Expression::Integer(42)),
+        expression: Some(Expression::integer(42)),
         errors: vec![mathlex::ParseError::empty_expression(None)],
     };
     assert!(!output.is_ok());
@@ -36,10 +36,10 @@ fn test_parse_output_not_ok_when_has_errors() {
 
 #[test]
 fn test_parse_output_from_ok_result() {
-    let result: Result<Expression, mathlex::ParseError> = Ok(Expression::Integer(1));
+    let result: Result<Expression, mathlex::ParseError> = Ok(Expression::integer(1));
     let output = ParseOutput::from_result(result);
     assert!(output.is_ok());
-    assert_eq!(output.expression, Some(Expression::Integer(1)));
+    assert_eq!(output.expression, Some(Expression::integer(1)));
 }
 
 #[test]
@@ -60,8 +60,8 @@ fn test_parse_output_from_err_result() {
 fn test_strict_parse_still_works() {
     let expr = mathlex::parse("2 + 3").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Binary {
+        expr.kind,
+        ExprKind::Binary {
             op: BinaryOp::Add,
             ..
         }
@@ -78,8 +78,8 @@ fn test_strict_parse_still_fails_on_error() {
 fn test_strict_latex_still_works() {
     let expr = mathlex::parse_latex(r"\frac{1}{2}").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Binary {
+        expr.kind,
+        ExprKind::Binary {
             op: BinaryOp::Div,
             ..
         }
@@ -101,10 +101,7 @@ fn test_lenient_text_valid_expression() {
     assert!(output.is_ok());
     assert!(matches!(
         output.expression,
-        Some(Expression::Binary {
-            op: BinaryOp::Add,
-            ..
-        })
+        Some(ref e) if matches!(e.kind, ExprKind::Binary { op: BinaryOp::Add, .. })
     ));
 }
 
@@ -112,7 +109,7 @@ fn test_lenient_text_valid_expression() {
 fn test_lenient_text_single_number() {
     let output = mathlex::parse_lenient("42");
     assert!(output.is_ok());
-    assert_eq!(output.expression, Some(Expression::Integer(42)));
+    assert_eq!(output.expression, Some(Expression::integer(42)));
 }
 
 #[test]
@@ -176,10 +173,7 @@ fn test_lenient_latex_valid_expression() {
     assert!(output.is_ok());
     assert!(matches!(
         output.expression,
-        Some(Expression::Binary {
-            op: BinaryOp::Div,
-            ..
-        })
+        Some(ref e) if matches!(e.kind, ExprKind::Binary { op: BinaryOp::Div, .. })
     ));
 }
 

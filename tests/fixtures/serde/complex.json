@@ -1,0 +1,13 @@
+{
+  "kind": "Complex",
+  "value": {
+    "imaginary": {
+      "kind": "Integer",
+      "value": 3
+    },
+    "real": {
+      "kind": "Integer",
+      "value": 2
+    }
+  }
+}

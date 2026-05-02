@@ -1,6 +1,6 @@
 //! Variable substitution helpers.
 
-use crate::ast::{Expression, IntegralBounds, MultipleBounds};
+use crate::ast::{ExprKind, Expression, IntegralBounds, MultipleBounds};
 
 use super::walker::map_children;
 
@@ -12,8 +12,8 @@ fn sub_tensor_index(
 ) -> Vec<crate::ast::TensorIndex> {
     indices
         .iter()
-        .map(|idx| match lookup(&idx.name) {
-            Some(Expression::Variable(new_name)) => crate::ast::TensorIndex {
+        .map(|idx| match lookup(&idx.name).map(|e| e.kind) {
+            Some(ExprKind::Variable(new_name)) => crate::ast::TensorIndex {
                 name: new_name,
                 index_type: idx.index_type,
             },
@@ -30,16 +30,16 @@ fn sub_tensor_index(
 fn sw_core(expr: &Expression, lookup: &impl Fn(&str) -> Option<Expression>) -> Expression {
     let recurse = |e: &Expression| e.substitute_with(lookup);
 
-    match expr {
+    match &expr.kind {
         // ── Variable: the substitution point ────────────────────────────
-        Expression::Variable(name) => lookup(name).unwrap_or_else(|| expr.clone()),
+        ExprKind::Variable(name) => lookup(name).unwrap_or_else(|| expr.clone()),
 
         // ── Bound-variable scoping: skip body when var is being substituted ──
-        Expression::Derivative {
+        ExprKind::Derivative {
             expr: e,
             var,
             order,
-        } => Expression::Derivative {
+        } => ExprKind::Derivative {
             expr: if lookup(var).is_some() {
                 e.clone()
             } else {
@@ -47,12 +47,13 @@ fn sw_core(expr: &Expression, lookup: &impl Fn(&str) -> Option<Expression>) -> E
             },
             var: var.clone(),
             order: *order,
-        },
-        Expression::PartialDerivative {
+        }
+        .into(),
+        ExprKind::PartialDerivative {
             expr: e,
             var,
             order,
-        } => Expression::PartialDerivative {
+        } => ExprKind::PartialDerivative {
             expr: if lookup(var).is_some() {
                 e.clone()
             } else {
@@ -60,12 +61,13 @@ fn sw_core(expr: &Expression, lookup: &impl Fn(&str) -> Option<Expression>) -> E
             },
             var: var.clone(),
             order: *order,
-        },
-        Expression::Integral {
+        }
+        .into(),
+        ExprKind::Integral {
             integrand,
             var,
             bounds,
-        } => Expression::Integral {
+        } => ExprKind::Integral {
             integrand: if lookup(var).is_some() {
                 integrand.clone()
             } else {
@@ -76,15 +78,16 @@ fn sw_core(expr: &Expression, lookup: &impl Fn(&str) -> Option<Expression>) -> E
                 lower: Box::new(recurse(&b.lower)),
                 upper: Box::new(recurse(&b.upper)),
             }),
-        },
-        Expression::MultipleIntegral {
+        }
+        .into(),
+        ExprKind::MultipleIntegral {
             dimension,
             integrand,
             bounds,
             vars,
         } => {
             let is_bound = vars.iter().any(|v| lookup(v).is_some());
-            Expression::MultipleIntegral {
+            ExprKind::MultipleIntegral {
                 dimension: *dimension,
                 integrand: if is_bound {
                     integrand.clone()
@@ -103,13 +106,14 @@ fn sw_core(expr: &Expression, lookup: &impl Fn(&str) -> Option<Expression>) -> E
                 }),
                 vars: vars.clone(),
             }
+            .into()
         }
-        Expression::ClosedIntegral {
+        ExprKind::ClosedIntegral {
             dimension,
             integrand,
             surface,
             var,
-        } => Expression::ClosedIntegral {
+        } => ExprKind::ClosedIntegral {
             dimension: *dimension,
             integrand: if lookup(var).is_some() {
                 integrand.clone()
@@ -118,13 +122,14 @@ fn sw_core(expr: &Expression, lookup: &impl Fn(&str) -> Option<Expression>) -> E
             },
             surface: surface.clone(),
             var: var.clone(),
-        },
-        Expression::Limit {
+        }
+        .into(),
+        ExprKind::Limit {
             expr: e,
             var,
             to,
             direction,
-        } => Expression::Limit {
+        } => ExprKind::Limit {
             expr: if lookup(var).is_some() {
                 e.clone()
             } else {
@@ -133,13 +138,14 @@ fn sw_core(expr: &Expression, lookup: &impl Fn(&str) -> Option<Expression>) -> E
             var: var.clone(),
             to: Box::new(recurse(to)),
             direction: *direction,
-        },
-        Expression::Sum {
+        }
+        .into(),
+        ExprKind::Sum {
             index,
             lower,
             upper,
             body,
-        } => Expression::Sum {
+        } => ExprKind::Sum {
             index: index.clone(),
             lower: Box::new(recurse(lower)),
             upper: Box::new(recurse(upper)),
@@ -148,13 +154,14 @@ fn sw_core(expr: &Expression, lookup: &impl Fn(&str) -> Option<Expression>) -> E
             } else {
                 Box::new(recurse(body))
             },
-        },
-        Expression::Product {
+        }
+        .into(),
+        ExprKind::Product {
             index,
             lower,
             upper,
             body,
-        } => Expression::Product {
+        } => ExprKind::Product {
             index: index.clone(),
             lower: Box::new(recurse(lower)),
             upper: Box::new(recurse(upper)),
@@ -163,12 +170,13 @@ fn sw_core(expr: &Expression, lookup: &impl Fn(&str) -> Option<Expression>) -> E
             } else {
                 Box::new(recurse(body))
             },
-        },
-        Expression::ForAll {
+        }
+        .into(),
+        ExprKind::ForAll {
             variable,
             domain,
             body,
-        } => Expression::ForAll {
+        } => ExprKind::ForAll {
             variable: variable.clone(),
             domain: domain.as_ref().map(|d| Box::new(recurse(d))),
             body: if lookup(variable).is_some() {
@@ -176,13 +184,14 @@ fn sw_core(expr: &Expression, lookup: &impl Fn(&str) -> Option<Expression>) -> E
             } else {
                 Box::new(recurse(body))
             },
-        },
-        Expression::Exists {
+        }
+        .into(),
+        ExprKind::Exists {
             variable,
             domain,
             body,
             unique,
-        } => Expression::Exists {
+        } => ExprKind::Exists {
             variable: variable.clone(),
             domain: domain.as_ref().map(|d| Box::new(recurse(d))),
             body: if lookup(variable).is_some() {
@@ -191,12 +200,13 @@ fn sw_core(expr: &Expression, lookup: &impl Fn(&str) -> Option<Expression>) -> E
                 Box::new(recurse(body))
             },
             unique: *unique,
-        },
-        Expression::SetBuilder {
+        }
+        .into(),
+        ExprKind::SetBuilder {
             variable,
             domain,
             predicate,
-        } => Expression::SetBuilder {
+        } => ExprKind::SetBuilder {
             variable: variable.clone(),
             domain: domain.as_ref().map(|d| Box::new(recurse(d))),
             predicate: if lookup(variable).is_some() {
@@ -204,21 +214,25 @@ fn sw_core(expr: &Expression, lookup: &impl Fn(&str) -> Option<Expression>) -> E
             } else {
                 Box::new(recurse(predicate))
             },
-        },
+        }
+        .into(),
 
         // ── Tensor indices: substitute names, not child expressions ──────
-        Expression::Tensor { name, indices } => Expression::Tensor {
+        ExprKind::Tensor { name, indices } => ExprKind::Tensor {
             name: name.clone(),
             indices: sub_tensor_index(indices, lookup),
-        },
-        Expression::KroneckerDelta { indices } => Expression::KroneckerDelta {
+        }
+        .into(),
+        ExprKind::KroneckerDelta { indices } => ExprKind::KroneckerDelta {
             indices: sub_tensor_index(indices, lookup),
-        },
-        Expression::LeviCivita { indices } => Expression::LeviCivita {
+        }
+        .into(),
+        ExprKind::LeviCivita { indices } => ExprKind::LeviCivita {
             indices: sub_tensor_index(indices, lookup),
-        },
-        Expression::Differential { var } => match lookup(var) {
-            Some(Expression::Variable(new_name)) => Expression::Differential { var: new_name },
+        }
+        .into(),
+        ExprKind::Differential { var } => match lookup(var).map(|e| e.kind) {
+            Some(ExprKind::Variable(new_name)) => ExprKind::Differential { var: new_name }.into(),
             _ => expr.clone(),
         },
 

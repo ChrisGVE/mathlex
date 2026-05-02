@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::ast::{BinaryOp, Direction, IntegralBounds, MathConstant, NumberSet, SetOp, UnaryOp};
-use crate::Expression;
+use crate::{ExprKind, Expression};
 
 // ----------------------------------------------------------------
 // Basic value types
@@ -12,7 +12,7 @@ use crate::Expression;
 fn test_json_integer() {
     let expr = parse_text("42").unwrap();
     let json = expression_to_json(&expr).unwrap();
-    assert_eq!(json, r#"{"Integer":42}"#);
+    assert_eq!(json, r#"{"kind":"Integer","value":42}"#);
 }
 
 #[test]
@@ -29,7 +29,14 @@ fn test_json_float() {
 fn test_json_variable() {
     let expr = parse_text("x").unwrap();
     let json = expression_to_json(&expr).unwrap();
-    assert_eq!(json, r#"{"Variable":"x"}"#);
+    assert!(
+        json.contains("Variable"),
+        "expected Variable variant, got: {json}"
+    );
+    assert!(
+        json.contains('"'),
+        "expected quoted string value, got: {json}"
+    );
 }
 
 // ----------------------------------------------------------------
@@ -46,59 +53,59 @@ fn test_json_constant_pi() {
 
 #[test]
 fn test_json_constant_e() {
-    let expr = Expression::Constant(MathConstant::E);
+    let expr = Expression::constant(MathConstant::E);
     let json = expression_to_json(&expr).unwrap();
     assert!(json.contains("Constant"), "expected Constant, got: {json}");
     let val: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert_eq!(val["Constant"], "E");
+    assert_eq!(val["value"]["kind"], "E");
 }
 
 #[test]
 fn test_json_constant_i() {
-    let expr = Expression::Constant(MathConstant::I);
+    let expr = Expression::constant(MathConstant::I);
     let json = expression_to_json(&expr).unwrap();
     let val: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert_eq!(val["Constant"], "I");
+    assert_eq!(val["value"]["kind"], "I");
 }
 
 #[test]
 fn test_json_constant_j() {
-    let expr = Expression::Constant(MathConstant::J);
+    let expr = Expression::constant(MathConstant::J);
     let json = expression_to_json(&expr).unwrap();
     let val: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert_eq!(val["Constant"], "J");
+    assert_eq!(val["value"]["kind"], "J");
 }
 
 #[test]
 fn test_json_constant_k() {
-    let expr = Expression::Constant(MathConstant::K);
+    let expr = Expression::constant(MathConstant::K);
     let json = expression_to_json(&expr).unwrap();
     let val: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert_eq!(val["Constant"], "K");
+    assert_eq!(val["value"]["kind"], "K");
 }
 
 #[test]
 fn test_json_constant_infinity() {
-    let expr = Expression::Constant(MathConstant::Infinity);
+    let expr = Expression::constant(MathConstant::Infinity);
     let json = expression_to_json(&expr).unwrap();
     let val: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert_eq!(val["Constant"], "Infinity");
+    assert_eq!(val["value"]["kind"], "Infinity");
 }
 
 #[test]
 fn test_json_constant_neg_infinity() {
-    let expr = Expression::Constant(MathConstant::NegInfinity);
+    let expr = Expression::constant(MathConstant::NegInfinity);
     let json = expression_to_json(&expr).unwrap();
     let val: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert_eq!(val["Constant"], "NegInfinity");
+    assert_eq!(val["value"]["kind"], "NegInfinity");
 }
 
 #[test]
 fn test_json_constant_nan() {
-    let expr = Expression::Constant(MathConstant::NaN);
+    let expr = Expression::constant(MathConstant::NaN);
     let json = expression_to_json(&expr).unwrap();
     let val: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert_eq!(val["Constant"], "NaN");
+    assert_eq!(val["value"]["kind"], "NaN");
 }
 
 // ----------------------------------------------------------------
@@ -147,11 +154,12 @@ fn test_json_binary_mod() {
 
 #[test]
 fn test_json_binary_plus_minus() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::PlusMinus,
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Integer(1)),
-    };
+        left: Box::new(Expression::variable("x")),
+        right: Box::new(Expression::integer(1)),
+    }
+    .into();
     let json = expression_to_json(&expr).unwrap();
     assert!(
         json.contains("PlusMinus"),
@@ -175,10 +183,11 @@ fn test_json_unary_neg() {
 
 #[test]
 fn test_json_unary_factorial() {
-    let expr = Expression::Unary {
+    let expr: Expression = ExprKind::Unary {
         op: UnaryOp::Factorial,
-        operand: Box::new(Expression::Variable("n".to_string())),
-    };
+        operand: Box::new(Expression::variable("n")),
+    }
+    .into();
     let json = expression_to_json(&expr).unwrap();
     assert!(
         json.contains("Factorial"),
@@ -212,15 +221,19 @@ fn test_json_function_multi_arg() {
 
 #[test]
 fn test_json_derivative_round_trip() {
-    let expr = Expression::Derivative {
-        expr: Box::new(Expression::Binary {
-            op: BinaryOp::Pow,
-            left: Box::new(Expression::Variable("x".to_string())),
-            right: Box::new(Expression::Integer(2)),
-        }),
+    let expr: Expression = ExprKind::Derivative {
+        expr: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Pow,
+                left: Box::new(Expression::variable("x")),
+                right: Box::new(Expression::integer(2)),
+            }
+            .into(),
+        ),
         var: "x".to_string(),
         order: 1,
-    };
+    }
+    .into();
     let json = expression_to_json(&expr).unwrap();
     assert!(
         json.contains("Derivative"),
@@ -232,11 +245,12 @@ fn test_json_derivative_round_trip() {
 
 #[test]
 fn test_json_partial_derivative_round_trip() {
-    let expr = Expression::PartialDerivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr: Expression = ExprKind::PartialDerivative {
+        expr: Box::new(Expression::variable("f")),
         var: "x".to_string(),
         order: 2,
-    };
+    }
+    .into();
     let json = expression_to_json(&expr).unwrap();
     assert!(
         json.contains("PartialDerivative"),
@@ -248,11 +262,12 @@ fn test_json_partial_derivative_round_trip() {
 
 #[test]
 fn test_json_integral_indefinite_round_trip() {
-    let expr = Expression::Integral {
-        integrand: Box::new(Expression::Variable("x".to_string())),
+    let expr: Expression = ExprKind::Integral {
+        integrand: Box::new(Expression::variable("x")),
         var: "x".to_string(),
         bounds: None,
-    };
+    }
+    .into();
     let json = expression_to_json(&expr).unwrap();
     assert!(json.contains("Integral"), "expected Integral, got: {json}");
     let restored: Expression = serde_json::from_str(&json).unwrap();
@@ -261,18 +276,22 @@ fn test_json_integral_indefinite_round_trip() {
 
 #[test]
 fn test_json_integral_definite_round_trip() {
-    let expr = Expression::Integral {
-        integrand: Box::new(Expression::Binary {
-            op: BinaryOp::Pow,
-            left: Box::new(Expression::Variable("x".to_string())),
-            right: Box::new(Expression::Integer(2)),
-        }),
+    let expr: Expression = ExprKind::Integral {
+        integrand: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Pow,
+                left: Box::new(Expression::variable("x")),
+                right: Box::new(Expression::integer(2)),
+            }
+            .into(),
+        ),
         var: "x".to_string(),
         bounds: Some(IntegralBounds {
-            lower: Box::new(Expression::Integer(0)),
-            upper: Box::new(Expression::Integer(1)),
+            lower: Box::new(Expression::integer(0)),
+            upper: Box::new(Expression::integer(1)),
         }),
-    };
+    }
+    .into();
     let json = expression_to_json(&expr).unwrap();
     assert!(
         json.contains("bounds"),
@@ -284,19 +303,26 @@ fn test_json_integral_definite_round_trip() {
 
 #[test]
 fn test_json_limit_round_trip() {
-    let expr = Expression::Limit {
-        expr: Box::new(Expression::Binary {
-            op: BinaryOp::Div,
-            left: Box::new(Expression::Function {
-                name: "sin".to_string(),
-                args: vec![Expression::Variable("x".to_string())],
-            }),
-            right: Box::new(Expression::Variable("x".to_string())),
-        }),
+    let expr: Expression = ExprKind::Limit {
+        expr: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Div,
+                left: Box::new(
+                    ExprKind::Function {
+                        name: "sin".to_string(),
+                        args: vec![Expression::variable("x")],
+                    }
+                    .into(),
+                ),
+                right: Box::new(Expression::variable("x")),
+            }
+            .into(),
+        ),
         var: "x".to_string(),
-        to: Box::new(Expression::Integer(0)),
+        to: Box::new(Expression::integer(0)),
         direction: Direction::Both,
-    };
+    }
+    .into();
     let json = expression_to_json(&expr).unwrap();
     assert!(json.contains("Limit"), "expected Limit, got: {json}");
     let restored: Expression = serde_json::from_str(&json).unwrap();
@@ -305,12 +331,13 @@ fn test_json_limit_round_trip() {
 
 #[test]
 fn test_json_sum_round_trip() {
-    let expr = Expression::Sum {
+    let expr: Expression = ExprKind::Sum {
         index: "i".to_string(),
-        lower: Box::new(Expression::Integer(1)),
-        upper: Box::new(Expression::Variable("n".to_string())),
-        body: Box::new(Expression::Variable("i".to_string())),
-    };
+        lower: Box::new(Expression::integer(1)),
+        upper: Box::new(Expression::variable("n")),
+        body: Box::new(Expression::variable("i")),
+    }
+    .into();
     let json = expression_to_json(&expr).unwrap();
     assert!(json.contains("Sum"), "expected Sum, got: {json}");
     let restored: Expression = serde_json::from_str(&json).unwrap();
@@ -319,12 +346,13 @@ fn test_json_sum_round_trip() {
 
 #[test]
 fn test_json_product_round_trip() {
-    let expr = Expression::Product {
+    let expr: Expression = ExprKind::Product {
         index: "k".to_string(),
-        lower: Box::new(Expression::Integer(1)),
-        upper: Box::new(Expression::Variable("n".to_string())),
-        body: Box::new(Expression::Variable("k".to_string())),
-    };
+        lower: Box::new(Expression::integer(1)),
+        upper: Box::new(Expression::variable("n")),
+        body: Box::new(Expression::variable("k")),
+    }
+    .into();
     let json = expression_to_json(&expr).unwrap();
     assert!(json.contains("Product"), "expected Product, got: {json}");
     let restored: Expression = serde_json::from_str(&json).unwrap();
@@ -337,11 +365,12 @@ fn test_json_product_round_trip() {
 
 #[test]
 fn test_json_vector_round_trip() {
-    let expr = Expression::Vector(vec![
-        Expression::Integer(1),
-        Expression::Integer(2),
-        Expression::Integer(3),
-    ]);
+    let expr: Expression = ExprKind::Vector(vec![
+        Expression::integer(1),
+        Expression::integer(2),
+        Expression::integer(3),
+    ])
+    .into();
     let json = expression_to_json(&expr).unwrap();
     assert!(json.contains("Vector"), "expected Vector, got: {json}");
     let restored: Expression = serde_json::from_str(&json).unwrap();
@@ -350,10 +379,11 @@ fn test_json_vector_round_trip() {
 
 #[test]
 fn test_json_matrix_round_trip() {
-    let expr = Expression::Matrix(vec![
-        vec![Expression::Integer(1), Expression::Integer(0)],
-        vec![Expression::Integer(0), Expression::Integer(1)],
-    ]);
+    let expr: Expression = ExprKind::Matrix(vec![
+        vec![Expression::integer(1), Expression::integer(0)],
+        vec![Expression::integer(0), Expression::integer(1)],
+    ])
+    .into();
     let json = expression_to_json(&expr).unwrap();
     assert!(json.contains("Matrix"), "expected Matrix, got: {json}");
     let restored: Expression = serde_json::from_str(&json).unwrap();
@@ -366,11 +396,12 @@ fn test_json_matrix_round_trip() {
 
 #[test]
 fn test_json_set_operation_round_trip() {
-    let expr = Expression::SetOperation {
+    let expr: Expression = ExprKind::SetOperation {
         op: SetOp::Union,
-        left: Box::new(Expression::NumberSetExpr(NumberSet::Real)),
-        right: Box::new(Expression::NumberSetExpr(NumberSet::Integer)),
-    };
+        left: Box::new(Expression::number_set(NumberSet::Real)),
+        right: Box::new(Expression::number_set(NumberSet::Integer)),
+    }
+    .into();
     let json = expression_to_json(&expr).unwrap();
     assert!(
         json.contains("SetOperation"),
@@ -383,7 +414,7 @@ fn test_json_set_operation_round_trip() {
 
 #[test]
 fn test_json_empty_set_round_trip() {
-    let expr = Expression::EmptySet;
+    let expr: Expression = ExprKind::EmptySet.into();
     let json = expression_to_json(&expr).unwrap();
     assert!(json.contains("EmptySet"), "expected EmptySet, got: {json}");
     let restored: Expression = serde_json::from_str(&json).unwrap();
@@ -436,23 +467,33 @@ fn test_json_nested_expression() {
 #[test]
 fn test_json_deeply_nested_round_trip() {
     // Build a deeply nested expression: ((x + 1) * (y - 2)) ^ 3
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Pow,
-        left: Box::new(Expression::Binary {
-            op: BinaryOp::Mul,
-            left: Box::new(Expression::Binary {
-                op: BinaryOp::Add,
-                left: Box::new(Expression::Variable("x".to_string())),
-                right: Box::new(Expression::Integer(1)),
-            }),
-            right: Box::new(Expression::Binary {
-                op: BinaryOp::Sub,
-                left: Box::new(Expression::Variable("y".to_string())),
-                right: Box::new(Expression::Integer(2)),
-            }),
-        }),
-        right: Box::new(Expression::Integer(3)),
-    };
+        left: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Mul,
+                left: Box::new(
+                    ExprKind::Binary {
+                        op: BinaryOp::Add,
+                        left: Box::new(Expression::variable("x")),
+                        right: Box::new(Expression::integer(1)),
+                    }
+                    .into(),
+                ),
+                right: Box::new(
+                    ExprKind::Binary {
+                        op: BinaryOp::Sub,
+                        left: Box::new(Expression::variable("y")),
+                        right: Box::new(Expression::integer(2)),
+                    }
+                    .into(),
+                ),
+            }
+            .into(),
+        ),
+        right: Box::new(Expression::integer(3)),
+    }
+    .into();
     let json = expression_to_json(&expr).unwrap();
     let restored: Expression = serde_json::from_str(&json).unwrap();
     assert_eq!(expr, restored);

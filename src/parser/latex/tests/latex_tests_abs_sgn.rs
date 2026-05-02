@@ -6,11 +6,11 @@ use super::*;
 #[test]
 fn test_abs_bare_pipe() {
     let expr = parse_latex(r"|x|").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "abs");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected Function(abs, [x]), got {:?}", expr),
     }
@@ -21,11 +21,11 @@ fn test_abs_bare_pipe() {
 #[test]
 fn test_abs_left_right_pipe() {
     let expr = parse_latex(r"\left| x \right|").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "abs");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected Function(abs, [x]), got {:?}", expr),
     }
@@ -34,14 +34,14 @@ fn test_abs_left_right_pipe() {
 #[test]
 fn test_abs_expression() {
     let expr = parse_latex(r"\left| x - y \right|").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "abs");
             assert_eq!(args.len(), 1);
             assert!(
                 matches!(
-                    args[0],
-                    Expression::Binary {
+                    args[0].kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Sub,
                         ..
                     }
@@ -59,11 +59,11 @@ fn test_abs_expression() {
 #[test]
 fn test_sgn_operatorname() {
     let expr = parse_latex(r"\operatorname{sgn}{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sgn");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected Function(sgn, [x]), got {:?}", expr),
     }
@@ -72,11 +72,11 @@ fn test_sgn_operatorname() {
 #[test]
 fn test_sgn_operatorname_parens() {
     let expr = parse_latex(r"\operatorname{sgn}(x)").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sgn");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected Function(sgn, [x]), got {:?}", expr),
     }
@@ -87,11 +87,11 @@ fn test_sgn_operatorname_parens() {
 #[test]
 fn test_operatorname_arbitrary() {
     let expr = parse_latex(r"\operatorname{myf}(x)").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "myf");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected Function(myf, [x]), got {:?}", expr),
     }

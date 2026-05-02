@@ -10,7 +10,7 @@
 //! The binding methods (`push_binding`, `pop_binding`, `is_bound`) support future
 //! quantifier-aware parsing where bound variables need distinct treatment.
 
-use crate::ast::Expression;
+use crate::ast::{ExprKind, Expression};
 use crate::error::ParseResult;
 use crate::metadata::MathType;
 use crate::{NumberSystem, ParserConfig};
@@ -120,35 +120,35 @@ impl ExpressionContext {
     }
 
     fn infer_types_from_expression(&mut self, expr: &Expression) {
-        match expr {
+        match &expr.kind {
             // Vector calculus operators indicate vector/scalar relationships
-            Expression::Gradient { expr } => {
+            ExprKind::Gradient { expr } => {
                 // Input is scalar, output is vector
-                if let Expression::Variable(name) = expr.as_ref() {
+                if let ExprKind::Variable(name) = &expr.kind {
                     self.declare_scalar(name.clone());
                 }
             }
-            Expression::Divergence { field } | Expression::Curl { field } => {
+            ExprKind::Divergence { field } | ExprKind::Curl { field } => {
                 // Input is vector
-                if let Expression::Variable(name) = field.as_ref() {
+                if let ExprKind::Variable(name) = &field.kind {
                     self.declare_vector(name.clone());
                 }
             }
-            Expression::MarkedVector { name, .. } => {
+            ExprKind::MarkedVector { name, .. } => {
                 self.declare_vector(name.clone());
             }
-            Expression::Matrix(_) => {
+            ExprKind::Matrix(_) => {
                 // Already a matrix literal
             }
             // Recursively analyze sub-expressions
-            Expression::Binary { left, right, .. } => {
+            ExprKind::Binary { left, right, .. } => {
                 self.infer_types_from_expression(left);
                 self.infer_types_from_expression(right);
             }
-            Expression::Unary { operand, .. } => {
+            ExprKind::Unary { operand, .. } => {
                 self.infer_types_from_expression(operand);
             }
-            Expression::Function { args, .. } => {
+            ExprKind::Function { args, .. } => {
                 for arg in args {
                     self.infer_types_from_expression(arg);
                 }
@@ -297,9 +297,10 @@ mod tests {
     #[test]
     fn test_infer_types_from_gradient() {
         let mut ctx = ExpressionContext::new();
-        let expr = Expression::Gradient {
-            expr: Box::new(Expression::Variable("f".to_string())),
-        };
+        let expr: Expression = ExprKind::Gradient {
+            expr: Box::new(Expression::variable("f".to_string())),
+        }
+        .into();
 
         ctx.analyze_expression(&expr);
         assert_eq!(ctx.get_type("f"), Some(&MathType::Scalar));
@@ -308,9 +309,10 @@ mod tests {
     #[test]
     fn test_infer_types_from_divergence() {
         let mut ctx = ExpressionContext::new();
-        let expr = Expression::Divergence {
-            field: Box::new(Expression::Variable("F".to_string())),
-        };
+        let expr: Expression = ExprKind::Divergence {
+            field: Box::new(Expression::variable("F".to_string())),
+        }
+        .into();
 
         ctx.analyze_expression(&expr);
         assert_eq!(ctx.get_type("F"), Some(&MathType::Vector(None)));
@@ -320,9 +322,10 @@ mod tests {
     #[test]
     fn test_infer_types_from_curl() {
         let mut ctx = ExpressionContext::new();
-        let expr = Expression::Curl {
-            field: Box::new(Expression::Variable("F".to_string())),
-        };
+        let expr: Expression = ExprKind::Curl {
+            field: Box::new(Expression::variable("F".to_string())),
+        }
+        .into();
 
         ctx.analyze_expression(&expr);
         assert_eq!(ctx.get_type("F"), Some(&MathType::Vector(None)));
@@ -332,10 +335,11 @@ mod tests {
     #[test]
     fn test_infer_types_from_marked_vector() {
         let mut ctx = ExpressionContext::new();
-        let expr = Expression::MarkedVector {
+        let expr: Expression = ExprKind::MarkedVector {
             name: "v".to_string(),
             notation: VectorNotation::Bold,
-        };
+        }
+        .into();
 
         ctx.analyze_expression(&expr);
         assert_eq!(ctx.get_type("v"), Some(&MathType::Vector(None)));
@@ -345,15 +349,22 @@ mod tests {
     #[test]
     fn test_infer_types_from_binary_expression() {
         let mut ctx = ExpressionContext::new();
-        let expr = Expression::Binary {
+        let expr: Expression = ExprKind::Binary {
             op: BinaryOp::Add,
-            left: Box::new(Expression::Gradient {
-                expr: Box::new(Expression::Variable("f".to_string())),
-            }),
-            right: Box::new(Expression::Divergence {
-                field: Box::new(Expression::Variable("F".to_string())),
-            }),
-        };
+            left: Box::new(
+                ExprKind::Gradient {
+                    expr: Box::new(Expression::variable("f".to_string())),
+                }
+                .into(),
+            ),
+            right: Box::new(
+                ExprKind::Divergence {
+                    field: Box::new(Expression::variable("F".to_string())),
+                }
+                .into(),
+            ),
+        }
+        .into();
 
         ctx.analyze_expression(&expr);
         assert_eq!(ctx.get_type("f"), Some(&MathType::Scalar));
@@ -463,19 +474,29 @@ mod tests {
         let mut ctx = ExpressionContext::new();
 
         // Create nested expression: (∇f) + (∇·F)
-        let expr = Expression::Binary {
+        let expr: Expression = ExprKind::Binary {
             op: BinaryOp::Add,
-            left: Box::new(Expression::Gradient {
-                expr: Box::new(Expression::Variable("f".to_string())),
-            }),
-            right: Box::new(Expression::Divergence {
-                field: Box::new(Expression::Binary {
-                    op: BinaryOp::Mul,
-                    left: Box::new(Expression::Variable("F".to_string())),
-                    right: Box::new(Expression::Variable("G".to_string())),
-                }),
-            }),
-        };
+            left: Box::new(
+                ExprKind::Gradient {
+                    expr: Box::new(Expression::variable("f".to_string())),
+                }
+                .into(),
+            ),
+            right: Box::new(
+                ExprKind::Divergence {
+                    field: Box::new(
+                        ExprKind::Binary {
+                            op: BinaryOp::Mul,
+                            left: Box::new(Expression::variable("F".to_string())),
+                            right: Box::new(Expression::variable("G".to_string())),
+                        }
+                        .into(),
+                    ),
+                }
+                .into(),
+            ),
+        }
+        .into();
 
         ctx.analyze_expression(&expr);
         assert_eq!(ctx.get_type("f"), Some(&MathType::Scalar));
@@ -492,8 +513,8 @@ mod tests {
         assert_eq!(exprs.len(), 3);
 
         // Verify expressions are parsed correctly
-        assert!(matches!(exprs[0], Expression::Gradient { .. }));
-        assert!(matches!(exprs[1], Expression::Divergence { .. }));
-        assert!(matches!(exprs[2], Expression::MarkedVector { .. }));
+        assert!(matches!(exprs[0].kind, ExprKind::Gradient { .. }));
+        assert!(matches!(exprs[1].kind, ExprKind::Divergence { .. }));
+        assert!(matches!(exprs[2].kind, ExprKind::MarkedVector { .. }));
     }
 }

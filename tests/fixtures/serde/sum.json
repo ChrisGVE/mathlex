@@ -1,0 +1,18 @@
+{
+  "kind": "Sum",
+  "value": {
+    "body": {
+      "kind": "Variable",
+      "value": "i"
+    },
+    "index": "i",
+    "lower": {
+      "kind": "Integer",
+      "value": 1
+    },
+    "upper": {
+      "kind": "Variable",
+      "value": "n"
+    }
+  }
+}

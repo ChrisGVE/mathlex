@@ -43,13 +43,13 @@ impl LatexParser {
         // Special case: \mathbf{j} and \mathbf{k} are quaternion basis vectors
         if notation == VectorNotation::Bold {
             match name.as_str() {
-                "j" => return Ok(Expression::Constant(MathConstant::J)),
-                "k" => return Ok(Expression::Constant(MathConstant::K)),
+                "j" => return Ok(Expression::constant(MathConstant::J).into()),
+                "k" => return Ok(Expression::constant(MathConstant::K).into()),
                 _ => {}
             }
         }
 
-        Ok(Expression::MarkedVector { name, notation })
+        Ok(ExprKind::MarkedVector { name, notation }.into())
     }
 
     /// Parses a vector name from consecutive letters or a single command.
@@ -96,35 +96,39 @@ impl LatexParser {
                 // \nabla \cdot F (divergence)
                 self.next(); // consume \cdot
                 let field = self.parse_power()?;
-                Ok(Expression::Divergence {
+                Ok(ExprKind::Divergence {
                     field: Box::new(field),
-                })
+                }
+                .into())
             }
             Some((LatexToken::Bullet, _)) => {
                 // \nabla \bullet F (divergence with bullet)
                 self.next(); // consume \bullet
                 let field = self.parse_power()?;
-                Ok(Expression::Divergence {
+                Ok(ExprKind::Divergence {
                     field: Box::new(field),
-                })
+                }
+                .into())
             }
             Some((LatexToken::Cross, _)) => {
                 // \nabla \times F (curl)
                 self.next(); // consume \times
                 let field = self.parse_power()?;
-                Ok(Expression::Curl {
+                Ok(ExprKind::Curl {
                     field: Box::new(field),
-                })
+                }
+                .into())
             }
             Some((LatexToken::Caret, _)) => {
                 // \nabla^2 f (Laplacian)
                 self.next(); // consume ^
                 let power = self.parse_braced_or_atom()?;
-                if let Expression::Integer(2) = power {
+                if let ExprKind::Integer(2) = power.kind {
                     let expr = self.parse_power()?;
-                    Ok(Expression::Laplacian {
+                    Ok(ExprKind::Laplacian {
                         expr: Box::new(expr),
-                    })
+                    }
+                    .into())
                 } else {
                     Err(ParseError::custom(
                         "expected \\nabla^2 for Laplacian".to_string(),
@@ -135,9 +139,10 @@ impl LatexParser {
             _ => {
                 // \nabla f (gradient) - just nabla followed by expression
                 let expr = self.parse_power()?;
-                Ok(Expression::Gradient {
+                Ok(ExprKind::Gradient {
                     expr: Box::new(expr),
-                })
+                }
+                .into())
             }
         }
     }
@@ -247,9 +252,9 @@ impl LatexParser {
         // Single-column matrix → column vector
         if !rows.is_empty() && rows[0].len() == 1 {
             let elements: Vec<Expression> = rows.into_iter().map(|mut row| row.remove(0)).collect();
-            Ok(Expression::Vector(elements))
+            Ok(ExprKind::Vector(elements).into())
         } else {
-            Ok(Expression::Matrix(rows))
+            Ok(ExprKind::Matrix(rows).into())
         }
     }
 }

@@ -1,6 +1,6 @@
 use super::trait_def::{ToLatex, KNOWN_FUNCTIONS};
 use crate::ast::precedence::needs_parens;
-use crate::ast::Expression;
+use crate::ast::{ExprKind, Expression};
 
 const GREEK_LETTERS: &[&str] = &[
     "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa",
@@ -31,10 +31,10 @@ pub(super) fn variable_to_latex(name: &str) -> String {
 }
 
 pub(super) fn to_latex_literal(expr: &Expression) -> String {
-    match expr {
-        Expression::Integer(n) => format!("{}", n),
-        Expression::Float(x) => format!("{}", x),
-        Expression::Rational {
+    match &expr.kind {
+        ExprKind::Integer(n) => format!("{}", n),
+        ExprKind::Float(x) => format!("{}", x),
+        ExprKind::Rational {
             numerator,
             denominator,
         } => format!(
@@ -42,18 +42,18 @@ pub(super) fn to_latex_literal(expr: &Expression) -> String {
             numerator.to_latex(),
             denominator.to_latex()
         ),
-        Expression::Complex { real, imaginary } => {
+        ExprKind::Complex { real, imaginary } => {
             format!("{} + {}i", real.to_latex(), imaginary.to_latex())
         }
-        Expression::Quaternion { real, i, j, k } => format!(
+        ExprKind::Quaternion { real, i, j, k } => format!(
             "{} + {}\\mathbf{{i}} + {}\\mathbf{{j}} + {}\\mathbf{{k}}",
             real.to_latex(),
             i.to_latex(),
             j.to_latex(),
             k.to_latex()
         ),
-        Expression::Variable(name) => variable_to_latex(name),
-        Expression::Constant(c) => c.to_latex(),
+        ExprKind::Variable(name) => variable_to_latex(name),
+        ExprKind::Constant(c) => c.to_latex(),
         _ => unreachable!("to_latex_literal called on non-literal"),
     }
 }
@@ -100,7 +100,7 @@ pub(super) fn to_latex_binary(
 }
 
 pub(super) fn to_latex_unary(op: &crate::ast::UnaryOp, operand: &Expression) -> String {
-    let is_binary = matches!(operand, Expression::Binary { .. });
+    let is_binary = matches!(operand.kind, ExprKind::Binary { .. });
     match op {
         crate::ast::UnaryOp::Neg => {
             if is_binary {
@@ -170,8 +170,8 @@ pub(super) fn to_latex_function(name: &str, args: &[Expression]) -> String {
 }
 
 fn to_latex_derivative(expr: &Expression) -> String {
-    match expr {
-        Expression::Derivative { expr, var, order } => {
+    match &expr.kind {
+        ExprKind::Derivative { expr, var, order } => {
             if *order == 1 {
                 format!(r"\frac{{d}}{{d{}}}{}", var, expr.to_latex())
             } else {
@@ -184,7 +184,7 @@ fn to_latex_derivative(expr: &Expression) -> String {
                 )
             }
         }
-        Expression::PartialDerivative { expr, var, order } => {
+        ExprKind::PartialDerivative { expr, var, order } => {
             if *order == 1 {
                 format!(r"\frac{{\partial}}{{\partial {}}}{}", var, expr.to_latex())
             } else {
@@ -237,8 +237,8 @@ fn to_latex_multiple_integral(
 }
 
 fn to_latex_integral(expr: &Expression) -> String {
-    match expr {
-        Expression::Integral {
+    match &expr.kind {
+        ExprKind::Integral {
             integrand,
             var,
             bounds,
@@ -255,13 +255,13 @@ fn to_latex_integral(expr: &Expression) -> String {
                 format!(r"\int {} d{}", integrand.to_latex(), var)
             }
         }
-        Expression::MultipleIntegral {
+        ExprKind::MultipleIntegral {
             dimension,
             integrand,
             bounds,
             vars,
         } => to_latex_multiple_integral(*dimension, integrand, bounds.as_ref(), vars),
-        Expression::ClosedIntegral {
+        ExprKind::ClosedIntegral {
             dimension,
             integrand,
             surface,
@@ -290,14 +290,14 @@ fn to_latex_integral(expr: &Expression) -> String {
 }
 
 pub(super) fn to_latex_calculus(expr: &Expression) -> String {
-    match expr {
-        Expression::Derivative { .. } | Expression::PartialDerivative { .. } => {
+    match &expr.kind {
+        ExprKind::Derivative { .. } | ExprKind::PartialDerivative { .. } => {
             to_latex_derivative(expr)
         }
-        Expression::Integral { .. }
-        | Expression::MultipleIntegral { .. }
-        | Expression::ClosedIntegral { .. } => to_latex_integral(expr),
-        Expression::Limit {
+        ExprKind::Integral { .. }
+        | ExprKind::MultipleIntegral { .. }
+        | ExprKind::ClosedIntegral { .. } => to_latex_integral(expr),
+        ExprKind::Limit {
             expr,
             var,
             to,
@@ -309,7 +309,7 @@ pub(super) fn to_latex_calculus(expr: &Expression) -> String {
             direction.to_latex(),
             expr.to_latex()
         ),
-        Expression::Sum {
+        ExprKind::Sum {
             index,
             lower,
             upper,
@@ -321,7 +321,7 @@ pub(super) fn to_latex_calculus(expr: &Expression) -> String {
             upper.to_latex(),
             body.to_latex()
         ),
-        Expression::Product {
+        ExprKind::Product {
             index,
             lower,
             upper,

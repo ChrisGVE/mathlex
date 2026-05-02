@@ -3,7 +3,7 @@
 //! Tests cover gradient, divergence, curl, Laplacian,
 //! and vector product operations.
 
-use mathlex::ast::{BinaryOp, Expression, VectorNotation};
+use mathlex::ast::{BinaryOp, ExprKind, Expression, VectorNotation};
 use mathlex::parser::parse_latex;
 
 // ============================================================
@@ -13,9 +13,9 @@ use mathlex::parser::parse_latex;
 #[test]
 fn test_gradient_basic() {
     let expr = parse_latex(r"\nabla f").unwrap();
-    match expr {
-        Expression::Gradient { expr } => {
-            assert_eq!(*expr, Expression::Variable("f".to_string()));
+    match &expr.kind {
+        ExprKind::Gradient { expr } => {
+            assert_eq!(**expr, Expression::variable("f".to_string()));
         }
         _ => panic!("Expected Gradient, got {:?}", expr),
     }
@@ -24,9 +24,9 @@ fn test_gradient_basic() {
 #[test]
 fn test_gradient_of_function() {
     let expr = parse_latex(r"\nabla \phi").unwrap();
-    match expr {
-        Expression::Gradient { expr } => {
-            assert_eq!(*expr, Expression::Variable("phi".to_string()));
+    match &expr.kind {
+        ExprKind::Gradient { expr } => {
+            assert_eq!(**expr, Expression::variable("phi".to_string()));
         }
         _ => panic!("Expected Gradient, got {:?}", expr),
     }
@@ -39,11 +39,11 @@ fn test_gradient_of_function() {
 #[test]
 fn test_divergence_basic() {
     let expr = parse_latex(r"\nabla \cdot \mathbf{F}").unwrap();
-    match expr {
-        Expression::Divergence { field } => match *field {
-            Expression::MarkedVector { name, notation } => {
+    match &expr.kind {
+        ExprKind::Divergence { field } => match &field.kind {
+            ExprKind::MarkedVector { name, notation } => {
                 assert_eq!(name, "F");
-                assert_eq!(notation, VectorNotation::Bold);
+                assert_eq!(*notation, VectorNotation::Bold);
             }
             _ => panic!("Expected MarkedVector, got {:?}", field),
         },
@@ -58,11 +58,11 @@ fn test_divergence_basic() {
 #[test]
 fn test_curl_basic() {
     let expr = parse_latex(r"\nabla \times \mathbf{F}").unwrap();
-    match expr {
-        Expression::Curl { field } => match *field {
-            Expression::MarkedVector { name, notation } => {
+    match &expr.kind {
+        ExprKind::Curl { field } => match &field.kind {
+            ExprKind::MarkedVector { name, notation } => {
                 assert_eq!(name, "F");
-                assert_eq!(notation, VectorNotation::Bold);
+                assert_eq!(*notation, VectorNotation::Bold);
             }
             _ => panic!("Expected MarkedVector, got {:?}", field),
         },
@@ -77,9 +77,9 @@ fn test_curl_basic() {
 #[test]
 fn test_laplacian_nabla_squared() {
     let expr = parse_latex(r"\nabla^2 f").unwrap();
-    match expr {
-        Expression::Laplacian { expr } => {
-            assert_eq!(*expr, Expression::Variable("f".to_string()));
+    match &expr.kind {
+        ExprKind::Laplacian { expr } => {
+            assert_eq!(**expr, Expression::variable("f".to_string()));
         }
         _ => panic!("Expected Laplacian, got {:?}", expr),
     }
@@ -89,9 +89,9 @@ fn test_laplacian_nabla_squared() {
 fn test_laplacian_delta() {
     // Note: \Delta may not be implemented as Laplacian - using \nabla^2 instead
     let expr = parse_latex(r"\nabla^2 f").unwrap();
-    match expr {
-        Expression::Laplacian { expr } => {
-            assert_eq!(*expr, Expression::Variable("f".to_string()));
+    match &expr.kind {
+        ExprKind::Laplacian { expr } => {
+            assert_eq!(**expr, Expression::variable("f".to_string()));
         }
         _ => panic!("Expected Laplacian, got {:?}", expr),
     }
@@ -106,27 +106,24 @@ fn test_dot_product_basic() {
     let expr = parse_latex(r"\mathbf{u} \cdot \mathbf{v}").unwrap();
     // Note: Current parser may treat \cdot as multiplication
     // Accept either DotProduct or Binary multiplication
-    match expr {
-        Expression::DotProduct { left, right } => match (*left, *right) {
-            (
-                Expression::MarkedVector { name: n1, .. },
-                Expression::MarkedVector { name: n2, .. },
-            ) => {
+    match &expr.kind {
+        ExprKind::DotProduct { left, right } => match (&left.kind, &right.kind) {
+            (ExprKind::MarkedVector { name: n1, .. }, ExprKind::MarkedVector { name: n2, .. }) => {
                 assert_eq!(n1, "u");
                 assert_eq!(n2, "v");
             }
             _ => panic!("Expected MarkedVectors"),
         },
-        Expression::Binary {
+        ExprKind::Binary {
             op: BinaryOp::Mul,
             left,
             right,
         } => {
             // Also acceptable - \cdot parsed as multiplication
-            match (*left, *right) {
+            match (&left.kind, &right.kind) {
                 (
-                    Expression::MarkedVector { name: n1, .. },
-                    Expression::MarkedVector { name: n2, .. },
+                    ExprKind::MarkedVector { name: n1, .. },
+                    ExprKind::MarkedVector { name: n2, .. },
                 ) => {
                     assert_eq!(n1, "u");
                     assert_eq!(n2, "v");
@@ -145,12 +142,9 @@ fn test_dot_product_basic() {
 #[test]
 fn test_cross_product_basic() {
     let expr = parse_latex(r"\mathbf{a} \times \mathbf{b}").unwrap();
-    match expr {
-        Expression::CrossProduct { left, right } => match (*left, *right) {
-            (
-                Expression::MarkedVector { name: n1, .. },
-                Expression::MarkedVector { name: n2, .. },
-            ) => {
+    match &expr.kind {
+        ExprKind::CrossProduct { left, right } => match (&left.kind, &right.kind) {
+            (ExprKind::MarkedVector { name: n1, .. }, ExprKind::MarkedVector { name: n2, .. }) => {
                 assert_eq!(n1, "a");
                 assert_eq!(n2, "b");
             }
@@ -168,10 +162,10 @@ fn test_cross_product_basic() {
 fn test_divergence_of_curl_is_zero() {
     // ∇·(∇×F) = 0 (mathematically, but we just parse the structure)
     let expr = parse_latex(r"\nabla \cdot (\nabla \times \mathbf{F})").unwrap();
-    match expr {
-        Expression::Divergence { field } => {
-            match *field {
-                Expression::Curl { .. } => {
+    match &expr.kind {
+        ExprKind::Divergence { field } => {
+            match &field.kind {
+                ExprKind::Curl { .. } => {
                     // Structure is correct
                 }
                 _ => panic!("Expected Curl inside Divergence"),
@@ -185,10 +179,10 @@ fn test_divergence_of_curl_is_zero() {
 fn test_curl_of_gradient_is_zero() {
     // ∇×(∇f) = 0 (mathematically, but we just parse the structure)
     let expr = parse_latex(r"\nabla \times (\nabla f)").unwrap();
-    match expr {
-        Expression::Curl { field } => {
-            match *field {
-                Expression::Gradient { .. } => {
+    match &expr.kind {
+        ExprKind::Curl { field } => {
+            match &field.kind {
+                ExprKind::Gradient { .. } => {
                     // Structure is correct
                 }
                 _ => panic!("Expected Gradient inside Curl"),
@@ -205,8 +199,8 @@ fn test_laplacian_is_div_of_grad() {
     let div_grad = parse_latex(r"\nabla \cdot (\nabla f)").unwrap();
 
     // Both should be valid expressions
-    assert!(matches!(laplacian, Expression::Laplacian { .. }));
-    assert!(matches!(div_grad, Expression::Divergence { .. }));
+    assert!(matches!(laplacian.kind, ExprKind::Laplacian { .. }));
+    assert!(matches!(div_grad.kind, ExprKind::Divergence { .. }));
 }
 
 // ============================================================
@@ -217,14 +211,14 @@ fn test_laplacian_is_div_of_grad() {
 fn test_maxwell_gauss_law_style() {
     // ∇·E = ρ/ε₀ (simplified)
     let expr = parse_latex(r"\nabla \cdot \mathbf{E}").unwrap();
-    assert!(matches!(expr, Expression::Divergence { .. }));
+    assert!(matches!(expr.kind, ExprKind::Divergence { .. }));
 }
 
 #[test]
 fn test_maxwell_faraday_law_style() {
     // ∇×E = -∂B/∂t (simplified to just the curl part)
     let expr = parse_latex(r"\nabla \times \mathbf{E}").unwrap();
-    assert!(matches!(expr, Expression::Curl { .. }));
+    assert!(matches!(expr.kind, ExprKind::Curl { .. }));
 }
 
 // ============================================================
@@ -234,10 +228,10 @@ fn test_maxwell_faraday_law_style() {
 #[test]
 fn test_vec_arrow_notation() {
     let expr = parse_latex(r"\vec{v}").unwrap();
-    match expr {
-        Expression::MarkedVector { name, notation } => {
+    match &expr.kind {
+        ExprKind::MarkedVector { name, notation } => {
             assert_eq!(name, "v");
-            assert_eq!(notation, VectorNotation::Arrow);
+            assert_eq!(*notation, VectorNotation::Arrow);
         }
         _ => panic!("Expected MarkedVector with Arrow notation"),
     }
@@ -246,10 +240,10 @@ fn test_vec_arrow_notation() {
 #[test]
 fn test_hat_unit_vector() {
     let expr = parse_latex(r"\hat{n}").unwrap();
-    match expr {
-        Expression::MarkedVector { name, notation } => {
+    match &expr.kind {
+        ExprKind::MarkedVector { name, notation } => {
             assert_eq!(name, "n");
-            assert_eq!(notation, VectorNotation::Hat);
+            assert_eq!(*notation, VectorNotation::Hat);
         }
         _ => panic!("Expected MarkedVector with Hat notation"),
     }

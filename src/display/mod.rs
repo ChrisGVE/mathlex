@@ -22,13 +22,13 @@
 //! use mathlex::ast::{Expression, BinaryOp};
 //!
 //! // 2 + 3 * 4 → "2 + 3 * 4" (no parens needed)
-//! let expr = Expression::Binary {
+//! let expr = ExprKind::Binary {
 //!     op: BinaryOp::Add,
-//!     left: Box::new(Expression::Integer(2)),
-//!     right: Box::new(Expression::Binary {
+//!     left: Box::new(Expression::integer(2)),
+//!     right: Box::new(ExprKind::Binary {
 //!         op: BinaryOp::Mul,
-//!         left: Box::new(Expression::Integer(3)),
-//!         right: Box::new(Expression::Integer(4)),
+//!         left: Box::new(Expression::integer(3)),
+//!         right: Box::new(Expression::integer(4)),
 //!     }),
 //! };
 //! assert_eq!(format!("{}", expr), "2 + 3 * 4");

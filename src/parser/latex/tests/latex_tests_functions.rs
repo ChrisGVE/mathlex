@@ -6,11 +6,11 @@ use super::*;
 #[test]
 fn test_sin_braced() {
     let expr = parse_latex(r"\sin{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sin");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -19,11 +19,11 @@ fn test_sin_braced() {
 #[test]
 fn test_sin_parentheses() {
     let expr = parse_latex(r"\sin(x)").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sin");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -32,11 +32,11 @@ fn test_sin_parentheses() {
 #[test]
 fn test_sin_unbraced() {
     let expr = parse_latex(r"\sin x").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sin");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -45,11 +45,11 @@ fn test_sin_unbraced() {
 #[test]
 fn test_cos() {
     let expr = parse_latex(r"\cos{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "cos");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -58,11 +58,11 @@ fn test_cos() {
 #[test]
 fn test_tan() {
     let expr = parse_latex(r"\tan{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "tan");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -71,11 +71,11 @@ fn test_tan() {
 #[test]
 fn test_sec() {
     let expr = parse_latex(r"\sec{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sec");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -84,11 +84,11 @@ fn test_sec() {
 #[test]
 fn test_csc() {
     let expr = parse_latex(r"\csc{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "csc");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -97,11 +97,11 @@ fn test_csc() {
 #[test]
 fn test_cot() {
     let expr = parse_latex(r"\cot{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "cot");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -112,11 +112,11 @@ fn test_cot() {
 #[test]
 fn test_arcsin() {
     let expr = parse_latex(r"\arcsin{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "arcsin");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -125,11 +125,11 @@ fn test_arcsin() {
 #[test]
 fn test_arccos() {
     let expr = parse_latex(r"\arccos{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "arccos");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -138,11 +138,11 @@ fn test_arccos() {
 #[test]
 fn test_arctan() {
     let expr = parse_latex(r"\arctan{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "arctan");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -153,11 +153,11 @@ fn test_arctan() {
 #[test]
 fn test_sinh() {
     let expr = parse_latex(r"\sinh{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sinh");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -166,11 +166,11 @@ fn test_sinh() {
 #[test]
 fn test_cosh() {
     let expr = parse_latex(r"\cosh{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "cosh");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -179,11 +179,11 @@ fn test_cosh() {
 #[test]
 fn test_tanh() {
     let expr = parse_latex(r"\tanh{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "tanh");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -194,11 +194,11 @@ fn test_tanh() {
 #[test]
 fn test_ln() {
     let expr = parse_latex(r"\ln{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "ln");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -207,11 +207,11 @@ fn test_ln() {
 #[test]
 fn test_log() {
     let expr = parse_latex(r"\log{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "log");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -220,11 +220,11 @@ fn test_log() {
 #[test]
 fn test_exp() {
     let expr = parse_latex(r"\exp{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "exp");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -235,11 +235,11 @@ fn test_exp() {
 #[test]
 fn test_min() {
     let expr = parse_latex(r"\min{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "min");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -248,11 +248,11 @@ fn test_min() {
 #[test]
 fn test_max() {
     let expr = parse_latex(r"\max{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "max");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -261,11 +261,11 @@ fn test_max() {
 #[test]
 fn test_gcd() {
     let expr = parse_latex(r"\gcd{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "gcd");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -274,11 +274,11 @@ fn test_gcd() {
 #[test]
 fn test_lcm() {
     let expr = parse_latex(r"\lcm{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "lcm");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -289,13 +289,13 @@ fn test_lcm() {
 #[test]
 fn test_sin_of_addition() {
     let expr = parse_latex(r"\sin(x + y)").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sin");
             assert_eq!(args.len(), 1);
             assert!(matches!(
-                args[0],
-                Expression::Binary {
+                args[0].kind,
+                ExprKind::Binary {
                     op: BinaryOp::Add,
                     ..
                 }
@@ -308,13 +308,13 @@ fn test_sin_of_addition() {
 #[test]
 fn test_cos_of_multiplication() {
     let expr = parse_latex(r"\cos{2*x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "cos");
             assert_eq!(args.len(), 1);
             assert!(matches!(
-                args[0],
-                Expression::Binary {
+                args[0].kind,
+                ExprKind::Binary {
                     op: BinaryOp::Mul,
                     ..
                 }
@@ -327,13 +327,13 @@ fn test_cos_of_multiplication() {
 #[test]
 fn test_tan_of_fraction() {
     let expr = parse_latex(r"\tan{\frac{x}{2}}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "tan");
             assert_eq!(args.len(), 1);
             assert!(matches!(
-                args[0],
-                Expression::Binary {
+                args[0].kind,
+                ExprKind::Binary {
                     op: BinaryOp::Div,
                     ..
                 }
@@ -346,13 +346,13 @@ fn test_tan_of_fraction() {
 #[test]
 fn test_ln_of_power() {
     let expr = parse_latex(r"\ln{x^2}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "ln");
             assert_eq!(args.len(), 1);
             assert!(matches!(
-                args[0],
-                Expression::Binary {
+                args[0].kind,
+                ExprKind::Binary {
                     op: BinaryOp::Pow,
                     ..
                 }
@@ -365,13 +365,13 @@ fn test_ln_of_power() {
 #[test]
 fn test_exp_of_negative() {
     let expr = parse_latex(r"\exp{-x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "exp");
             assert_eq!(args.len(), 1);
             assert!(matches!(
-                args[0],
-                Expression::Unary {
+                args[0].kind,
+                ExprKind::Unary {
                     op: crate::ast::UnaryOp::Neg,
                     ..
                 }
@@ -386,18 +386,18 @@ fn test_exp_of_negative() {
 #[test]
 fn test_sin_of_cos() {
     let expr = parse_latex(r"\sin{\cos{x}}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sin");
             assert_eq!(args.len(), 1);
-            match &args[0] {
-                Expression::Function {
+            match &args[0].kind {
+                ExprKind::Function {
                     name: inner_name,
                     args: inner_args,
                 } => {
                     assert_eq!(inner_name, "cos");
                     assert_eq!(inner_args.len(), 1);
-                    assert_eq!(inner_args[0], Expression::Variable("x".to_string()));
+                    assert_eq!(inner_args[0], Expression::variable("x".to_string()));
                 }
                 _ => panic!("Expected nested function"),
             }
@@ -409,12 +409,12 @@ fn test_sin_of_cos() {
 #[test]
 fn test_ln_of_exp() {
     let expr = parse_latex(r"\ln{\exp{x}}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "ln");
             assert_eq!(args.len(), 1);
-            match &args[0] {
-                Expression::Function {
+            match &args[0].kind {
+                ExprKind::Function {
                     name: inner_name, ..
                 } => {
                     assert_eq!(inner_name, "exp");
@@ -429,12 +429,12 @@ fn test_ln_of_exp() {
 #[test]
 fn test_exp_of_ln() {
     let expr = parse_latex(r"\exp{\ln{x}}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "exp");
             assert_eq!(args.len(), 1);
-            match &args[0] {
-                Expression::Function {
+            match &args[0].kind {
+                ExprKind::Function {
                     name: inner_name, ..
                 } => {
                     assert_eq!(inner_name, "ln");
@@ -451,13 +451,13 @@ fn test_exp_of_ln() {
 #[test]
 fn test_sin_plus_cos() {
     let expr = parse_latex(r"\sin{x} + \cos{x}").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Add,
             left,
             right,
-        } => match (*left, *right) {
-            (Expression::Function { name: n1, .. }, Expression::Function { name: n2, .. }) => {
+        } => match (&left.kind, &right.kind) {
+            (ExprKind::Function { name: n1, .. }, ExprKind::Function { name: n2, .. }) => {
                 assert_eq!(n1, "sin");
                 assert_eq!(n2, "cos");
             }
@@ -470,13 +470,13 @@ fn test_sin_plus_cos() {
 #[test]
 fn test_sin_times_cos() {
     let expr = parse_latex(r"\sin{x} * \cos{x}").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Mul,
             left,
             right,
-        } => match (*left, *right) {
-            (Expression::Function { name: n1, .. }, Expression::Function { name: n2, .. }) => {
+        } => match (&left.kind, &right.kind) {
+            (ExprKind::Function { name: n1, .. }, ExprKind::Function { name: n2, .. }) => {
                 assert_eq!(n1, "sin");
                 assert_eq!(n2, "cos");
             }
@@ -489,17 +489,17 @@ fn test_sin_times_cos() {
 #[test]
 fn test_sin_squared() {
     let expr = parse_latex(r"\sin{x}^2").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             left,
             right,
         } => {
-            match *left {
-                Expression::Function { name, .. } => assert_eq!(name, "sin"),
+            match &left.kind {
+                ExprKind::Function { name, .. } => assert_eq!(name, "sin"),
                 _ => panic!("Expected function"),
             }
-            assert_eq!(*right, Expression::Integer(2));
+            assert_eq!(**right, Expression::integer(2));
         }
         _ => panic!("Expected power"),
     }
@@ -508,15 +508,15 @@ fn test_sin_squared() {
 #[test]
 fn test_coefficient_times_sin() {
     let expr = parse_latex(r"2 * \sin{x}").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Mul,
             left,
             right,
         } => {
-            assert_eq!(*left, Expression::Integer(2));
-            match *right {
-                Expression::Function { name, .. } => assert_eq!(name, "sin"),
+            assert_eq!(**left, Expression::integer(2));
+            match &right.kind {
+                ExprKind::Function { name, .. } => assert_eq!(name, "sin"),
                 _ => panic!("Expected function"),
             }
         }
@@ -529,11 +529,11 @@ fn test_coefficient_times_sin() {
 #[test]
 fn test_sin_of_alpha() {
     let expr = parse_latex(r"\sin{\alpha}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sin");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("alpha".to_string()));
+            assert_eq!(args[0], Expression::variable("alpha".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -542,11 +542,11 @@ fn test_sin_of_alpha() {
 #[test]
 fn test_ln_of_pi() {
     let expr = parse_latex(r"\ln{\pi}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "ln");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Constant(MathConstant::Pi));
+            assert_eq!(args[0], Expression::constant(MathConstant::Pi));
         }
         _ => panic!("Expected function call"),
     }
@@ -557,11 +557,11 @@ fn test_ln_of_pi() {
 #[test]
 fn test_function_of_number() {
     let expr = parse_latex(r"\sin{0}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "sin");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Integer(0));
+            assert_eq!(args[0], Expression::integer(0));
         }
         _ => panic!("Expected function call"),
     }
@@ -570,12 +570,12 @@ fn test_function_of_number() {
 #[test]
 fn test_function_of_float() {
     let expr = parse_latex(r"\cos{3.14}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "cos");
             assert_eq!(args.len(), 1);
-            match &args[0] {
-                Expression::Float(f) => assert!((f.value() - 3.14).abs() < 1e-10),
+            match &args[0].kind {
+                ExprKind::Float(f) => assert!((f.value() - 3.14).abs() < 1e-10),
                 _ => panic!("Expected float"),
             }
         }
@@ -588,11 +588,11 @@ fn test_function_of_float() {
 #[test]
 fn test_det_braced() {
     let expr = parse_latex(r"\det{A}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "det");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("A".to_string()));
+            assert_eq!(args[0], Expression::variable("A".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -603,11 +603,11 @@ fn test_det_braced() {
 #[test]
 fn test_trunc_braced() {
     let expr = parse_latex(r"\trunc{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "trunc");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -616,11 +616,11 @@ fn test_trunc_braced() {
 #[test]
 fn test_trunc_paren() {
     let expr = parse_latex(r"\trunc(x)").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "trunc");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -630,12 +630,12 @@ fn test_trunc_paren() {
 fn test_trunc_nested_sin() {
     // \trunc{\sin{x}}
     let expr = parse_latex(r"\trunc{\sin{x}}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "trunc");
             assert_eq!(args.len(), 1);
-            match &args[0] {
-                Expression::Function { name: inner, .. } => assert_eq!(inner, "sin"),
+            match &args[0].kind {
+                ExprKind::Function { name: inner, .. } => assert_eq!(inner, "sin"),
                 _ => panic!("Expected nested sin"),
             }
         }
@@ -646,11 +646,11 @@ fn test_trunc_nested_sin() {
 #[test]
 fn test_rad_braced() {
     let expr = parse_latex(r"\rad{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "rad");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -659,11 +659,11 @@ fn test_rad_braced() {
 #[test]
 fn test_deg_braced() {
     let expr = parse_latex(r"\deg{x}").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "deg");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -673,13 +673,13 @@ fn test_deg_braced() {
 fn test_clamp_paren() {
     // \clamp(x, 0, 1)
     let expr = parse_latex(r"\clamp(x, 0, 1)").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "clamp");
             assert_eq!(args.len(), 3);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
-            assert_eq!(args[1], Expression::Integer(0));
-            assert_eq!(args[2], Expression::Integer(1));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
+            assert_eq!(args[1], Expression::integer(0));
+            assert_eq!(args[2], Expression::integer(1));
         }
         _ => panic!("Expected function call"),
     }
@@ -689,13 +689,13 @@ fn test_clamp_paren() {
 fn test_clamp_complex_arg() {
     // \clamp(x^2, -1, 1)
     let expr = parse_latex(r"\clamp(x^2, -1, 1)").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "clamp");
             assert_eq!(args.len(), 3);
             assert!(matches!(
-                args[0],
-                Expression::Binary {
+                args[0].kind,
+                ExprKind::Binary {
                     op: BinaryOp::Pow,
                     ..
                 }
@@ -709,13 +709,13 @@ fn test_clamp_complex_arg() {
 fn test_lerp_paren() {
     // \lerp(a, b, t)
     let expr = parse_latex(r"\lerp(a, b, t)").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "lerp");
             assert_eq!(args.len(), 3);
-            assert_eq!(args[0], Expression::Variable("a".to_string()));
-            assert_eq!(args[1], Expression::Variable("b".to_string()));
-            assert_eq!(args[2], Expression::Variable("t".to_string()));
+            assert_eq!(args[0], Expression::variable("a".to_string()));
+            assert_eq!(args[1], Expression::variable("b".to_string()));
+            assert_eq!(args[2], Expression::variable("t".to_string()));
         }
         _ => panic!("Expected function call"),
     }
@@ -725,13 +725,13 @@ fn test_lerp_paren() {
 fn test_lerp_numeric_bounds() {
     // \lerp(0, 1, t)
     let expr = parse_latex(r"\lerp(0, 1, t)").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "lerp");
             assert_eq!(args.len(), 3);
-            assert_eq!(args[0], Expression::Integer(0));
-            assert_eq!(args[1], Expression::Integer(1));
-            assert_eq!(args[2], Expression::Variable("t".to_string()));
+            assert_eq!(args[0], Expression::integer(0));
+            assert_eq!(args[1], Expression::integer(1));
+            assert_eq!(args[2], Expression::variable("t".to_string()));
         }
         _ => panic!("Expected function call"),
     }

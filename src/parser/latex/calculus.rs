@@ -50,11 +50,12 @@ impl LatexParser {
                 let var = var_ch.to_string();
                 self.next(); // consume variable
 
-                Ok(Expression::Integral {
+                Ok(ExprKind::Integral {
                     integrand: Box::new(integrand),
                     var,
                     bounds,
-                })
+                }
+                .into())
             } else {
                 Err(ParseError::custom(
                     "expected variable name after 'd' in integral".to_string(),
@@ -118,12 +119,13 @@ impl LatexParser {
             ));
         }
 
-        Ok(Expression::MultipleIntegral {
+        Ok(ExprKind::MultipleIntegral {
             dimension,
             integrand: Box::new(integrand),
             bounds,
             vars,
-        })
+        }
+        .into())
     }
 
     /// Parses a closed/contour integral: \oint, \oiint, \oiiint
@@ -134,8 +136,8 @@ impl LatexParser {
             self.next(); // consume _
             let surface_expr = self.parse_braced_or_atom()?;
             // Extract name if it's a variable
-            match surface_expr {
-                Expression::Variable(name) => Some(name),
+            match &surface_expr.kind {
+                ExprKind::Variable(name) => Some(name.clone()),
                 _ => None,
             }
         } else {
@@ -175,12 +177,13 @@ impl LatexParser {
             ));
         }
 
-        Ok(Expression::ClosedIntegral {
+        Ok(ExprKind::ClosedIntegral {
             dimension,
             integrand: Box::new(integrand),
             surface,
             var,
-        })
+        }
+        .into())
     }
 
     // ============================================================
@@ -222,11 +225,12 @@ impl LatexParser {
         // Parse the body expression
         let body = self.parse_expression()?;
 
-        Ok(Expression::ForAll {
+        Ok(ExprKind::ForAll {
             variable,
             domain,
             body: Box::new(body),
-        })
+        }
+        .into())
     }
 
     /// Parses an existential quantifier: \exists x P(x) or \exists! x P(x)
@@ -276,12 +280,13 @@ impl LatexParser {
         // Parse the body expression
         let body = self.parse_expression()?;
 
-        Ok(Expression::Exists {
+        Ok(ExprKind::Exists {
             variable,
             domain,
             body: Box::new(body),
             unique,
-        })
+        }
+        .into())
     }
 
     /// Parses a limit: \lim_{x \to a} or \lim_{x \to a^+}
@@ -352,12 +357,13 @@ impl LatexParser {
         // Parse the expression - use parse_multiplicative to capture full expressions
         let expr = self.parse_multiplicative()?;
 
-        Ok(Expression::Limit {
+        Ok(ExprKind::Limit {
             expr: Box::new(expr),
             var,
             to: Box::new(to),
             direction,
-        })
+        }
+        .into())
     }
 
     /// Parses a sum: \sum_{i=1}^{n} expr
@@ -368,12 +374,13 @@ impl LatexParser {
         let body = self.parse_multiplicative()?;
         self.pop_scope();
 
-        Ok(Expression::Sum {
+        Ok(ExprKind::Sum {
             index,
             lower: Box::new(lower),
             upper: Box::new(upper),
             body: Box::new(body),
-        })
+        }
+        .into())
     }
 
     /// Parses a product: \prod_{i=1}^{n} expr
@@ -384,12 +391,13 @@ impl LatexParser {
         let body = self.parse_multiplicative()?;
         self.pop_scope();
 
-        Ok(Expression::Product {
+        Ok(ExprKind::Product {
             index,
             lower: Box::new(lower),
             upper: Box::new(upper),
             body: Box::new(body),
-        })
+        }
+        .into())
     }
 
     /// Helper to parse iterator bounds: _{var=lower}^{upper}

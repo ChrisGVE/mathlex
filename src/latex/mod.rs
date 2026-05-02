@@ -25,14 +25,14 @@
 //! ## Examples
 //!
 //! ```
-//! use mathlex::ast::Expression;
+//! use mathlex::ast::{Expression, ExprKind};
 //! use mathlex::latex::ToLatex;
 //!
 //! // 1/2 → "\frac{1}{2}"
-//! let expr = Expression::Rational {
-//!     numerator: Box::new(Expression::Integer(1)),
-//!     denominator: Box::new(Expression::Integer(2)),
-//! };
+//! let expr: Expression = ExprKind::Rational {
+//!     numerator: Box::new(Expression::integer(1)),
+//!     denominator: Box::new(Expression::integer(2)),
+//! }.into();
 //! assert_eq!(expr.to_latex(), r"\frac{1}{2}");
 //! ```
 

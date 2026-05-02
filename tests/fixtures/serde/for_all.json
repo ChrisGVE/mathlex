@@ -1,0 +1,40 @@
+{
+  "kind": "ForAll",
+  "value": {
+    "body": {
+      "kind": "Inequality",
+      "value": {
+        "left": {
+          "kind": "Binary",
+          "value": {
+            "left": {
+              "kind": "Variable",
+              "value": "x"
+            },
+            "op": {
+              "kind": "Mul"
+            },
+            "right": {
+              "kind": "Variable",
+              "value": "x"
+            }
+          }
+        },
+        "op": {
+          "kind": "Ge"
+        },
+        "right": {
+          "kind": "Integer",
+          "value": 0
+        }
+      }
+    },
+    "domain": {
+      "kind": "NumberSetExpr",
+      "value": {
+        "kind": "Real"
+      }
+    },
+    "variable": "x"
+  }
+}

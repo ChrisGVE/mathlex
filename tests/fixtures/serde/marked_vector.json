@@ -1,0 +1,9 @@
+{
+  "kind": "MarkedVector",
+  "value": {
+    "name": "v",
+    "notation": {
+      "kind": "Arrow"
+    }
+  }
+}

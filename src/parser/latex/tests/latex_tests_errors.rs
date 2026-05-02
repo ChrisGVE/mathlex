@@ -448,7 +448,7 @@ fn test_multiple_decimal_points() {
             // If it parses, check what we got
             if let Ok(expr) = result {
                 // Should not be a single float with value 3.14.15
-                !matches!(expr, Expression::Float(_))
+                !matches!(expr.kind, ExprKind::Float(_))
             } else {
                 true
             }

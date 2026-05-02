@@ -1,0 +1,13 @@
+{
+  "kind": "CrossProduct",
+  "value": {
+    "left": {
+      "kind": "Variable",
+      "value": "u"
+    },
+    "right": {
+      "kind": "Variable",
+      "value": "v"
+    }
+  }
+}

@@ -41,3 +41,6 @@ dev-debug.log
 
 # Environment variables
 .env
+
+# GitNexus
+.gitnexus

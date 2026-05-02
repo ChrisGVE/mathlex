@@ -1,0 +1,9 @@
+{
+  "kind": "Divergence",
+  "value": {
+    "field": {
+      "kind": "Variable",
+      "value": "F"
+    }
+  }
+}

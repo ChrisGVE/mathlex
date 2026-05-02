@@ -1,0 +1,17 @@
+{
+  "kind": "Vector",
+  "value": [
+    {
+      "kind": "Integer",
+      "value": 1
+    },
+    {
+      "kind": "Integer",
+      "value": 2
+    },
+    {
+      "kind": "Integer",
+      "value": 3
+    }
+  ]
+}

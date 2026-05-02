@@ -1,6 +1,6 @@
 //! Bottom-up generic map traversal for the expression tree.
 
-use crate::ast::Expression;
+use crate::ast::{ExprKind, Expression};
 
 use super::walker::map_children;
 
@@ -11,9 +11,9 @@ where
     indices
         .iter()
         .map(|idx| {
-            let mapped = f(Expression::Variable(idx.name.clone()));
-            let new_name = match mapped {
-                Expression::Variable(n) => n,
+            let mapped = f(Expression::variable(idx.name.clone()).into());
+            let new_name = match &mapped.kind {
+                ExprKind::Variable(n) => n.clone(),
                 _ => idx.name.clone(),
             };
             crate::ast::TensorIndex {
@@ -29,22 +29,25 @@ where
     F: Fn(Expression) -> Expression,
 {
     // Special case: tensor indices need name mapping through f
-    match expr {
-        Expression::Tensor { name, indices } => {
-            return Expression::Tensor {
+    match &expr.kind {
+        ExprKind::Tensor { name, indices } => {
+            return ExprKind::Tensor {
                 name: name.clone(),
                 indices: map_tensor_index(indices, f),
-            };
+            }
+            .into();
         }
-        Expression::KroneckerDelta { indices } => {
-            return Expression::KroneckerDelta {
+        ExprKind::KroneckerDelta { indices } => {
+            return ExprKind::KroneckerDelta {
                 indices: map_tensor_index(indices, f),
-            };
+            }
+            .into();
         }
-        Expression::LeviCivita { indices } => {
-            return Expression::LeviCivita {
+        ExprKind::LeviCivita { indices } => {
+            return ExprKind::LeviCivita {
                 indices: map_tensor_index(indices, f),
-            };
+            }
+            .into();
         }
         _ => {}
     }
@@ -63,25 +66,25 @@ impl Expression {
     /// # Examples
     ///
     /// ```
-    /// use mathlex::ast::{Expression, BinaryOp};
+    /// use mathlex::ast::{ExprKind, Expression, BinaryOp};
     ///
     /// // Double every integer in the tree
-    /// let expr = Expression::Binary {
+    /// let expr: Expression = ExprKind::Binary {
     ///     op: BinaryOp::Add,
-    ///     left: Box::new(Expression::Integer(2)),
-    ///     right: Box::new(Expression::Integer(3)),
-    /// };
+    ///     left: Box::new(Expression::integer(2)),
+    ///     right: Box::new(Expression::integer(3)),
+    /// }.into();
     ///
-    /// let doubled = expr.map(|e| match e {
-    ///     Expression::Integer(n) => Expression::Integer(n * 2),
-    ///     other => other,
+    /// let doubled = expr.map(|e| match e.kind {
+    ///     ExprKind::Integer(n) => ExprKind::Integer(n * 2).into(),
+    ///     _ => e,
     /// });
     ///
     /// // Verify the result: (4 + 6)
-    /// match doubled {
-    ///     Expression::Binary { left, right, .. } => {
-    ///         assert_eq!(*left, Expression::Integer(4));
-    ///         assert_eq!(*right, Expression::Integer(6));
+    /// match &doubled.kind {
+    ///     ExprKind::Binary { left, right, .. } => {
+    ///         assert_eq!(**left, Expression::integer(4));
+    ///         assert_eq!(**right, Expression::integer(6));
     ///     }
     ///     _ => panic!("expected binary"),
     /// }

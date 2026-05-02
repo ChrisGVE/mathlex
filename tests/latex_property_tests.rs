@@ -4,36 +4,36 @@
 //! This module uses proptest to generate arbitrary valid LaTeX expressions
 //! and verify important properties of the LaTeX parser.
 
-use mathlex::ast::{BinaryOp, Expression, MathConstant, UnaryOp};
+use mathlex::ast::{BinaryOp, ExprKind, Expression, MathConstant, UnaryOp};
 use mathlex::{parse_latex, ToLatex};
 use proptest::prelude::*;
 
 /// Check if two expressions are semantically equivalent.
 /// This handles the case where Float(1.0) serializes as "1" and re-parses as Integer(1).
 fn semantically_equal(a: &Expression, b: &Expression) -> bool {
-    match (a, b) {
+    match (&a.kind, &b.kind) {
         // Direct equality for same types
-        (Expression::Integer(x), Expression::Integer(y)) => x == y,
-        (Expression::Float(x), Expression::Float(y)) => x == y,
+        (ExprKind::Integer(x), ExprKind::Integer(y)) => x == y,
+        (ExprKind::Float(x), ExprKind::Float(y)) => x == y,
 
         // Float-Integer equivalence for whole numbers
-        (Expression::Integer(i), Expression::Float(f)) => {
+        (ExprKind::Integer(i), ExprKind::Float(f)) => {
             let fval: f64 = (*f).into();
             fval.trunc() == fval && *i == fval as i64
         }
-        (Expression::Float(f), Expression::Integer(i)) => {
+        (ExprKind::Float(f), ExprKind::Integer(i)) => {
             let fval: f64 = (*f).into();
             fval.trunc() == fval && *i == fval as i64
         }
 
         // Recursive cases
         (
-            Expression::Binary {
+            ExprKind::Binary {
                 op: op1,
                 left: l1,
                 right: r1,
             },
-            Expression::Binary {
+            ExprKind::Binary {
                 op: op2,
                 left: l2,
                 right: r2,
@@ -41,23 +41,20 @@ fn semantically_equal(a: &Expression, b: &Expression) -> bool {
         ) => op1 == op2 && semantically_equal(l1, l2) && semantically_equal(r1, r2),
 
         (
-            Expression::Unary {
+            ExprKind::Unary {
                 op: op1,
                 operand: o1,
             },
-            Expression::Unary {
+            ExprKind::Unary {
                 op: op2,
                 operand: o2,
             },
         ) => op1 == op2 && semantically_equal(o1, o2),
 
-        (Expression::Variable(x), Expression::Variable(y)) => x == y,
-        (Expression::Constant(x), Expression::Constant(y)) => x == y,
+        (ExprKind::Variable(x), ExprKind::Variable(y)) => x == y,
+        (ExprKind::Constant(x), ExprKind::Constant(y)) => x == y,
 
-        (
-            Expression::Function { name: n1, args: a1 },
-            Expression::Function { name: n2, args: a2 },
-        ) => {
+        (ExprKind::Function { name: n1, args: a1 }, ExprKind::Function { name: n2, args: a2 }) => {
             n1 == n2
                 && a1.len() == a2.len()
                 && a1
@@ -68,33 +65,33 @@ fn semantically_equal(a: &Expression, b: &Expression) -> bool {
 
         // Vector products
         (
-            Expression::CrossProduct {
+            ExprKind::CrossProduct {
                 left: l1,
                 right: r1,
             },
-            Expression::CrossProduct {
+            ExprKind::CrossProduct {
                 left: l2,
                 right: r2,
             },
         ) => semantically_equal(l1, l2) && semantically_equal(r1, r2),
 
         (
-            Expression::DotProduct {
+            ExprKind::DotProduct {
                 left: l1,
                 right: r1,
             },
-            Expression::DotProduct {
+            ExprKind::DotProduct {
                 left: l2,
                 right: r2,
             },
         ) => semantically_equal(l1, l2) && semantically_equal(r1, r2),
 
         (
-            Expression::OuterProduct {
+            ExprKind::OuterProduct {
                 left: l1,
                 right: r1,
             },
-            Expression::OuterProduct {
+            ExprKind::OuterProduct {
                 left: l2,
                 right: r2,
             },
@@ -328,12 +325,12 @@ proptest! {
     fn prop_parse_number_preserves_value(n in -1000i64..1000) {
         let latex = n.to_string();
         if let Ok(expr) = parse_latex(&latex) {
-            match expr {
-                Expression::Integer(val) => prop_assert_eq!(val, n),
-                Expression::Unary { op: UnaryOp::Neg, operand } => {
+            match &expr.kind {
+                ExprKind::Integer(val) => prop_assert_eq!(*val, n),
+                ExprKind::Unary { op: UnaryOp::Neg, operand } => {
                     // Negative numbers might be parsed as negation of positive
                     if n < 0 {
-                        if let Expression::Integer(val) = *operand {
+                        if let ExprKind::Integer(val) = operand.kind {
                             prop_assert_eq!(val, -n);
                         }
                     }
@@ -357,9 +354,9 @@ proptest! {
     ) {
         let latex = format!(r"\frac{{{}}}{{{}}}", num, den);
         if let Ok(expr) = parse_latex(&latex) {
-            match expr {
-                Expression::Binary { op: BinaryOp::Div, .. } |
-                Expression::Rational { .. } => {
+            match &expr.kind {
+                ExprKind::Binary { op: BinaryOp::Div, .. } |
+                ExprKind::Rational { .. } => {
                     // Both division and rational representation are valid
                 }
                 _ => {
@@ -378,11 +375,11 @@ proptest! {
     fn prop_parse_sqrt(arg in arb_latex_number()) {
         let latex = format!(r"\sqrt{{{}}}", arg);
         if let Ok(expr) = parse_latex(&latex) {
-            match expr {
-                Expression::Function { name, .. } if name == "sqrt" => {
+            match &expr.kind {
+                ExprKind::Function { name, .. } if name == "sqrt" => {
                     // Function call representation
                 }
-                Expression::Binary { op: BinaryOp::Pow, .. } => {
+                ExprKind::Binary { op: BinaryOp::Pow, .. } => {
                     // Power representation (x^0.5)
                 }
                 _ => {
@@ -406,8 +403,8 @@ proptest! {
 
         let latex = format!(r"{}({})", func, arg);
         if let Ok(expr) = parse_latex(&latex) {
-            match expr {
-                Expression::Function { name, .. } => {
+            match &expr.kind {
+                ExprKind::Function { name, .. } => {
                     // Remove backslash from function name for comparison
                     let expected_name = func.trim_start_matches('\\');
                     prop_assert_eq!(name, expected_name);
@@ -453,8 +450,8 @@ proptest! {
         Just(r"\gamma"),
     ]) {
         if let Ok(expr) = parse_latex(greek) {
-            match expr {
-                Expression::Variable(_) => {
+            match &expr.kind {
+                ExprKind::Variable(_) => {
                     // Greek letters are variables
                 }
                 _ => {
@@ -472,11 +469,11 @@ proptest! {
     #[test]
     fn prop_parse_constants(constant in arb_latex_constant()) {
         if let Ok(expr) = parse_latex(&constant) {
-            match expr {
-                Expression::Constant(_) => {
+            match &expr.kind {
+                ExprKind::Constant(_) => {
                     // Successfully parsed as a constant
                 }
-                Expression::Variable(_) => {
+                ExprKind::Variable(_) => {
                     // Some constants (like "e" and "i") might be parsed as variables
                     // depending on context, which is acceptable
                     if constant == "e" || constant == "i" {
@@ -503,14 +500,14 @@ proptest! {
     fn prop_parse_negation(latex in arb_latex_number()) {
         let neg_latex = format!("-{}", latex);
         if let Ok(expr) = parse_latex(&neg_latex) {
-            match expr {
-                Expression::Unary { op: UnaryOp::Neg, .. } => {
+            match &expr.kind {
+                ExprKind::Unary { op: UnaryOp::Neg, .. } => {
                     // Parsed as unary negation
                 }
-                Expression::Integer(n) if n < 0 => {
+                ExprKind::Integer(n) if *n < 0 => {
                     // Parsed as negative integer literal
                 }
-                Expression::Float(f) if f.value() < 0.0 => {
+                ExprKind::Float(f) if f.value() < 0.0 => {
                     // Parsed as negative float literal
                 }
                 _ => {
@@ -529,8 +526,8 @@ proptest! {
     fn prop_parse_addition(a in arb_latex_number(), b in arb_latex_number()) {
         let latex = format!("{} + {}", a, b);
         if let Ok(expr) = parse_latex(&latex) {
-            match expr {
-                Expression::Binary { op: BinaryOp::Add, .. } => {
+            match &expr.kind {
+                ExprKind::Binary { op: BinaryOp::Add, .. } => {
                     // Correctly parsed as addition
                 }
                 _ => {
@@ -551,8 +548,8 @@ proptest! {
         // Test \cdot as multiplication
         let latex_cdot = format!(r"{} \cdot {}", a, b);
         if let Ok(expr) = parse_latex(&latex_cdot) {
-            match expr {
-                Expression::Binary { op: BinaryOp::Mul, .. } => {
+            match &expr.kind {
+                ExprKind::Binary { op: BinaryOp::Mul, .. } => {
                     // Correctly parsed as multiplication
                 }
                 _ => {
@@ -566,8 +563,8 @@ proptest! {
         // Test \times as CrossProduct
         let latex_times = format!(r"{} \times {}", a, b);
         if let Ok(expr) = parse_latex(&latex_times) {
-            match expr {
-                Expression::CrossProduct { .. } => {
+            match &expr.kind {
+                ExprKind::CrossProduct { .. } => {
                     // Correctly parsed as cross product
                 }
                 _ => {
@@ -586,14 +583,14 @@ proptest! {
     fn prop_parse_power(a in 1i64..100, b in 1i64..10) {
         let latex = format!("{}^{}", a, b);
         if let Ok(expr) = parse_latex(&latex) {
-            match &expr {
-                Expression::Binary { op: BinaryOp::Pow, .. } => {
+            match &expr.kind {
+                ExprKind::Binary { op: BinaryOp::Pow, .. } => {
                     // Correctly parsed as power
                 }
-                Expression::Unary { op: UnaryOp::Neg, operand } => {
+                ExprKind::Unary { op: UnaryOp::Neg, operand } => {
                     // If there's a negation, check if the operand is a power
-                    match operand.as_ref() {
-                        Expression::Binary { op: BinaryOp::Pow, .. } => {
+                    match &operand.kind {
+                        ExprKind::Binary { op: BinaryOp::Pow, .. } => {
                             // This is acceptable for negative bases
                         }
                         _ => {
@@ -618,17 +615,17 @@ proptest! {
 #[test]
 fn test_parse_latex_pi() {
     let expr = parse_latex(r"\pi").unwrap();
-    assert!(matches!(expr, Expression::Constant(MathConstant::Pi)));
+    assert!(matches!(expr.kind, ExprKind::Constant(MathConstant::Pi)));
 }
 
 #[test]
 fn test_parse_latex_frac() {
     let expr = parse_latex(r"\frac{1}{2}").unwrap();
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Div, ..
         }
-        | Expression::Rational { .. } => {}
+        | ExprKind::Rational { .. } => {}
         _ => panic!("Expected division or rational"),
     }
 }
@@ -636,8 +633,8 @@ fn test_parse_latex_frac() {
 #[test]
 fn test_parse_latex_sin() {
     let expr = parse_latex(r"\sin(x)").unwrap();
-    match expr {
-        Expression::Function { name, .. } => {
+    match &expr.kind {
+        ExprKind::Function { name, .. } => {
             assert_eq!(name, "sin");
         }
         _ => panic!("Expected function"),
@@ -647,9 +644,9 @@ fn test_parse_latex_sin() {
 #[test]
 fn test_parse_latex_sqrt() {
     let expr = parse_latex(r"\sqrt{4}").unwrap();
-    match expr {
-        Expression::Function { name, .. } if name == "sqrt" => {}
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Function { name, .. } if name == "sqrt" => {}
+        ExprKind::Binary {
             op: BinaryOp::Pow, ..
         } => {}
         _ => panic!("Expected sqrt function or power"),
@@ -660,8 +657,8 @@ fn test_parse_latex_sqrt() {
 fn test_parse_latex_power() {
     let expr = parse_latex(r"x^2").unwrap();
     assert!(matches!(
-        expr,
-        Expression::Binary {
+        expr.kind,
+        ExprKind::Binary {
             op: BinaryOp::Pow,
             ..
         }
@@ -671,9 +668,9 @@ fn test_parse_latex_power() {
 #[test]
 fn test_parse_latex_greek() {
     let expr = parse_latex(r"\alpha").unwrap();
-    match expr {
-        Expression::Variable(name) => {
-            assert!(name.contains("α") || name == "alpha");
+    match &expr.kind {
+        ExprKind::Variable(name) => {
+            assert!(name.contains('α') || name == "alpha");
         }
         _ => panic!("Expected variable"),
     }
@@ -705,14 +702,14 @@ fn test_roundtrip_power() {
 
 #[test]
 fn test_to_latex_non_empty_constant() {
-    let expr = Expression::Constant(MathConstant::E);
+    let expr = Expression::constant(MathConstant::E);
     let latex = expr.to_latex();
     assert!(!latex.is_empty());
 }
 
 #[test]
 fn test_to_latex_non_empty_integer() {
-    let expr = Expression::Integer(42);
+    let expr = Expression::integer(42);
     let latex = expr.to_latex();
     assert!(!latex.is_empty());
     assert_eq!(latex, "42");

@@ -1,0 +1,12 @@
+{
+  "kind": "ClosedIntegral",
+  "value": {
+    "dimension": 1,
+    "integrand": {
+      "kind": "Variable",
+      "value": "f"
+    },
+    "surface": "S",
+    "var": "s"
+  }
+}

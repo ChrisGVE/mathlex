@@ -4,11 +4,11 @@ use super::*;
 #[test]
 fn test_floor_simple() {
     let expr = parse_latex(r"\lfloor x \rfloor").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "floor");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected Function(floor, [x]), got {:?}", expr),
     }
@@ -17,11 +17,11 @@ fn test_floor_simple() {
 #[test]
 fn test_ceil_simple() {
     let expr = parse_latex(r"\lceil x \rceil").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "ceil");
             assert_eq!(args.len(), 1);
-            assert_eq!(args[0], Expression::Variable("x".to_string()));
+            assert_eq!(args[0], Expression::variable("x".to_string()));
         }
         _ => panic!("Expected Function(ceil, [x]), got {:?}", expr),
     }
@@ -30,14 +30,14 @@ fn test_ceil_simple() {
 #[test]
 fn test_floor_expression() {
     let expr = parse_latex(r"\lfloor x + 1 \rfloor").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "floor");
             assert_eq!(args.len(), 1);
             assert!(
                 matches!(
-                    args[0],
-                    Expression::Binary {
+                    args[0].kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Add,
                         ..
                     }
@@ -53,14 +53,14 @@ fn test_floor_expression() {
 #[test]
 fn test_ceil_expression() {
     let expr = parse_latex(r"\lceil \frac{n}{2} \rceil").unwrap();
-    match expr {
-        Expression::Function { name, args } => {
+    match &expr.kind {
+        ExprKind::Function { name, args } => {
             assert_eq!(name, "ceil");
             assert_eq!(args.len(), 1);
             assert!(
                 matches!(
-                    args[0],
-                    Expression::Binary {
+                    args[0].kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Div,
                         ..
                     }

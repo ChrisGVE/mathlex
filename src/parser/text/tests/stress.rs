@@ -8,15 +8,15 @@ mod stress_tests {
     #[test]
     fn test_deeply_nested_parentheses() {
         let expr = parse("((((((((((x))))))))))").unwrap();
-        assert_eq!(expr, Expression::Variable("x".to_string()));
+        assert_eq!(expr, Expression::variable("x".to_string()));
     }
 
     #[test]
     fn test_very_long_expression() {
         let expr = parse("1+2+3+4+5+6+7+8+9+10").unwrap();
         assert!(matches!(
-            expr,
-            Expression::Binary {
+            expr.kind,
+            ExprKind::Binary {
                 op: BinaryOp::Add,
                 ..
             }
@@ -27,8 +27,8 @@ mod stress_tests {
     fn test_complex_nested_expression() {
         let expr = parse("2*sin(x^2 + 1)! - cos(y)/(z + 1)").unwrap();
         assert!(matches!(
-            expr,
-            Expression::Binary {
+            expr.kind,
+            ExprKind::Binary {
                 op: BinaryOp::Sub,
                 ..
             }
@@ -38,12 +38,12 @@ mod stress_tests {
     #[test]
     fn test_many_nested_functions() {
         let expr = parse("f(g(x), h(y), i(z), j(a), k(b))").unwrap();
-        match expr {
-            Expression::Function { name, args } => {
+        match &expr.kind {
+            ExprKind::Function { name, args } => {
                 assert_eq!(name, "f");
                 assert_eq!(args.len(), 5);
                 for arg in args {
-                    assert!(matches!(arg, Expression::Function { .. }));
+                    assert!(matches!(arg.kind, ExprKind::Function { .. }));
                 }
             }
             _ => panic!("Expected function"),
@@ -54,8 +54,8 @@ mod stress_tests {
     fn test_alternating_operators() {
         let expr = parse("a + b - c + d - e").unwrap();
         assert!(matches!(
-            expr,
-            Expression::Binary {
+            expr.kind,
+            ExprKind::Binary {
                 op: BinaryOp::Sub,
                 ..
             }
@@ -65,20 +65,20 @@ mod stress_tests {
     #[test]
     fn test_complex_precedence_expression() {
         let expr = parse("((a + b) * c - d / e) ^ f").unwrap();
-        match expr {
-            Expression::Binary {
+        match &expr.kind {
+            ExprKind::Binary {
                 op: BinaryOp::Pow,
                 left,
                 right,
             } => {
                 assert!(matches!(
-                    *left,
-                    Expression::Binary {
+                    (**left).kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Sub,
                         ..
                     }
                 ));
-                assert_eq!(*right, Expression::Variable("f".to_string()));
+                assert_eq!(**right, Expression::variable("f".to_string()));
             }
             _ => panic!("Expected power"),
         }
@@ -87,14 +87,14 @@ mod stress_tests {
     #[test]
     fn test_parse_unicode_pi() {
         let expr = parse("2*π").unwrap();
-        match expr {
-            Expression::Binary {
+        match &expr.kind {
+            ExprKind::Binary {
                 op: BinaryOp::Mul,
                 left,
                 right,
             } => {
-                assert!(matches!(*left, Expression::Integer(2)));
-                assert!(matches!(*right, Expression::Constant(MathConstant::Pi)));
+                assert!(matches!(left.kind, ExprKind::Integer(2)));
+                assert!(matches!(right.kind, ExprKind::Constant(MathConstant::Pi)));
             }
             _ => panic!("Expected multiplication"),
         }
@@ -103,17 +103,17 @@ mod stress_tests {
     #[test]
     fn test_parse_unicode_infinity() {
         let expr = parse("∞").unwrap();
-        assert_eq!(expr, Expression::Constant(MathConstant::Infinity));
+        assert_eq!(expr, Expression::constant(MathConstant::Infinity));
     }
 
     #[test]
     fn test_parse_unicode_sqrt() {
         let expr = parse("√4").unwrap();
-        match expr {
-            Expression::Function { name, args } => {
+        match &expr.kind {
+            ExprKind::Function { name, args } => {
                 assert_eq!(name, "sqrt");
                 assert_eq!(args.len(), 1);
-                assert!(matches!(args[0], Expression::Integer(4)));
+                assert!(matches!(args[0].kind, ExprKind::Integer(4)));
             }
             _ => panic!("Expected sqrt function call"),
         }
@@ -122,13 +122,13 @@ mod stress_tests {
     #[test]
     fn test_parse_unicode_sqrt_with_parens() {
         let expr = parse("√(x+1)").unwrap();
-        match expr {
-            Expression::Function { name, args } => {
+        match &expr.kind {
+            ExprKind::Function { name, args } => {
                 assert_eq!(name, "sqrt");
                 assert_eq!(args.len(), 1);
                 assert!(matches!(
-                    args[0],
-                    Expression::Binary {
+                    args[0].kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Add,
                         ..
                     }
@@ -141,38 +141,38 @@ mod stress_tests {
     #[test]
     fn test_parse_subscript_with_single_digit() {
         let expr = parse("x_1").unwrap();
-        assert_eq!(expr, Expression::Variable("x_1".to_string()));
+        assert_eq!(expr, Expression::variable("x_1".to_string()));
     }
 
     #[test]
     fn test_parse_subscript_with_identifier() {
         let expr = parse("alpha_i").unwrap();
-        assert_eq!(expr, Expression::Variable("alpha_i".to_string()));
+        assert_eq!(expr, Expression::variable("alpha_i".to_string()));
     }
 
     #[test]
     fn test_parse_subscript_with_multiple_digits() {
         let expr = parse("x_12").unwrap();
-        assert_eq!(expr, Expression::Variable("x_12".to_string()));
+        assert_eq!(expr, Expression::variable("x_12".to_string()));
     }
 
     #[test]
     fn test_parse_subscript_with_multi_char() {
         let expr = parse("x_ij").unwrap();
-        assert_eq!(expr, Expression::Variable("x_ij".to_string()));
+        assert_eq!(expr, Expression::variable("x_ij".to_string()));
     }
 
     #[test]
     fn test_parse_subscript_in_expression() {
         let expr = parse("x_1 + y_2").unwrap();
-        match expr {
-            Expression::Binary {
+        match &expr.kind {
+            ExprKind::Binary {
                 op: BinaryOp::Add,
                 left,
                 right,
             } => {
-                assert_eq!(*left, Expression::Variable("x_1".to_string()));
-                assert_eq!(*right, Expression::Variable("y_2".to_string()));
+                assert_eq!(**left, Expression::variable("x_1".to_string()));
+                assert_eq!(**right, Expression::variable("y_2".to_string()));
             }
             _ => panic!("Expected addition"),
         }
@@ -193,10 +193,10 @@ mod vector_operations {
     #[test]
     fn test_parse_dot_product() {
         let expr = parse("dot(u, v)").unwrap();
-        match expr {
-            Expression::DotProduct { left, right } => {
-                assert_eq!(*left, Expression::Variable("u".to_string()));
-                assert_eq!(*right, Expression::Variable("v".to_string()));
+        match &expr.kind {
+            ExprKind::DotProduct { left, right } => {
+                assert_eq!(**left, Expression::variable("u".to_string()));
+                assert_eq!(**right, Expression::variable("v".to_string()));
             }
             _ => panic!("Expected DotProduct, got {:?}", expr),
         }
@@ -205,10 +205,10 @@ mod vector_operations {
     #[test]
     fn test_parse_cross_product() {
         let expr = parse("cross(u, v)").unwrap();
-        match expr {
-            Expression::CrossProduct { left, right } => {
-                assert_eq!(*left, Expression::Variable("u".to_string()));
-                assert_eq!(*right, Expression::Variable("v".to_string()));
+        match &expr.kind {
+            ExprKind::CrossProduct { left, right } => {
+                assert_eq!(**left, Expression::variable("u".to_string()));
+                assert_eq!(**right, Expression::variable("v".to_string()));
             }
             _ => panic!("Expected CrossProduct, got {:?}", expr),
         }
@@ -217,18 +217,18 @@ mod vector_operations {
     #[test]
     fn test_parse_dot_product_with_expressions() {
         let expr = parse("dot(a + b, c * d)").unwrap();
-        match expr {
-            Expression::DotProduct { left, right } => {
+        match &expr.kind {
+            ExprKind::DotProduct { left, right } => {
                 assert!(matches!(
-                    *left,
-                    Expression::Binary {
+                    (**left).kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Add,
                         ..
                     }
                 ));
                 assert!(matches!(
-                    *right,
-                    Expression::Binary {
+                    (**right).kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Mul,
                         ..
                     }
@@ -245,9 +245,9 @@ mod vector_calculus {
     #[test]
     fn test_parse_gradient() {
         let expr = parse("grad(f)").unwrap();
-        match expr {
-            Expression::Gradient { expr } => {
-                assert_eq!(*expr, Expression::Variable("f".to_string()));
+        match &expr.kind {
+            ExprKind::Gradient { expr } => {
+                assert_eq!(**expr, Expression::variable("f".to_string()));
             }
             _ => panic!("Expected Gradient, got {:?}", expr),
         }
@@ -256,9 +256,9 @@ mod vector_calculus {
     #[test]
     fn test_parse_divergence() {
         let expr = parse("div(F)").unwrap();
-        match expr {
-            Expression::Divergence { field } => {
-                assert_eq!(*field, Expression::Variable("F".to_string()));
+        match &expr.kind {
+            ExprKind::Divergence { field } => {
+                assert_eq!(**field, Expression::variable("F".to_string()));
             }
             _ => panic!("Expected Divergence, got {:?}", expr),
         }
@@ -267,9 +267,9 @@ mod vector_calculus {
     #[test]
     fn test_parse_curl() {
         let expr = parse("curl(F)").unwrap();
-        match expr {
-            Expression::Curl { field } => {
-                assert_eq!(*field, Expression::Variable("F".to_string()));
+        match &expr.kind {
+            ExprKind::Curl { field } => {
+                assert_eq!(**field, Expression::variable("F".to_string()));
             }
             _ => panic!("Expected Curl, got {:?}", expr),
         }
@@ -278,9 +278,9 @@ mod vector_calculus {
     #[test]
     fn test_parse_laplacian() {
         let expr = parse("laplacian(f)").unwrap();
-        match expr {
-            Expression::Laplacian { expr } => {
-                assert_eq!(*expr, Expression::Variable("f".to_string()));
+        match &expr.kind {
+            ExprKind::Laplacian { expr } => {
+                assert_eq!(**expr, Expression::variable("f".to_string()));
             }
             _ => panic!("Expected Laplacian, got {:?}", expr),
         }
@@ -289,11 +289,11 @@ mod vector_calculus {
     #[test]
     fn test_parse_vector_calculus_with_expression() {
         let expr = parse("grad(x^2 + y^2)").unwrap();
-        match expr {
-            Expression::Gradient { expr } => {
+        match &expr.kind {
+            ExprKind::Gradient { expr } => {
                 assert!(matches!(
-                    *expr,
-                    Expression::Binary {
+                    (**expr).kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Add,
                         ..
                     }

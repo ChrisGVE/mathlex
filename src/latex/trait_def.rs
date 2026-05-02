@@ -1,13 +1,12 @@
-use crate::ast::precedence::needs_parens;
-use crate::ast::{BinaryOp, Expression};
+use crate::ast::{BinaryOp, ExprKind, Expression};
 
 /// Wrap an expression in parentheses if it has additive-level precedence (Add, Sub).
 ///
 /// This is used by product-like operators (dot product, cross product, outer product)
 /// which have higher precedence than addition/subtraction.
 pub(super) fn wrap_if_additive(expr: &Expression) -> String {
-    match expr {
-        Expression::Binary {
+    match &expr.kind {
+        ExprKind::Binary {
             op: BinaryOp::Add | BinaryOp::Sub | BinaryOp::PlusMinus | BinaryOp::MinusPlus,
             ..
         } => format!(r"\left({}\right)", expr.to_latex()),
@@ -23,10 +22,10 @@ pub(super) fn wrap_if_additive(expr: &Expression) -> String {
 /// # Examples
 ///
 /// ```
-/// use mathlex::ast::{Expression, MathConstant};
+/// use mathlex::ast::{ExprKind, Expression, MathConstant};
 /// use mathlex::latex::ToLatex;
 ///
-/// let pi = Expression::Constant(MathConstant::Pi);
+/// let pi = Expression::constant(MathConstant::Pi);
 /// assert_eq!(pi.to_latex(), r"\pi");
 /// ```
 pub trait ToLatex {

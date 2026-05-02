@@ -133,8 +133,8 @@ fn test_inequality_op_ne() {
 #[test]
 fn test_integral_bounds_simple() {
     let bounds = IntegralBounds {
-        lower: Box::new(Expression::Integer(0)),
-        upper: Box::new(Expression::Integer(1)),
+        lower: Box::new(Expression::integer(0)),
+        upper: Box::new(Expression::integer(1)),
     };
     assert_eq!(format!("{}", bounds), "0, 1");
 }
@@ -142,8 +142,8 @@ fn test_integral_bounds_simple() {
 #[test]
 fn test_integral_bounds_variables() {
     let bounds = IntegralBounds {
-        lower: Box::new(Expression::Variable("a".to_string())),
-        upper: Box::new(Expression::Variable("b".to_string())),
+        lower: Box::new(Expression::variable("a".to_string())),
+        upper: Box::new(Expression::variable("b".to_string())),
     };
     assert_eq!(format!("{}", bounds), "a, b");
 }

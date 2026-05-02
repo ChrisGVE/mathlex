@@ -3,7 +3,7 @@
 use super::*;
 
 impl TextParser {
-    /// Parses `diff(expr, var)` or `diff(expr, var, order)` into `Expression::Derivative`.
+    /// Parses `diff(expr, var)` or `diff(expr, var, order)` into `ExprKind::Derivative`.
     pub(super) fn parse_diff_function(&mut self) -> ParseResult<Expression> {
         self.consume(Token::LParen)?;
         let expr = self.parse_expression()?;
@@ -16,14 +16,15 @@ impl TextParser {
             1
         };
         self.consume(Token::RParen)?;
-        Ok(Expression::Derivative {
+        Ok(ExprKind::Derivative {
             expr: Box::new(expr),
             var,
             order,
-        })
+        }
+        .into())
     }
 
-    /// Parses `partial(expr, var[, order_or_var2[, ...]])` into `Expression::PartialDerivative`.
+    /// Parses `partial(expr, var[, order_or_var2[, ...]])` into `ExprKind::PartialDerivative`.
     ///
     /// - `partial(f, x)` → first partial w.r.t. x
     /// - `partial(f, x, 2)` → second partial w.r.t. x
@@ -36,11 +37,12 @@ impl TextParser {
 
         if !self.check(&Token::Comma) {
             self.consume(Token::RParen)?;
-            return Ok(Expression::PartialDerivative {
+            return Ok(ExprKind::PartialDerivative {
                 expr: Box::new(expr),
                 var: first_var,
                 order: 1,
-            });
+            }
+            .into());
         }
         self.next(); // consume comma
 
@@ -50,26 +52,31 @@ impl TextParser {
                 Token::Integer(n) => {
                     let order = *n as u32;
                     self.next();
-                    let result = self.parse_additional_partials(Expression::PartialDerivative {
-                        expr: Box::new(expr),
-                        var: first_var,
-                        order,
-                    })?;
+                    let result = self.parse_additional_partials(
+                        ExprKind::PartialDerivative {
+                            expr: Box::new(expr),
+                            var: first_var,
+                            order,
+                        }
+                        .into(),
+                    )?;
                     self.consume(Token::RParen)?;
                     return Ok(result);
                 }
                 Token::Identifier(_) => {
                     let second_var = self.expect_identifier("variable name")?;
-                    let inner = Expression::PartialDerivative {
+                    let inner: Expression = ExprKind::PartialDerivative {
                         expr: Box::new(expr),
                         var: second_var,
                         order: 1,
-                    };
-                    let wrapped = Expression::PartialDerivative {
+                    }
+                    .into();
+                    let wrapped: Expression = ExprKind::PartialDerivative {
                         expr: Box::new(inner),
                         var: first_var,
                         order: 1,
-                    };
+                    }
+                    .into();
                     let result = self.parse_additional_partials_simple(wrapped)?;
                     self.consume(Token::RParen)?;
                     return Ok(result);
@@ -86,11 +93,12 @@ impl TextParser {
         }
 
         self.consume(Token::RParen)?;
-        Ok(Expression::PartialDerivative {
+        Ok(ExprKind::PartialDerivative {
             expr: Box::new(expr),
             var: first_var,
             order: 1,
-        })
+        }
+        .into())
     }
 
     /// Accumulate additional `, var[, order]` pairs for nth-order partials.
@@ -112,11 +120,12 @@ impl TextParser {
             } else {
                 1
             };
-            result = Expression::PartialDerivative {
+            result = ExprKind::PartialDerivative {
                 expr: Box::new(result),
                 var,
                 order: ord,
-            };
+            }
+            .into();
         }
         Ok(result)
     }
@@ -129,11 +138,12 @@ impl TextParser {
         while self.check(&Token::Comma) {
             self.next();
             let var = self.expect_identifier("variable name")?;
-            result = Expression::PartialDerivative {
+            result = ExprKind::PartialDerivative {
                 expr: Box::new(result),
                 var,
                 order: 1,
-            };
+            }
+            .into();
         }
         Ok(result)
     }
@@ -217,11 +227,14 @@ impl TextParser {
         self.next(); // Slash
         self.next(); // denominator identifier
 
-        Ok(Some(Expression::Derivative {
-            expr: Box::new(Expression::Variable(func_name.to_string())),
-            var: var_name.to_string(),
-            order,
-        }))
+        Ok(Some(
+            ExprKind::Derivative {
+                expr: Box::new(Expression::variable(func_name.to_string()).into()),
+                var: var_name.to_string(),
+                order,
+            }
+            .into(),
+        ))
     }
 
     /// Tries to parse `d(expr)/dx` or `d(expr)/d(var)` operator-form derivative.
@@ -293,11 +306,14 @@ impl TextParser {
             return Ok(None);
         };
 
-        Ok(Some(Expression::Derivative {
-            expr: Box::new(expr),
-            var,
-            order: 1,
-        }))
+        Ok(Some(
+            ExprKind::Derivative {
+                expr: Box::new(expr),
+                var,
+                order: 1,
+            }
+            .into(),
+        ))
     }
 
     /// Parses prime notation: `y'`, `y''`, `y'''`.
@@ -309,11 +325,12 @@ impl TextParser {
             self.next();
             order += 1;
         }
-        Ok(Expression::Derivative {
+        Ok(ExprKind::Derivative {
             expr: Box::new(self.identifier_to_expression(name)),
             var: String::new(),
             order,
-        })
+        }
+        .into())
     }
 
     /// Consumes an identifier token and returns its name, or errors with context.

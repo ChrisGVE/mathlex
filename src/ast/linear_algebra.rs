@@ -29,6 +29,7 @@
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "kind", content = "value"))]
 pub enum VectorNotation {
     /// Bold notation: **v** or `\mathbf{v}`
     Bold,
@@ -62,6 +63,7 @@ pub enum VectorNotation {
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "kind", content = "value"))]
 pub enum IndexType {
     /// Upper index (contravariant) - superscript position
     Upper,

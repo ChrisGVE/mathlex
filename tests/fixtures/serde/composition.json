@@ -1,0 +1,19 @@
+{
+  "kind": "Composition",
+  "value": {
+    "inner": {
+      "kind": "Function",
+      "value": {
+        "args": [],
+        "name": "g"
+      }
+    },
+    "outer": {
+      "kind": "Function",
+      "value": {
+        "args": [],
+        "name": "f"
+      }
+    }
+  }
+}

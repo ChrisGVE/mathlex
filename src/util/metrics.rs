@@ -29,26 +29,26 @@ impl Expression {
     /// # Examples
     ///
     /// ```
-    /// use mathlex::ast::{Expression, BinaryOp};
+    /// use mathlex::ast::{ExprKind, Expression, BinaryOp};
     ///
     /// // Simple leaf: x
-    /// let leaf = Expression::Variable("x".to_string());
+    /// let leaf = Expression::variable("x".to_string());
     /// assert_eq!(leaf.depth(), 1);
     ///
     /// // Binary expression: (x + y)
-    /// let binary = Expression::Binary {
+    /// let binary: Expression = ExprKind::Binary {
     ///     op: BinaryOp::Add,
-    ///     left: Box::new(Expression::Variable("x".to_string())),
-    ///     right: Box::new(Expression::Variable("y".to_string())),
-    /// };
+    ///     left: Box::new(Expression::variable("x".to_string())),
+    ///     right: Box::new(Expression::variable("y".to_string())),
+    /// }.into();
     /// assert_eq!(binary.depth(), 2);
     ///
     /// // Nested: ((x + y) * z)
-    /// let nested = Expression::Binary {
+    /// let nested: Expression = ExprKind::Binary {
     ///     op: BinaryOp::Mul,
     ///     left: Box::new(binary),
-    ///     right: Box::new(Expression::Variable("z".to_string())),
-    /// };
+    ///     right: Box::new(Expression::variable("z".to_string())),
+    /// }.into();
     /// assert_eq!(nested.depth(), 3);
     /// ```
     pub fn depth(&self) -> usize {
@@ -63,26 +63,26 @@ impl Expression {
     /// # Examples
     ///
     /// ```
-    /// use mathlex::ast::{Expression, BinaryOp};
+    /// use mathlex::ast::{ExprKind, Expression, BinaryOp};
     ///
     /// // Simple leaf: x
-    /// let leaf = Expression::Variable("x".to_string());
+    /// let leaf = Expression::variable("x".to_string());
     /// assert_eq!(leaf.node_count(), 1);
     ///
     /// // Binary expression: (x + y)
-    /// let binary = Expression::Binary {
+    /// let binary: Expression = ExprKind::Binary {
     ///     op: BinaryOp::Add,
-    ///     left: Box::new(Expression::Variable("x".to_string())),
-    ///     right: Box::new(Expression::Variable("y".to_string())),
-    /// };
+    ///     left: Box::new(Expression::variable("x".to_string())),
+    ///     right: Box::new(Expression::variable("y".to_string())),
+    /// }.into();
     /// assert_eq!(binary.node_count(), 3); // Add node + x + y
     ///
     /// // Nested: ((x + y) * z)
-    /// let nested = Expression::Binary {
+    /// let nested: Expression = ExprKind::Binary {
     ///     op: BinaryOp::Mul,
     ///     left: Box::new(binary),
-    ///     right: Box::new(Expression::Variable("z".to_string())),
-    /// };
+    ///     right: Box::new(Expression::variable("z".to_string())),
+    /// }.into();
     /// assert_eq!(nested.node_count(), 5); // Mul + (Add + x + y) + z
     /// ```
     pub fn node_count(&self) -> usize {

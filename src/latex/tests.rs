@@ -2,7 +2,7 @@
 
 use super::trait_def::ToLatex;
 use crate::ast::{
-    BinaryOp, Direction, Expression, InequalityOp, IntegralBounds, MathConstant, UnaryOp,
+    BinaryOp, Direction, ExprKind, Expression, InequalityOp, IntegralBounds, MathConstant, UnaryOp,
 };
 
 // Tests for MathConstant
@@ -102,108 +102,108 @@ fn test_direction_both() {
 // Tests for Expression - Basic Values
 #[test]
 fn test_integer() {
-    let expr = Expression::Integer(42);
+    let expr = Expression::integer(42);
     assert_eq!(expr.to_latex(), "42");
 }
 
 #[test]
 fn test_integer_negative() {
-    let expr = Expression::Integer(-17);
+    let expr = Expression::integer(-17);
     assert_eq!(expr.to_latex(), "-17");
 }
 
 #[test]
 fn test_float() {
-    let expr = Expression::Float(3.14.into());
+    let expr = Expression::float(3.14.into());
     assert_eq!(expr.to_latex(), "3.14");
 }
 
 #[test]
 fn test_rational() {
-    let expr = Expression::Rational {
-        numerator: Box::new(Expression::Integer(1)),
-        denominator: Box::new(Expression::Integer(2)),
+    let expr = ExprKind::Rational {
+        numerator: Box::new(Expression::integer(1)),
+        denominator: Box::new(Expression::integer(2)),
     };
     assert_eq!(expr.to_latex(), r"\frac{1}{2}");
 }
 
 #[test]
 fn test_rational_complex() {
-    let expr = Expression::Rational {
-        numerator: Box::new(Expression::Variable("a".to_string())),
-        denominator: Box::new(Expression::Variable("b".to_string())),
+    let expr = ExprKind::Rational {
+        numerator: Box::new(Expression::variable("a".to_string())),
+        denominator: Box::new(Expression::variable("b".to_string())),
     };
     assert_eq!(expr.to_latex(), r"\frac{a}{b}");
 }
 
 #[test]
 fn test_complex() {
-    let expr = Expression::Complex {
-        real: Box::new(Expression::Integer(3)),
-        imaginary: Box::new(Expression::Integer(4)),
+    let expr = ExprKind::Complex {
+        real: Box::new(Expression::integer(3)),
+        imaginary: Box::new(Expression::integer(4)),
     };
     assert_eq!(expr.to_latex(), "3 + 4i");
 }
 
 #[test]
 fn test_variable() {
-    let expr = Expression::Variable("x".to_string());
+    let expr = Expression::variable("x".to_string());
     assert_eq!(expr.to_latex(), "x");
 }
 
 #[test]
 fn test_constant_pi() {
-    let expr = Expression::Constant(MathConstant::Pi);
+    let expr = Expression::constant(MathConstant::Pi);
     assert_eq!(expr.to_latex(), r"\pi");
 }
 
 // Tests for Binary Operations
 #[test]
 fn test_binary_add() {
-    let expr = Expression::Binary {
+    let expr = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Integer(2)),
-        right: Box::new(Expression::Integer(3)),
+        left: Box::new(Expression::integer(2)),
+        right: Box::new(Expression::integer(3)),
     };
     assert_eq!(expr.to_latex(), "2 + 3");
 }
 
 #[test]
 fn test_binary_mul() {
-    let expr = Expression::Binary {
+    let expr = ExprKind::Binary {
         op: BinaryOp::Mul,
-        left: Box::new(Expression::Variable("a".to_string())),
-        right: Box::new(Expression::Variable("b".to_string())),
+        left: Box::new(Expression::variable("a".to_string())),
+        right: Box::new(Expression::variable("b".to_string())),
     };
     assert_eq!(expr.to_latex(), r"a \cdot b");
 }
 
 #[test]
 fn test_binary_div() {
-    let expr = Expression::Binary {
+    let expr = ExprKind::Binary {
         op: BinaryOp::Div,
-        left: Box::new(Expression::Integer(1)),
-        right: Box::new(Expression::Integer(2)),
+        left: Box::new(Expression::integer(1)),
+        right: Box::new(Expression::integer(2)),
     };
     assert_eq!(expr.to_latex(), r"\frac{1}{2}");
 }
 
 #[test]
 fn test_binary_pow() {
-    let expr = Expression::Binary {
+    let expr = ExprKind::Binary {
         op: BinaryOp::Pow,
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Integer(2)),
+        left: Box::new(Expression::variable("x".to_string())),
+        right: Box::new(Expression::integer(2)),
     };
     assert_eq!(expr.to_latex(), "x^{2}");
 }
 
 #[test]
 fn test_binary_mod() {
-    let expr = Expression::Binary {
+    let expr = ExprKind::Binary {
         op: BinaryOp::Mod,
-        left: Box::new(Expression::Integer(7)),
-        right: Box::new(Expression::Integer(3)),
+        left: Box::new(Expression::integer(7)),
+        right: Box::new(Expression::integer(3)),
     };
     assert_eq!(expr.to_latex(), r"7 \bmod 3");
 }
@@ -211,27 +211,27 @@ fn test_binary_mod() {
 // Tests for Unary Operations
 #[test]
 fn test_unary_neg() {
-    let expr = Expression::Unary {
+    let expr = ExprKind::Unary {
         op: UnaryOp::Neg,
-        operand: Box::new(Expression::Integer(5)),
+        operand: Box::new(Expression::integer(5)),
     };
     assert_eq!(expr.to_latex(), "-5");
 }
 
 #[test]
 fn test_unary_factorial() {
-    let expr = Expression::Unary {
+    let expr = ExprKind::Unary {
         op: UnaryOp::Factorial,
-        operand: Box::new(Expression::Variable("n".to_string())),
+        operand: Box::new(Expression::variable("n".to_string())),
     };
     assert_eq!(expr.to_latex(), "n!");
 }
 
 #[test]
 fn test_unary_transpose() {
-    let expr = Expression::Unary {
+    let expr = ExprKind::Unary {
         op: UnaryOp::Transpose,
-        operand: Box::new(Expression::Variable("A".to_string())),
+        operand: Box::new(Expression::variable("A".to_string())),
     };
     assert_eq!(expr.to_latex(), "A^T");
 }
@@ -239,47 +239,47 @@ fn test_unary_transpose() {
 // Tests for Functions
 #[test]
 fn test_function_sin() {
-    let expr = Expression::Function {
+    let expr = ExprKind::Function {
         name: "sin".to_string(),
-        args: vec![Expression::Variable("x".to_string())],
+        args: vec![Expression::variable("x".to_string())],
     };
     assert_eq!(expr.to_latex(), r"\sin\left(x\right)");
 }
 
 #[test]
 fn test_function_cos() {
-    let expr = Expression::Function {
+    let expr = ExprKind::Function {
         name: "cos".to_string(),
-        args: vec![Expression::Variable("theta".to_string())],
+        args: vec![Expression::variable("theta".to_string())],
     };
     assert_eq!(expr.to_latex(), r"\cos\left(\theta\right)");
 }
 
 #[test]
 fn test_function_unknown() {
-    let expr = Expression::Function {
+    let expr = ExprKind::Function {
         name: "myfunction".to_string(),
-        args: vec![Expression::Variable("x".to_string())],
+        args: vec![Expression::variable("x".to_string())],
     };
     assert_eq!(expr.to_latex(), r"\operatorname{myfunction}\left(x\right)");
 }
 
 #[test]
 fn test_function_sqrt_single_arg() {
-    let expr = Expression::Function {
+    let expr = ExprKind::Function {
         name: "sqrt".to_string(),
-        args: vec![Expression::Variable("x".to_string())],
+        args: vec![Expression::variable("x".to_string())],
     };
     assert_eq!(expr.to_latex(), r"\sqrt{x}");
 }
 
 #[test]
 fn test_function_sqrt_two_args() {
-    let expr = Expression::Function {
+    let expr = ExprKind::Function {
         name: "sqrt".to_string(),
         args: vec![
-            Expression::Integer(3),
-            Expression::Variable("x".to_string()),
+            Expression::integer(3),
+            Expression::variable("x".to_string()),
         ],
     };
     assert_eq!(expr.to_latex(), r"\sqrt[3]{x}");
@@ -287,12 +287,12 @@ fn test_function_sqrt_two_args() {
 
 #[test]
 fn test_function_multiple_args() {
-    let expr = Expression::Function {
+    let expr = ExprKind::Function {
         name: "max".to_string(),
         args: vec![
-            Expression::Integer(1),
-            Expression::Integer(2),
-            Expression::Integer(3),
+            Expression::integer(1),
+            Expression::integer(2),
+            Expression::integer(3),
         ],
     };
     assert_eq!(expr.to_latex(), r"\max\left(1, 2, 3\right)");
@@ -301,8 +301,8 @@ fn test_function_multiple_args() {
 // Tests for Derivative
 #[test]
 fn test_derivative_first_order() {
-    let expr = Expression::Derivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr = ExprKind::Derivative {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
         order: 1,
     };
@@ -311,8 +311,8 @@ fn test_derivative_first_order() {
 
 #[test]
 fn test_derivative_second_order() {
-    let expr = Expression::Derivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr = ExprKind::Derivative {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
         order: 2,
     };
@@ -321,8 +321,8 @@ fn test_derivative_second_order() {
 
 #[test]
 fn test_derivative_third_order() {
-    let expr = Expression::Derivative {
-        expr: Box::new(Expression::Variable("y".to_string())),
+    let expr = ExprKind::Derivative {
+        expr: Box::new(Expression::variable("y".to_string())),
         var: "t".to_string(),
         order: 3,
     };
@@ -332,8 +332,8 @@ fn test_derivative_third_order() {
 // Tests for PartialDerivative
 #[test]
 fn test_partial_derivative_first_order() {
-    let expr = Expression::PartialDerivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr = ExprKind::PartialDerivative {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
         order: 1,
     };
@@ -342,8 +342,8 @@ fn test_partial_derivative_first_order() {
 
 #[test]
 fn test_partial_derivative_second_order() {
-    let expr = Expression::PartialDerivative {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr = ExprKind::PartialDerivative {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "y".to_string(),
         order: 2,
     };
@@ -353,8 +353,8 @@ fn test_partial_derivative_second_order() {
 // Tests for Integral
 #[test]
 fn test_integral_indefinite() {
-    let expr = Expression::Integral {
-        integrand: Box::new(Expression::Variable("x".to_string())),
+    let expr = ExprKind::Integral {
+        integrand: Box::new(Expression::variable("x".to_string())),
         var: "x".to_string(),
         bounds: None,
     };
@@ -363,12 +363,12 @@ fn test_integral_indefinite() {
 
 #[test]
 fn test_integral_definite() {
-    let expr = Expression::Integral {
-        integrand: Box::new(Expression::Variable("x".to_string())),
+    let expr = ExprKind::Integral {
+        integrand: Box::new(Expression::variable("x".to_string())),
         var: "x".to_string(),
         bounds: Some(IntegralBounds {
-            lower: Box::new(Expression::Integer(0)),
-            upper: Box::new(Expression::Integer(1)),
+            lower: Box::new(Expression::integer(0)),
+            upper: Box::new(Expression::integer(1)),
         }),
     };
     assert_eq!(expr.to_latex(), r"\int_{0}^{1} x dx");
@@ -376,15 +376,18 @@ fn test_integral_definite() {
 
 #[test]
 fn test_integral_complex_bounds() {
-    let expr = Expression::Integral {
-        integrand: Box::new(Expression::Function {
-            name: "sin".to_string(),
-            args: vec![Expression::Variable("t".to_string())],
-        }),
+    let expr = ExprKind::Integral {
+        integrand: Box::new(
+            ExprKind::Function {
+                name: "sin".to_string(),
+                args: vec![Expression::variable("t".to_string())],
+            }
+            .into(),
+        ),
         var: "t".to_string(),
         bounds: Some(IntegralBounds {
-            lower: Box::new(Expression::Integer(0)),
-            upper: Box::new(Expression::Constant(MathConstant::Pi)),
+            lower: Box::new(Expression::integer(0)),
+            upper: Box::new(Expression::constant(MathConstant::Pi)),
         }),
     };
     assert_eq!(expr.to_latex(), r"\int_{0}^{\pi} \sin\left(t\right) dt");
@@ -393,10 +396,10 @@ fn test_integral_complex_bounds() {
 // Tests for Limit
 #[test]
 fn test_limit_both() {
-    let expr = Expression::Limit {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr = ExprKind::Limit {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
-        to: Box::new(Expression::Integer(0)),
+        to: Box::new(Expression::integer(0)),
         direction: Direction::Both,
     };
     assert_eq!(expr.to_latex(), r"\lim_{x \to 0}f");
@@ -404,10 +407,10 @@ fn test_limit_both() {
 
 #[test]
 fn test_limit_left() {
-    let expr = Expression::Limit {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr = ExprKind::Limit {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
-        to: Box::new(Expression::Integer(0)),
+        to: Box::new(Expression::integer(0)),
         direction: Direction::Left,
     };
     assert_eq!(expr.to_latex(), r"\lim_{x \to 0^-}f");
@@ -415,10 +418,10 @@ fn test_limit_left() {
 
 #[test]
 fn test_limit_right() {
-    let expr = Expression::Limit {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr = ExprKind::Limit {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
-        to: Box::new(Expression::Integer(0)),
+        to: Box::new(Expression::integer(0)),
         direction: Direction::Right,
     };
     assert_eq!(expr.to_latex(), r"\lim_{x \to 0^+}f");
@@ -426,14 +429,17 @@ fn test_limit_right() {
 
 #[test]
 fn test_limit_to_infinity() {
-    let expr = Expression::Limit {
-        expr: Box::new(Expression::Binary {
-            op: BinaryOp::Div,
-            left: Box::new(Expression::Integer(1)),
-            right: Box::new(Expression::Variable("x".to_string())),
-        }),
+    let expr = ExprKind::Limit {
+        expr: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Div,
+                left: Box::new(Expression::integer(1)),
+                right: Box::new(Expression::variable("x".to_string())),
+            }
+            .into(),
+        ),
         var: "x".to_string(),
-        to: Box::new(Expression::Constant(MathConstant::Infinity)),
+        to: Box::new(Expression::constant(MathConstant::Infinity)),
         direction: Direction::Both,
     };
     assert_eq!(expr.to_latex(), r"\lim_{x \to \infty}\frac{1}{x}");
@@ -442,26 +448,29 @@ fn test_limit_to_infinity() {
 // Tests for Sum
 #[test]
 fn test_sum_simple() {
-    let expr = Expression::Sum {
+    let expr = ExprKind::Sum {
         index: "i".to_string(),
-        lower: Box::new(Expression::Integer(1)),
-        upper: Box::new(Expression::Variable("n".to_string())),
-        body: Box::new(Expression::Variable("i".to_string())),
+        lower: Box::new(Expression::integer(1)),
+        upper: Box::new(Expression::variable("n".to_string())),
+        body: Box::new(Expression::variable("i".to_string())),
     };
     assert_eq!(expr.to_latex(), r"\sum_{i=1}^{n}i");
 }
 
 #[test]
 fn test_sum_complex_body() {
-    let expr = Expression::Sum {
+    let expr = ExprKind::Sum {
         index: "k".to_string(),
-        lower: Box::new(Expression::Integer(0)),
-        upper: Box::new(Expression::Integer(10)),
-        body: Box::new(Expression::Binary {
-            op: BinaryOp::Pow,
-            left: Box::new(Expression::Variable("k".to_string())),
-            right: Box::new(Expression::Integer(2)),
-        }),
+        lower: Box::new(Expression::integer(0)),
+        upper: Box::new(Expression::integer(10)),
+        body: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Pow,
+                left: Box::new(Expression::variable("k".to_string())),
+                right: Box::new(Expression::integer(2)),
+            }
+            .into(),
+        ),
     };
     assert_eq!(expr.to_latex(), r"\sum_{k=0}^{10}k^{2}");
 }
@@ -469,26 +478,29 @@ fn test_sum_complex_body() {
 // Tests for Product
 #[test]
 fn test_product_simple() {
-    let expr = Expression::Product {
+    let expr = ExprKind::Product {
         index: "i".to_string(),
-        lower: Box::new(Expression::Integer(1)),
-        upper: Box::new(Expression::Variable("n".to_string())),
-        body: Box::new(Expression::Variable("i".to_string())),
+        lower: Box::new(Expression::integer(1)),
+        upper: Box::new(Expression::variable("n".to_string())),
+        body: Box::new(Expression::variable("i".to_string())),
     };
     assert_eq!(expr.to_latex(), r"\prod_{i=1}^{n}i");
 }
 
 #[test]
 fn test_product_complex() {
-    let expr = Expression::Product {
+    let expr = ExprKind::Product {
         index: "j".to_string(),
-        lower: Box::new(Expression::Integer(1)),
-        upper: Box::new(Expression::Integer(5)),
-        body: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Variable("j".to_string())),
-            right: Box::new(Expression::Integer(1)),
-        }),
+        lower: Box::new(Expression::integer(1)),
+        upper: Box::new(Expression::integer(5)),
+        body: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::variable("j".to_string())),
+                right: Box::new(Expression::integer(1)),
+            }
+            .into(),
+        ),
     };
     assert_eq!(expr.to_latex(), r"\prod_{j=1}^{5}j + 1");
 }
@@ -496,22 +508,22 @@ fn test_product_complex() {
 // Tests for Vector
 #[test]
 fn test_vector_empty() {
-    let expr = Expression::Vector(vec![]);
+    let expr = ExprKind::Vector(vec![]);
     assert_eq!(expr.to_latex(), r"\begin{pmatrix}  \end{pmatrix}");
 }
 
 #[test]
 fn test_vector_single() {
-    let expr = Expression::Vector(vec![Expression::Integer(1)]);
+    let expr = ExprKind::Vector(vec![Expression::integer(1)]);
     assert_eq!(expr.to_latex(), r"\begin{pmatrix} 1 \end{pmatrix}");
 }
 
 #[test]
 fn test_vector_multiple() {
-    let expr = Expression::Vector(vec![
-        Expression::Integer(1),
-        Expression::Integer(2),
-        Expression::Integer(3),
+    let expr = ExprKind::Vector(vec![
+        Expression::integer(1),
+        Expression::integer(2),
+        Expression::integer(3),
     ]);
     assert_eq!(
         expr.to_latex(),
@@ -522,21 +534,21 @@ fn test_vector_multiple() {
 // Tests for Matrix
 #[test]
 fn test_matrix_empty() {
-    let expr = Expression::Matrix(vec![]);
+    let expr = ExprKind::Matrix(vec![]);
     assert_eq!(expr.to_latex(), r"\begin{pmatrix}  \end{pmatrix}");
 }
 
 #[test]
 fn test_matrix_1x1() {
-    let expr = Expression::Matrix(vec![vec![Expression::Integer(1)]]);
+    let expr = ExprKind::Matrix(vec![vec![Expression::integer(1)]]);
     assert_eq!(expr.to_latex(), r"\begin{pmatrix} 1 \end{pmatrix}");
 }
 
 #[test]
 fn test_matrix_2x2() {
-    let expr = Expression::Matrix(vec![
-        vec![Expression::Integer(1), Expression::Integer(2)],
-        vec![Expression::Integer(3), Expression::Integer(4)],
+    let expr = ExprKind::Matrix(vec![
+        vec![Expression::integer(1), Expression::integer(2)],
+        vec![Expression::integer(3), Expression::integer(4)],
     ]);
     assert_eq!(
         expr.to_latex(),
@@ -546,10 +558,10 @@ fn test_matrix_2x2() {
 
 #[test]
 fn test_matrix_3x2() {
-    let expr = Expression::Matrix(vec![
-        vec![Expression::Integer(1), Expression::Integer(2)],
-        vec![Expression::Integer(3), Expression::Integer(4)],
-        vec![Expression::Integer(5), Expression::Integer(6)],
+    let expr = ExprKind::Matrix(vec![
+        vec![Expression::integer(1), Expression::integer(2)],
+        vec![Expression::integer(3), Expression::integer(4)],
+        vec![Expression::integer(5), Expression::integer(6)],
     ]);
     assert_eq!(
         expr.to_latex(),
@@ -560,26 +572,32 @@ fn test_matrix_3x2() {
 // Tests for Equation
 #[test]
 fn test_equation_simple() {
-    let expr = Expression::Equation {
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Integer(5)),
+    let expr = ExprKind::Equation {
+        left: Box::new(Expression::variable("x".to_string())),
+        right: Box::new(Expression::integer(5)),
     };
     assert_eq!(expr.to_latex(), "x = 5");
 }
 
 #[test]
 fn test_equation_complex() {
-    let expr = Expression::Equation {
-        left: Box::new(Expression::Variable("y".to_string())),
-        right: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Binary {
-                op: BinaryOp::Mul,
-                left: Box::new(Expression::Integer(2)),
-                right: Box::new(Expression::Variable("x".to_string())),
-            }),
-            right: Box::new(Expression::Integer(1)),
-        }),
+    let expr = ExprKind::Equation {
+        left: Box::new(Expression::variable("y".to_string())),
+        right: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(
+                    ExprKind::Binary {
+                        op: BinaryOp::Mul,
+                        left: Box::new(Expression::integer(2)),
+                        right: Box::new(Expression::variable("x".to_string())),
+                    }
+                    .into(),
+                ),
+                right: Box::new(Expression::integer(1)),
+            }
+            .into(),
+        ),
     };
     assert_eq!(expr.to_latex(), r"y = 2 \cdot x + 1");
 }
@@ -587,40 +605,40 @@ fn test_equation_complex() {
 // Tests for Inequality
 #[test]
 fn test_inequality_lt() {
-    let expr = Expression::Inequality {
+    let expr = ExprKind::Inequality {
         op: InequalityOp::Lt,
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Integer(5)),
+        left: Box::new(Expression::variable("x".to_string())),
+        right: Box::new(Expression::integer(5)),
     };
     assert_eq!(expr.to_latex(), "x < 5");
 }
 
 #[test]
 fn test_inequality_le() {
-    let expr = Expression::Inequality {
+    let expr = ExprKind::Inequality {
         op: InequalityOp::Le,
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Integer(10)),
+        left: Box::new(Expression::variable("x".to_string())),
+        right: Box::new(Expression::integer(10)),
     };
     assert_eq!(expr.to_latex(), r"x \leq 10");
 }
 
 #[test]
 fn test_inequality_ge() {
-    let expr = Expression::Inequality {
+    let expr = ExprKind::Inequality {
         op: InequalityOp::Ge,
-        left: Box::new(Expression::Variable("y".to_string())),
-        right: Box::new(Expression::Integer(0)),
+        left: Box::new(Expression::variable("y".to_string())),
+        right: Box::new(Expression::integer(0)),
     };
     assert_eq!(expr.to_latex(), r"y \geq 0");
 }
 
 #[test]
 fn test_inequality_ne() {
-    let expr = Expression::Inequality {
+    let expr = ExprKind::Inequality {
         op: InequalityOp::Ne,
-        left: Box::new(Expression::Variable("a".to_string())),
-        right: Box::new(Expression::Variable("b".to_string())),
+        left: Box::new(Expression::variable("a".to_string())),
+        right: Box::new(Expression::variable("b".to_string())),
     };
     assert_eq!(expr.to_latex(), r"a \neq b");
 }
@@ -629,18 +647,24 @@ fn test_inequality_ne() {
 #[test]
 fn test_nested_expression() {
     // (a + b) / (c - d)
-    let expr = Expression::Binary {
+    let expr = ExprKind::Binary {
         op: BinaryOp::Div,
-        left: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Variable("a".to_string())),
-            right: Box::new(Expression::Variable("b".to_string())),
-        }),
-        right: Box::new(Expression::Binary {
-            op: BinaryOp::Sub,
-            left: Box::new(Expression::Variable("c".to_string())),
-            right: Box::new(Expression::Variable("d".to_string())),
-        }),
+        left: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::variable("a".to_string())),
+                right: Box::new(Expression::variable("b".to_string())),
+            }
+            .into(),
+        ),
+        right: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Sub,
+                left: Box::new(Expression::variable("c".to_string())),
+                right: Box::new(Expression::variable("d".to_string())),
+            }
+            .into(),
+        ),
     };
     assert_eq!(expr.to_latex(), r"\frac{a + b}{c - d}");
 }
@@ -648,15 +672,18 @@ fn test_nested_expression() {
 #[test]
 fn test_complex_calculus_expression() {
     // ∫₀^π sin(x) dx
-    let expr = Expression::Integral {
-        integrand: Box::new(Expression::Function {
-            name: "sin".to_string(),
-            args: vec![Expression::Variable("x".to_string())],
-        }),
+    let expr = ExprKind::Integral {
+        integrand: Box::new(
+            ExprKind::Function {
+                name: "sin".to_string(),
+                args: vec![Expression::variable("x".to_string())],
+            }
+            .into(),
+        ),
         var: "x".to_string(),
         bounds: Some(IntegralBounds {
-            lower: Box::new(Expression::Integer(0)),
-            upper: Box::new(Expression::Constant(MathConstant::Pi)),
+            lower: Box::new(Expression::integer(0)),
+            upper: Box::new(Expression::constant(MathConstant::Pi)),
         }),
     };
     assert_eq!(expr.to_latex(), r"\int_{0}^{\pi} \sin\left(x\right) dx");
@@ -667,13 +694,16 @@ fn test_complex_calculus_expression() {
 #[test]
 fn test_latex_unary_neg_with_binary_operand() {
     // -(a + b) should output as "-\left(a + b\right)"
-    let expr = Expression::Unary {
+    let expr = ExprKind::Unary {
         op: UnaryOp::Neg,
-        operand: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Variable("a".to_string())),
-            right: Box::new(Expression::Variable("b".to_string())),
-        }),
+        operand: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::variable("a".to_string())),
+                right: Box::new(Expression::variable("b".to_string())),
+            }
+            .into(),
+        ),
     };
     assert_eq!(expr.to_latex(), r"-\left(a + b\right)");
 }
@@ -681,13 +711,16 @@ fn test_latex_unary_neg_with_binary_operand() {
 #[test]
 fn test_latex_unary_pos_with_binary_operand() {
     // +(a * b) should output as "+\left(a \cdot b\right)"
-    let expr = Expression::Unary {
+    let expr = ExprKind::Unary {
         op: UnaryOp::Pos,
-        operand: Box::new(Expression::Binary {
-            op: BinaryOp::Mul,
-            left: Box::new(Expression::Variable("a".to_string())),
-            right: Box::new(Expression::Variable("b".to_string())),
-        }),
+        operand: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Mul,
+                left: Box::new(Expression::variable("a".to_string())),
+                right: Box::new(Expression::variable("b".to_string())),
+            }
+            .into(),
+        ),
     };
     assert_eq!(expr.to_latex(), r"+\left(a \cdot b\right)");
 }
@@ -695,13 +728,16 @@ fn test_latex_unary_pos_with_binary_operand() {
 #[test]
 fn test_latex_factorial_with_binary_operand() {
     // (a + b)! should output as "\left(a + b\right)!"
-    let expr = Expression::Unary {
+    let expr = ExprKind::Unary {
         op: UnaryOp::Factorial,
-        operand: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Variable("a".to_string())),
-            right: Box::new(Expression::Variable("b".to_string())),
-        }),
+        operand: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::variable("a".to_string())),
+                right: Box::new(Expression::variable("b".to_string())),
+            }
+            .into(),
+        ),
     };
     assert_eq!(expr.to_latex(), r"\left(a + b\right)!");
 }
@@ -709,13 +745,16 @@ fn test_latex_factorial_with_binary_operand() {
 #[test]
 fn test_latex_transpose_with_binary_operand() {
     // (A + B)' should output as "\left(A + B\right)^T"
-    let expr = Expression::Unary {
+    let expr = ExprKind::Unary {
         op: UnaryOp::Transpose,
-        operand: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Variable("A".to_string())),
-            right: Box::new(Expression::Variable("B".to_string())),
-        }),
+        operand: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::variable("A".to_string())),
+                right: Box::new(Expression::variable("B".to_string())),
+            }
+            .into(),
+        ),
     };
     assert_eq!(expr.to_latex(), r"\left(A + B\right)^T");
 }
@@ -723,14 +762,17 @@ fn test_latex_transpose_with_binary_operand() {
 #[test]
 fn test_latex_power_left_associative() {
     // (a^b)^c should output with parens on left: "\left(a^{b}\right)^{c}"
-    let expr = Expression::Binary {
+    let expr = ExprKind::Binary {
         op: BinaryOp::Pow,
-        left: Box::new(Expression::Binary {
-            op: BinaryOp::Pow,
-            left: Box::new(Expression::Variable("a".to_string())),
-            right: Box::new(Expression::Variable("b".to_string())),
-        }),
-        right: Box::new(Expression::Variable("c".to_string())),
+        left: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Pow,
+                left: Box::new(Expression::variable("a".to_string())),
+                right: Box::new(Expression::variable("b".to_string())),
+            }
+            .into(),
+        ),
+        right: Box::new(Expression::variable("c".to_string())),
     };
     assert_eq!(expr.to_latex(), r"\left(a^{b}\right)^{c}");
 }
@@ -738,14 +780,17 @@ fn test_latex_power_left_associative() {
 #[test]
 fn test_latex_power_right_associative() {
     // a^(b^c) - in LaTeX, parens are added inside the braces for clarity
-    let expr = Expression::Binary {
+    let expr = ExprKind::Binary {
         op: BinaryOp::Pow,
-        left: Box::new(Expression::Variable("a".to_string())),
-        right: Box::new(Expression::Binary {
-            op: BinaryOp::Pow,
-            left: Box::new(Expression::Variable("b".to_string())),
-            right: Box::new(Expression::Variable("c".to_string())),
-        }),
+        left: Box::new(Expression::variable("a".to_string())),
+        right: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Pow,
+                left: Box::new(Expression::variable("b".to_string())),
+                right: Box::new(Expression::variable("c".to_string())),
+            }
+            .into(),
+        ),
     };
     assert_eq!(expr.to_latex(), r"a^{\left(b^{c}\right)}");
 }
@@ -753,14 +798,17 @@ fn test_latex_power_right_associative() {
 #[test]
 fn test_latex_precedence_add_mul() {
     // (a + b) * c should output with parens: "\left(a + b\right) \cdot c"
-    let expr = Expression::Binary {
+    let expr = ExprKind::Binary {
         op: BinaryOp::Mul,
-        left: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Variable("a".to_string())),
-            right: Box::new(Expression::Variable("b".to_string())),
-        }),
-        right: Box::new(Expression::Variable("c".to_string())),
+        left: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::variable("a".to_string())),
+                right: Box::new(Expression::variable("b".to_string())),
+            }
+            .into(),
+        ),
+        right: Box::new(Expression::variable("c".to_string())),
     };
     assert_eq!(expr.to_latex(), r"\left(a + b\right) \cdot c");
 }
@@ -768,14 +816,17 @@ fn test_latex_precedence_add_mul() {
 #[test]
 fn test_latex_precedence_sub_sub_right() {
     // a - (b - c) should output with parens: "a - \left(b - c\right)"
-    let expr = Expression::Binary {
+    let expr = ExprKind::Binary {
         op: BinaryOp::Sub,
-        left: Box::new(Expression::Variable("a".to_string())),
-        right: Box::new(Expression::Binary {
-            op: BinaryOp::Sub,
-            left: Box::new(Expression::Variable("b".to_string())),
-            right: Box::new(Expression::Variable("c".to_string())),
-        }),
+        left: Box::new(Expression::variable("a".to_string())),
+        right: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Sub,
+                left: Box::new(Expression::variable("b".to_string())),
+                right: Box::new(Expression::variable("c".to_string())),
+            }
+            .into(),
+        ),
     };
     assert_eq!(expr.to_latex(), r"a - \left(b - c\right)");
 }
@@ -783,14 +834,17 @@ fn test_latex_precedence_sub_sub_right() {
 #[test]
 fn test_latex_precedence_sub_sub_left() {
     // (a - b) - c should output without parens: "a - b - c"
-    let expr = Expression::Binary {
+    let expr = ExprKind::Binary {
         op: BinaryOp::Sub,
-        left: Box::new(Expression::Binary {
-            op: BinaryOp::Sub,
-            left: Box::new(Expression::Variable("a".to_string())),
-            right: Box::new(Expression::Variable("b".to_string())),
-        }),
-        right: Box::new(Expression::Variable("c".to_string())),
+        left: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Sub,
+                left: Box::new(Expression::variable("a".to_string())),
+                right: Box::new(Expression::variable("b".to_string())),
+            }
+            .into(),
+        ),
+        right: Box::new(Expression::variable("c".to_string())),
     };
     assert_eq!(expr.to_latex(), r"a - b - c");
 }
@@ -798,9 +852,9 @@ fn test_latex_precedence_sub_sub_left() {
 #[test]
 fn test_latex_unary_with_non_binary_operand() {
     // -x should output as "-x" (no parens needed)
-    let expr = Expression::Unary {
+    let expr = ExprKind::Unary {
         op: UnaryOp::Neg,
-        operand: Box::new(Expression::Variable("x".to_string())),
+        operand: Box::new(Expression::variable("x".to_string())),
     };
     assert_eq!(expr.to_latex(), "-x");
 }
@@ -808,9 +862,9 @@ fn test_latex_unary_with_non_binary_operand() {
 #[test]
 fn test_latex_factorial_with_non_binary_operand() {
     // n! should output as "n!" (no parens needed)
-    let expr = Expression::Unary {
+    let expr = ExprKind::Unary {
         op: UnaryOp::Factorial,
-        operand: Box::new(Expression::Variable("n".to_string())),
+        operand: Box::new(Expression::variable("n".to_string())),
     };
     assert_eq!(expr.to_latex(), "n!");
 }
@@ -818,17 +872,23 @@ fn test_latex_factorial_with_non_binary_operand() {
 #[test]
 fn test_latex_complex_precedence_example() {
     // -(a + b) * c should output as "-\left(a + b\right) \cdot c"
-    let expr = Expression::Binary {
+    let expr = ExprKind::Binary {
         op: BinaryOp::Mul,
-        left: Box::new(Expression::Unary {
-            op: UnaryOp::Neg,
-            operand: Box::new(Expression::Binary {
-                op: BinaryOp::Add,
-                left: Box::new(Expression::Variable("a".to_string())),
-                right: Box::new(Expression::Variable("b".to_string())),
-            }),
-        }),
-        right: Box::new(Expression::Variable("c".to_string())),
+        left: Box::new(
+            ExprKind::Unary {
+                op: UnaryOp::Neg,
+                operand: Box::new(
+                    ExprKind::Binary {
+                        op: BinaryOp::Add,
+                        left: Box::new(Expression::variable("a".to_string())),
+                        right: Box::new(Expression::variable("b".to_string())),
+                    }
+                    .into(),
+                ),
+            }
+            .into(),
+        ),
+        right: Box::new(Expression::variable("c".to_string())),
     };
     assert_eq!(expr.to_latex(), r"-\left(a + b\right) \cdot c");
 }

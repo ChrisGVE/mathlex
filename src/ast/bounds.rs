@@ -9,18 +9,16 @@ use super::Expression;
 /// # Examples
 ///
 /// ```
-/// use mathlex::ast::{IntegralBounds, Expression};
+/// use mathlex::ast::{IntegralBounds, ExprKind, Expression};
 ///
 /// // Integral from 0 to 1
 /// let bounds = IntegralBounds {
-///     lower: Box::new(Expression::Integer(0)),
-///     upper: Box::new(Expression::Integer(1)),
+///     lower: Box::new(Expression::integer(0)),
+///     upper: Box::new(Expression::integer(1)),
 /// };
 ///
-/// match (*bounds.lower, *bounds.upper) {
-///     (Expression::Integer(0), Expression::Integer(1)) => println!("Bounds are 0 to 1"),
-///     _ => panic!("Unexpected bounds"),
-/// }
+/// assert_eq!(*bounds.lower, Expression::integer(0));
+/// assert_eq!(*bounds.upper, Expression::integer(1));
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

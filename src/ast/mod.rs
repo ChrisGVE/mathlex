@@ -56,22 +56,23 @@
 //! ## Examples
 //!
 //! ```
-//! use mathlex::ast::{Expression, BinaryOp, MathConstant};
+//! use mathlex::ast::{Expression, ExprKind, BinaryOp, MathConstant};
 //!
 //! // Representing: 2 * π
-//! let expr = Expression::Binary {
+//! let expr: Expression = ExprKind::Binary {
 //!     op: BinaryOp::Mul,
-//!     left: Box::new(Expression::Integer(2)),
-//!     right: Box::new(Expression::Constant(MathConstant::Pi)),
-//! };
+//!     left: Box::new(Expression::integer(2)),
+//!     right: Box::new(Expression::constant(MathConstant::Pi)),
+//! }.into();
 //!
 //! // Verify structure
-//! match expr {
-//!     Expression::Binary { op: BinaryOp::Mul, .. } => println!("It's multiplication!"),
+//! match &expr.kind {
+//!     ExprKind::Binary { op: BinaryOp::Mul, .. } => println!("It's multiplication!"),
 //!     _ => panic!("Unexpected expression type"),
 //! }
 //! ```
 
+mod annotations;
 mod bounds;
 mod constants;
 mod expression;
@@ -80,9 +81,10 @@ mod operators;
 pub(crate) mod precedence;
 mod sets;
 
+pub use annotations::AnnotationSet;
 pub use bounds::{IntegralBounds, MultipleBounds};
 pub use constants::{MathConstant, MathFloat};
-pub use expression::Expression;
+pub use expression::{ExprKind, Expression};
 pub use linear_algebra::{IndexType, TensorIndex, VectorNotation};
 pub use operators::{BinaryOp, Direction, InequalityOp, LogicalOp, RelationOp, UnaryOp};
 pub use sets::{NumberSet, SetOp, SetRelation};

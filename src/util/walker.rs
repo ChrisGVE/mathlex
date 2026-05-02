@@ -5,7 +5,7 @@
 //! eliminating the need for each utility to implement its own
 //! exhaustive match scaffold.
 
-use crate::ast::{Expression, IntegralBounds, MultipleBounds};
+use crate::ast::{ExprKind, Expression, IntegralBounds, MultipleBounds};
 
 /// Call `f` on every immediate child `Expression` of `expr`.
 ///
@@ -18,82 +18,79 @@ pub(crate) fn for_each_child(expr: &Expression, mut f: impl FnMut(&Expression)) 
 
 /// Internal helper using `&mut` to avoid closure size blowup in recursion.
 fn for_each_child_ref(expr: &Expression, f: &mut impl FnMut(&Expression)) {
-    match expr {
+    match &expr.kind {
         // ── Leaf nodes ──────────────────────────────────────────────────
-        Expression::Integer(_)
-        | Expression::Float(_)
-        | Expression::Variable(_)
-        | Expression::Constant(_)
-        | Expression::MarkedVector { .. }
-        | Expression::NumberSetExpr(_)
-        | Expression::EmptySet
-        | Expression::Nabla
-        | Expression::Differential { .. } => {}
+        ExprKind::Integer(_)
+        | ExprKind::Float(_)
+        | ExprKind::Variable(_)
+        | ExprKind::Constant(_)
+        | ExprKind::MarkedVector { .. }
+        | ExprKind::NumberSetExpr(_)
+        | ExprKind::EmptySet
+        | ExprKind::Nabla
+        | ExprKind::Differential { .. } => {}
 
         // Tensor-like leaves: indices are strings, not Expressions
-        Expression::Tensor { .. }
-        | Expression::KroneckerDelta { .. }
-        | Expression::LeviCivita { .. } => {}
+        ExprKind::Tensor { .. } | ExprKind::KroneckerDelta { .. } | ExprKind::LeviCivita { .. } => {
+        }
 
         // ── One child ───────────────────────────────────────────────────
-        Expression::Unary { operand, .. } => f(operand),
-        Expression::Derivative { expr: e, .. } | Expression::PartialDerivative { expr: e, .. } => {
-            f(e)
-        }
-        Expression::ClosedIntegral { integrand, .. } => f(integrand),
-        Expression::Gradient { expr: e } | Expression::Laplacian { expr: e } => f(e),
-        Expression::Divergence { field } | Expression::Curl { field } => f(field),
-        Expression::Determinant { matrix }
-        | Expression::Trace { matrix }
-        | Expression::Rank { matrix }
-        | Expression::ConjugateTranspose { matrix }
-        | Expression::MatrixInverse { matrix } => f(matrix),
-        Expression::PowerSet { set } => f(set),
+        ExprKind::Unary { operand, .. } => f(operand),
+        ExprKind::Derivative { expr: e, .. } | ExprKind::PartialDerivative { expr: e, .. } => f(e),
+        ExprKind::ClosedIntegral { integrand, .. } => f(integrand),
+        ExprKind::Gradient { expr: e } | ExprKind::Laplacian { expr: e } => f(e),
+        ExprKind::Divergence { field } | ExprKind::Curl { field } => f(field),
+        ExprKind::Determinant { matrix }
+        | ExprKind::Trace { matrix }
+        | ExprKind::Rank { matrix }
+        | ExprKind::ConjugateTranspose { matrix }
+        | ExprKind::MatrixInverse { matrix } => f(matrix),
+        ExprKind::PowerSet { set } => f(set),
 
         // ── Two children ────────────────────────────────────────────────
-        Expression::Rational {
+        ExprKind::Rational {
             numerator,
             denominator,
         } => {
             f(numerator);
             f(denominator);
         }
-        Expression::Complex { real, imaginary } => {
+        ExprKind::Complex { real, imaginary } => {
             f(real);
             f(imaginary);
         }
-        Expression::Binary { left, right, .. }
-        | Expression::Equation { left, right }
-        | Expression::Inequality { left, right, .. }
-        | Expression::DotProduct { left, right }
-        | Expression::CrossProduct { left, right }
-        | Expression::OuterProduct { left, right }
-        | Expression::SetOperation { left, right, .. }
-        | Expression::WedgeProduct { left, right } => {
+        ExprKind::Binary { left, right, .. }
+        | ExprKind::Equation { left, right }
+        | ExprKind::Inequality { left, right, .. }
+        | ExprKind::DotProduct { left, right }
+        | ExprKind::CrossProduct { left, right }
+        | ExprKind::OuterProduct { left, right }
+        | ExprKind::SetOperation { left, right, .. }
+        | ExprKind::WedgeProduct { left, right } => {
             f(left);
             f(right);
         }
-        Expression::SetRelationExpr { element, set, .. } => {
+        ExprKind::SetRelationExpr { element, set, .. } => {
             f(element);
             f(set);
         }
-        Expression::FunctionSignature {
+        ExprKind::FunctionSignature {
             domain, codomain, ..
         } => {
             f(domain);
             f(codomain);
         }
-        Expression::Composition { outer, inner } => {
+        ExprKind::Composition { outer, inner } => {
             f(outer);
             f(inner);
         }
-        Expression::Relation { left, right, .. } => {
+        ExprKind::Relation { left, right, .. } => {
             f(left);
             f(right);
         }
 
         // ── Four children ───────────────────────────────────────────────
-        Expression::Quaternion { real, i, j, k } => {
+        ExprKind::Quaternion { real, i, j, k } => {
             f(real);
             f(i);
             f(j);
@@ -101,31 +98,31 @@ fn for_each_child_ref(expr: &Expression, f: &mut impl FnMut(&Expression)) {
         }
 
         // ── Variable-length children ────────────────────────────────────
-        Expression::Function { args, .. } => {
+        ExprKind::Function { args, .. } => {
             for a in args {
                 f(a);
             }
         }
-        Expression::Vector(elems) => {
+        ExprKind::Vector(elems) => {
             for e in elems {
                 f(e);
             }
         }
-        Expression::Matrix(rows) => {
+        ExprKind::Matrix(rows) => {
             for row in rows {
                 for e in row {
                     f(e);
                 }
             }
         }
-        Expression::Logical { operands, .. } => {
+        ExprKind::Logical { operands, .. } => {
             for o in operands {
                 f(o);
             }
         }
 
         // ── Special: children + optional bounds ─────────────────────────
-        Expression::Integral {
+        ExprKind::Integral {
             integrand, bounds, ..
         } => {
             f(integrand);
@@ -134,7 +131,7 @@ fn for_each_child_ref(expr: &Expression, f: &mut impl FnMut(&Expression)) {
                 f(&b.upper);
             }
         }
-        Expression::MultipleIntegral {
+        ExprKind::MultipleIntegral {
             integrand, bounds, ..
         } => {
             f(integrand);
@@ -145,27 +142,27 @@ fn for_each_child_ref(expr: &Expression, f: &mut impl FnMut(&Expression)) {
                 }
             }
         }
-        Expression::Limit { expr: e, to, .. } => {
+        ExprKind::Limit { expr: e, to, .. } => {
             f(e);
             f(to);
         }
-        Expression::Sum {
+        ExprKind::Sum {
             lower, upper, body, ..
         }
-        | Expression::Product {
+        | ExprKind::Product {
             lower, upper, body, ..
         } => {
             f(lower);
             f(upper);
             f(body);
         }
-        Expression::ForAll { domain, body, .. } | Expression::Exists { domain, body, .. } => {
+        ExprKind::ForAll { domain, body, .. } | ExprKind::Exists { domain, body, .. } => {
             if let Some(d) = domain {
                 f(d);
             }
             f(body);
         }
-        Expression::SetBuilder {
+        ExprKind::SetBuilder {
             domain, predicate, ..
         } => {
             if let Some(d) = domain {
@@ -183,163 +180,163 @@ pub(crate) fn map_children(
     expr: &Expression,
     f: &mut impl FnMut(&Expression) -> Expression,
 ) -> Expression {
-    match expr {
+    let kind: ExprKind = match &expr.kind {
         // ── Leaf nodes (no children to map) ─────────────────────────────
-        Expression::Integer(_)
-        | Expression::Float(_)
-        | Expression::Variable(_)
-        | Expression::Constant(_)
-        | Expression::MarkedVector { .. }
-        | Expression::NumberSetExpr(_)
-        | Expression::EmptySet
-        | Expression::Nabla
-        | Expression::Differential { .. }
-        | Expression::Tensor { .. }
-        | Expression::KroneckerDelta { .. }
-        | Expression::LeviCivita { .. } => expr.clone(),
+        ExprKind::Integer(_)
+        | ExprKind::Float(_)
+        | ExprKind::Variable(_)
+        | ExprKind::Constant(_)
+        | ExprKind::MarkedVector { .. }
+        | ExprKind::NumberSetExpr(_)
+        | ExprKind::EmptySet
+        | ExprKind::Nabla
+        | ExprKind::Differential { .. }
+        | ExprKind::Tensor { .. }
+        | ExprKind::KroneckerDelta { .. }
+        | ExprKind::LeviCivita { .. } => expr.kind.clone(),
 
         // ── One child ───────────────────────────────────────────────────
-        Expression::Unary { op, operand } => Expression::Unary {
+        ExprKind::Unary { op, operand } => ExprKind::Unary {
             op: *op,
             operand: Box::new(f(operand)),
         },
-        Expression::Derivative {
+        ExprKind::Derivative {
             expr: e,
             var,
             order,
-        } => Expression::Derivative {
+        } => ExprKind::Derivative {
             expr: Box::new(f(e)),
             var: var.clone(),
             order: *order,
         },
-        Expression::PartialDerivative {
+        ExprKind::PartialDerivative {
             expr: e,
             var,
             order,
-        } => Expression::PartialDerivative {
+        } => ExprKind::PartialDerivative {
             expr: Box::new(f(e)),
             var: var.clone(),
             order: *order,
         },
-        Expression::ClosedIntegral {
+        ExprKind::ClosedIntegral {
             dimension,
             integrand,
             surface,
             var,
-        } => Expression::ClosedIntegral {
+        } => ExprKind::ClosedIntegral {
             dimension: *dimension,
             integrand: Box::new(f(integrand)),
             surface: surface.clone(),
             var: var.clone(),
         },
-        Expression::Gradient { expr: e } => Expression::Gradient {
+        ExprKind::Gradient { expr: e } => ExprKind::Gradient {
             expr: Box::new(f(e)),
         },
-        Expression::Laplacian { expr: e } => Expression::Laplacian {
+        ExprKind::Laplacian { expr: e } => ExprKind::Laplacian {
             expr: Box::new(f(e)),
         },
-        Expression::Divergence { field } => Expression::Divergence {
+        ExprKind::Divergence { field } => ExprKind::Divergence {
             field: Box::new(f(field)),
         },
-        Expression::Curl { field } => Expression::Curl {
+        ExprKind::Curl { field } => ExprKind::Curl {
             field: Box::new(f(field)),
         },
-        Expression::Determinant { matrix } => Expression::Determinant {
+        ExprKind::Determinant { matrix } => ExprKind::Determinant {
             matrix: Box::new(f(matrix)),
         },
-        Expression::Trace { matrix } => Expression::Trace {
+        ExprKind::Trace { matrix } => ExprKind::Trace {
             matrix: Box::new(f(matrix)),
         },
-        Expression::Rank { matrix } => Expression::Rank {
+        ExprKind::Rank { matrix } => ExprKind::Rank {
             matrix: Box::new(f(matrix)),
         },
-        Expression::ConjugateTranspose { matrix } => Expression::ConjugateTranspose {
+        ExprKind::ConjugateTranspose { matrix } => ExprKind::ConjugateTranspose {
             matrix: Box::new(f(matrix)),
         },
-        Expression::MatrixInverse { matrix } => Expression::MatrixInverse {
+        ExprKind::MatrixInverse { matrix } => ExprKind::MatrixInverse {
             matrix: Box::new(f(matrix)),
         },
-        Expression::PowerSet { set } => Expression::PowerSet {
+        ExprKind::PowerSet { set } => ExprKind::PowerSet {
             set: Box::new(f(set)),
         },
 
         // ── Two children ────────────────────────────────────────────────
-        Expression::Rational {
+        ExprKind::Rational {
             numerator,
             denominator,
-        } => Expression::Rational {
+        } => ExprKind::Rational {
             numerator: Box::new(f(numerator)),
             denominator: Box::new(f(denominator)),
         },
-        Expression::Complex { real, imaginary } => Expression::Complex {
+        ExprKind::Complex { real, imaginary } => ExprKind::Complex {
             real: Box::new(f(real)),
             imaginary: Box::new(f(imaginary)),
         },
-        Expression::Binary { op, left, right } => Expression::Binary {
+        ExprKind::Binary { op, left, right } => ExprKind::Binary {
             op: *op,
             left: Box::new(f(left)),
             right: Box::new(f(right)),
         },
-        Expression::Equation { left, right } => Expression::Equation {
+        ExprKind::Equation { left, right } => ExprKind::Equation {
             left: Box::new(f(left)),
             right: Box::new(f(right)),
         },
-        Expression::Inequality { op, left, right } => Expression::Inequality {
+        ExprKind::Inequality { op, left, right } => ExprKind::Inequality {
             op: *op,
             left: Box::new(f(left)),
             right: Box::new(f(right)),
         },
-        Expression::DotProduct { left, right } => Expression::DotProduct {
+        ExprKind::DotProduct { left, right } => ExprKind::DotProduct {
             left: Box::new(f(left)),
             right: Box::new(f(right)),
         },
-        Expression::CrossProduct { left, right } => Expression::CrossProduct {
+        ExprKind::CrossProduct { left, right } => ExprKind::CrossProduct {
             left: Box::new(f(left)),
             right: Box::new(f(right)),
         },
-        Expression::OuterProduct { left, right } => Expression::OuterProduct {
+        ExprKind::OuterProduct { left, right } => ExprKind::OuterProduct {
             left: Box::new(f(left)),
             right: Box::new(f(right)),
         },
-        Expression::SetOperation { op, left, right } => Expression::SetOperation {
+        ExprKind::SetOperation { op, left, right } => ExprKind::SetOperation {
             op: *op,
             left: Box::new(f(left)),
             right: Box::new(f(right)),
         },
-        Expression::WedgeProduct { left, right } => Expression::WedgeProduct {
+        ExprKind::WedgeProduct { left, right } => ExprKind::WedgeProduct {
             left: Box::new(f(left)),
             right: Box::new(f(right)),
         },
-        Expression::SetRelationExpr {
+        ExprKind::SetRelationExpr {
             relation,
             element,
             set,
-        } => Expression::SetRelationExpr {
+        } => ExprKind::SetRelationExpr {
             relation: *relation,
             element: Box::new(f(element)),
             set: Box::new(f(set)),
         },
-        Expression::FunctionSignature {
+        ExprKind::FunctionSignature {
             name,
             domain,
             codomain,
-        } => Expression::FunctionSignature {
+        } => ExprKind::FunctionSignature {
             name: name.clone(),
             domain: Box::new(f(domain)),
             codomain: Box::new(f(codomain)),
         },
-        Expression::Composition { outer, inner } => Expression::Composition {
+        ExprKind::Composition { outer, inner } => ExprKind::Composition {
             outer: Box::new(f(outer)),
             inner: Box::new(f(inner)),
         },
-        Expression::Relation { op, left, right } => Expression::Relation {
+        ExprKind::Relation { op, left, right } => ExprKind::Relation {
             op: *op,
             left: Box::new(f(left)),
             right: Box::new(f(right)),
         },
 
         // ── Four children ───────────────────────────────────────────────
-        Expression::Quaternion { real, i, j, k } => Expression::Quaternion {
+        ExprKind::Quaternion { real, i, j, k } => ExprKind::Quaternion {
             real: Box::new(f(real)),
             i: Box::new(f(i)),
             j: Box::new(f(j)),
@@ -347,27 +344,27 @@ pub(crate) fn map_children(
         },
 
         // ── Variable-length children ────────────────────────────────────
-        Expression::Function { name, args } => Expression::Function {
+        ExprKind::Function { name, args } => ExprKind::Function {
             name: name.clone(),
             args: args.iter().map(|a| f(a)).collect(),
         },
-        Expression::Vector(elems) => Expression::Vector(elems.iter().map(|e| f(e)).collect()),
-        Expression::Matrix(rows) => Expression::Matrix(
+        ExprKind::Vector(elems) => ExprKind::Vector(elems.iter().map(|e| f(e)).collect()),
+        ExprKind::Matrix(rows) => ExprKind::Matrix(
             rows.iter()
                 .map(|row| row.iter().map(|e| f(e)).collect())
                 .collect(),
         ),
-        Expression::Logical { op, operands } => Expression::Logical {
+        ExprKind::Logical { op, operands } => ExprKind::Logical {
             op: *op,
             operands: operands.iter().map(|o| f(o)).collect(),
         },
 
         // ── Special: children + optional bounds ─────────────────────────
-        Expression::Integral {
+        ExprKind::Integral {
             integrand,
             var,
             bounds,
-        } => Expression::Integral {
+        } => ExprKind::Integral {
             integrand: Box::new(f(integrand)),
             var: var.clone(),
             bounds: bounds.as_ref().map(|b| IntegralBounds {
@@ -375,12 +372,12 @@ pub(crate) fn map_children(
                 upper: Box::new(f(&b.upper)),
             }),
         },
-        Expression::MultipleIntegral {
+        ExprKind::MultipleIntegral {
             dimension,
             integrand,
             bounds,
             vars,
-        } => Expression::MultipleIntegral {
+        } => ExprKind::MultipleIntegral {
             dimension: *dimension,
             integrand: Box::new(f(integrand)),
             bounds: bounds.as_ref().map(|b| MultipleBounds {
@@ -395,67 +392,68 @@ pub(crate) fn map_children(
             }),
             vars: vars.clone(),
         },
-        Expression::Limit {
+        ExprKind::Limit {
             expr: e,
             var,
             to,
             direction,
-        } => Expression::Limit {
+        } => ExprKind::Limit {
             expr: Box::new(f(e)),
             var: var.clone(),
             to: Box::new(f(to)),
             direction: *direction,
         },
-        Expression::Sum {
+        ExprKind::Sum {
             index,
             lower,
             upper,
             body,
-        } => Expression::Sum {
+        } => ExprKind::Sum {
             index: index.clone(),
             lower: Box::new(f(lower)),
             upper: Box::new(f(upper)),
             body: Box::new(f(body)),
         },
-        Expression::Product {
+        ExprKind::Product {
             index,
             lower,
             upper,
             body,
-        } => Expression::Product {
+        } => ExprKind::Product {
             index: index.clone(),
             lower: Box::new(f(lower)),
             upper: Box::new(f(upper)),
             body: Box::new(f(body)),
         },
-        Expression::ForAll {
+        ExprKind::ForAll {
             variable,
             domain,
             body,
-        } => Expression::ForAll {
+        } => ExprKind::ForAll {
             variable: variable.clone(),
             domain: domain.as_ref().map(|d| Box::new(f(d))),
             body: Box::new(f(body)),
         },
-        Expression::Exists {
+        ExprKind::Exists {
             variable,
             domain,
             body,
             unique,
-        } => Expression::Exists {
+        } => ExprKind::Exists {
             variable: variable.clone(),
             domain: domain.as_ref().map(|d| Box::new(f(d))),
             body: Box::new(f(body)),
             unique: *unique,
         },
-        Expression::SetBuilder {
+        ExprKind::SetBuilder {
             variable,
             domain,
             predicate,
-        } => Expression::SetBuilder {
+        } => ExprKind::SetBuilder {
             variable: variable.clone(),
             domain: domain.as_ref().map(|d| Box::new(f(d))),
             predicate: Box::new(f(predicate)),
         },
-    }
+    };
+    kind.into()
 }

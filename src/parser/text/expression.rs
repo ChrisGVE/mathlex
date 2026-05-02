@@ -12,10 +12,11 @@ impl TextParser {
             if matches!(token.value, Token::Not) {
                 self.next();
                 let operand = self.parse_logical()?;
-                return Ok(Expression::Logical {
+                return Ok(ExprKind::Logical {
                     op: LogicalOp::Not,
                     operands: vec![operand],
-                });
+                }
+                .into());
             }
         }
         let mut left = self.parse_quantifier()?;
@@ -29,10 +30,11 @@ impl TextParser {
             };
             self.next();
             let right = self.parse_quantifier()?;
-            left = Expression::Logical {
+            left = ExprKind::Logical {
                 op,
                 operands: vec![left, right],
-            };
+            }
+            .into();
         }
         Ok(left)
     }
@@ -90,18 +92,20 @@ impl TextParser {
         let body = Box::new(self.parse_logical()?);
 
         if is_exists {
-            Ok(Expression::Exists {
+            Ok(ExprKind::Exists {
                 variable,
                 domain,
                 body,
                 unique: false,
-            })
+            }
+            .into())
         } else {
-            Ok(Expression::ForAll {
+            Ok(ExprKind::ForAll {
                 variable,
                 domain,
                 body,
-            })
+            }
+            .into())
         }
     }
 }

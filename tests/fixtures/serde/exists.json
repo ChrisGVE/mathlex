@@ -1,0 +1,38 @@
+{
+  "kind": "Exists",
+  "value": {
+    "body": {
+      "kind": "Equation",
+      "value": {
+        "left": {
+          "kind": "Binary",
+          "value": {
+            "left": {
+              "kind": "Variable",
+              "value": "x"
+            },
+            "op": {
+              "kind": "Mul"
+            },
+            "right": {
+              "kind": "Variable",
+              "value": "x"
+            }
+          }
+        },
+        "right": {
+          "kind": "Integer",
+          "value": 2
+        }
+      }
+    },
+    "domain": {
+      "kind": "NumberSetExpr",
+      "value": {
+        "kind": "Real"
+      }
+    },
+    "unique": false,
+    "variable": "x"
+  }
+}

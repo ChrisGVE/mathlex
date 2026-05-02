@@ -1,0 +1,18 @@
+{
+  "kind": "SetRelationExpr",
+  "value": {
+    "element": {
+      "kind": "Variable",
+      "value": "x"
+    },
+    "relation": {
+      "kind": "In"
+    },
+    "set": {
+      "kind": "NumberSetExpr",
+      "value": {
+        "kind": "Real"
+      }
+    }
+  }
+}

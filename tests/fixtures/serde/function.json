@@ -1,0 +1,12 @@
+{
+  "kind": "Function",
+  "value": {
+    "args": [
+      {
+        "kind": "Variable",
+        "value": "x"
+      }
+    ],
+    "name": "sin"
+  }
+}

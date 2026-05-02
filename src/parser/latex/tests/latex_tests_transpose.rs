@@ -6,10 +6,10 @@ use super::*;
 #[test]
 fn test_transpose_bare_t() {
     let expr = parse_latex("A^T").unwrap();
-    match expr {
-        Expression::Unary { op, operand } => {
-            assert_eq!(op, crate::ast::UnaryOp::Transpose);
-            assert_eq!(*operand, Expression::Variable("A".to_string()));
+    match &expr.kind {
+        ExprKind::Unary { op, operand } => {
+            assert_eq!(*op, crate::ast::UnaryOp::Transpose);
+            assert_eq!(**operand, Expression::variable("A".to_string()));
         }
         _ => panic!("Expected Unary(Transpose, A), got {:?}", expr),
     }
@@ -20,10 +20,10 @@ fn test_transpose_bare_t() {
 #[test]
 fn test_transpose_braced_t() {
     let expr = parse_latex("A^{T}").unwrap();
-    match expr {
-        Expression::Unary { op, operand } => {
-            assert_eq!(op, crate::ast::UnaryOp::Transpose);
-            assert_eq!(*operand, Expression::Variable("A".to_string()));
+    match &expr.kind {
+        ExprKind::Unary { op, operand } => {
+            assert_eq!(*op, crate::ast::UnaryOp::Transpose);
+            assert_eq!(**operand, Expression::variable("A".to_string()));
         }
         _ => panic!("Expected Unary(Transpose, A), got {:?}", expr),
     }
@@ -34,10 +34,10 @@ fn test_transpose_braced_t() {
 #[test]
 fn test_transpose_top_command() {
     let expr = parse_latex(r"A^\top").unwrap();
-    match expr {
-        Expression::Unary { op, operand } => {
-            assert_eq!(op, crate::ast::UnaryOp::Transpose);
-            assert_eq!(*operand, Expression::Variable("A".to_string()));
+    match &expr.kind {
+        ExprKind::Unary { op, operand } => {
+            assert_eq!(*op, crate::ast::UnaryOp::Transpose);
+            assert_eq!(**operand, Expression::variable("A".to_string()));
         }
         _ => panic!("Expected Unary(Transpose, A), got {:?}", expr),
     }
@@ -50,8 +50,8 @@ fn test_power_lowercase_t_is_not_transpose() {
     let expr = parse_latex("x^t").unwrap();
     assert!(
         matches!(
-            expr,
-            Expression::Binary {
+            expr.kind,
+            ExprKind::Binary {
                 op: BinaryOp::Pow,
                 ..
             }
@@ -68,8 +68,8 @@ fn test_power_number_is_not_transpose() {
     let expr = parse_latex("A^2").unwrap();
     assert!(
         matches!(
-            expr,
-            Expression::Binary {
+            expr.kind,
+            ExprKind::Binary {
                 op: BinaryOp::Pow,
                 ..
             }
@@ -84,14 +84,14 @@ fn test_power_number_is_not_transpose() {
 #[test]
 fn test_transpose_of_matrix_times_vector() {
     let expr = parse_latex(r"(Ax)^T").unwrap();
-    match expr {
-        Expression::Unary { op, operand } => {
-            assert_eq!(op, crate::ast::UnaryOp::Transpose);
+    match &expr.kind {
+        ExprKind::Unary { op, operand } => {
+            assert_eq!(*op, crate::ast::UnaryOp::Transpose);
             // operand should be implicit product Ax
             assert!(
                 matches!(
-                    *operand,
-                    Expression::Binary {
+                    operand.kind,
+                    ExprKind::Binary {
                         op: BinaryOp::Mul,
                         ..
                     }

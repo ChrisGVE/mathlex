@@ -1,0 +1,30 @@
+{
+  "kind": "Determinant",
+  "value": {
+    "matrix": {
+      "kind": "Matrix",
+      "value": [
+        [
+          {
+            "kind": "Integer",
+            "value": 1
+          },
+          {
+            "kind": "Integer",
+            "value": 2
+          }
+        ],
+        [
+          {
+            "kind": "Integer",
+            "value": 3
+          },
+          {
+            "kind": "Integer",
+            "value": 4
+          }
+        ]
+      ]
+    }
+  }
+}

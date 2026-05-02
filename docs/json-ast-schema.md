@@ -1,33 +1,43 @@
 # mathlex JSON AST Schema
 
+> **This document describes the pre-v0.4.0 (externally-tagged) format and is
+> retained for reference only. The canonical wire-format reference for v0.4.0
+> and later is [`WIRE-FORMAT.md`](WIRE-FORMAT.md).** The JSON examples in this
+> file use the old encoding and are not accepted by v0.4.0 deserializers.
+
 This document describes the JSON representation of the `Expression` AST produced
-by mathlex when compiled with the `serde` feature flag. It is the reference for
-consumers — in particular NumericSwift — that decode the JSON output of
-`toJSON()` / `serde_json::to_string`.
+by mathlex ≤ 0.3.x when compiled with the `serde` feature flag.
 
-## Encoding convention
+## Encoding convention (pre-v0.4.0 — externally tagged)
 
-serde's default **externally tagged** format is used throughout. Every
-`Expression` value serializes as a single-key JSON object whose key is the
-variant name and whose value is the payload:
+The pre-v0.4.0 format used serde's default **externally tagged** style. Every
+`Expression` value serialized as a single-key JSON object whose key was the
+variant name and whose value was the payload:
 
 ```json
 { "VariantName": <payload> }
 ```
 
-Unit variants (those with no fields) serialize as a bare JSON string:
+Unit variants (those with no fields) serialized as a bare JSON string:
 
 ```json
 "VariantName"
 ```
 
-Enum fields that are themselves enums (e.g. `BinaryOp`, `UnaryOp`) follow the
-same rules: simple variants become bare strings, struct variants become objects.
-Because every operator enum currently contains only unit variants, all operator
-values appear as plain strings in JSON.
+**v0.4.0 changed this.** The current format uses **adjacently-tagged** encoding:
+
+```json
+{ "kind": "VariantName", "value": <payload> }
+```
+
+Unit variants now serialize as `{ "kind": "VariantName" }` (no `value` field).
+Nested enum values (`BinaryOp`, `UnaryOp`, etc.) use the same adjacently-tagged
+form instead of bare strings.
+
+See [`WIRE-FORMAT.md`](WIRE-FORMAT.md) for the complete v0.4.0 reference.
 
 Optional fields (`Option<T>`) serialize as `null` when absent or as the value
-when present.
+when present. This behavior is unchanged in v0.4.0.
 
 ---
 

@@ -1,6 +1,6 @@
 //! Tests for quantifiers and logical operators in LaTeX parsing.
 
-use crate::ast::{Expression, LogicalOp, SetRelation};
+use crate::ast::{ExprKind, Expression, LogicalOp, SetRelation};
 use crate::parser::parse_latex;
 
 // ============================================================
@@ -10,15 +10,15 @@ use crate::parser::parse_latex;
 #[test]
 fn test_forall_basic() {
     let expr = parse_latex(r"\forall x P").unwrap();
-    match expr {
-        Expression::ForAll {
+    match &expr.kind {
+        ExprKind::ForAll {
             variable,
             domain,
             body,
         } => {
             assert_eq!(variable, "x");
             assert!(domain.is_none());
-            assert_eq!(*body, Expression::Variable("P".to_string()));
+            assert_eq!(**body, Expression::variable("P".to_string()));
         }
         _ => panic!("Expected ForAll, got {:?}", expr),
     }
@@ -27,16 +27,19 @@ fn test_forall_basic() {
 #[test]
 fn test_forall_with_domain() {
     let expr = parse_latex(r"\forall x \in S P").unwrap();
-    match expr {
-        Expression::ForAll {
+    match &expr.kind {
+        ExprKind::ForAll {
             variable,
             domain,
             body,
         } => {
             assert_eq!(variable, "x");
             assert!(domain.is_some());
-            assert_eq!(*domain.unwrap(), Expression::Variable("S".to_string()));
-            assert_eq!(*body, Expression::Variable("P".to_string()));
+            assert_eq!(
+                **domain.as_ref().unwrap(),
+                Expression::variable("S".to_string())
+            );
+            assert_eq!(**body, Expression::variable("P".to_string()));
         }
         _ => panic!("Expected ForAll, got {:?}", expr),
     }
@@ -49,8 +52,8 @@ fn test_forall_with_domain() {
 #[test]
 fn test_exists_basic() {
     let expr = parse_latex(r"\exists x P").unwrap();
-    match expr {
-        Expression::Exists {
+    match &expr.kind {
+        ExprKind::Exists {
             variable,
             domain,
             body,
@@ -58,7 +61,7 @@ fn test_exists_basic() {
         } => {
             assert_eq!(variable, "x");
             assert!(domain.is_none());
-            assert_eq!(*body, Expression::Variable("P".to_string()));
+            assert_eq!(**body, Expression::variable("P".to_string()));
             assert!(!unique);
         }
         _ => panic!("Expected Exists, got {:?}", expr),
@@ -68,8 +71,8 @@ fn test_exists_basic() {
 #[test]
 fn test_exists_with_domain() {
     let expr = parse_latex(r"\exists x \in S P").unwrap();
-    match expr {
-        Expression::Exists {
+    match &expr.kind {
+        ExprKind::Exists {
             variable,
             domain,
             unique,
@@ -90,12 +93,12 @@ fn test_exists_with_domain() {
 #[test]
 fn test_logical_and() {
     let expr = parse_latex(r"P \land Q").unwrap();
-    match expr {
-        Expression::Logical { op, operands } => {
-            assert_eq!(op, LogicalOp::And);
+    match &expr.kind {
+        ExprKind::Logical { op, operands } => {
+            assert_eq!(*op, LogicalOp::And);
             assert_eq!(operands.len(), 2);
-            assert_eq!(operands[0], Expression::Variable("P".to_string()));
-            assert_eq!(operands[1], Expression::Variable("Q".to_string()));
+            assert_eq!(operands[0], Expression::variable("P".to_string()));
+            assert_eq!(operands[1], Expression::variable("Q".to_string()));
         }
         _ => panic!("Expected Logical And, got {:?}", expr),
     }
@@ -104,9 +107,9 @@ fn test_logical_and() {
 #[test]
 fn test_logical_or() {
     let expr = parse_latex(r"P \lor Q").unwrap();
-    match expr {
-        Expression::Logical { op, operands } => {
-            assert_eq!(op, LogicalOp::Or);
+    match &expr.kind {
+        ExprKind::Logical { op, operands } => {
+            assert_eq!(*op, LogicalOp::Or);
             assert_eq!(operands.len(), 2);
         }
         _ => panic!("Expected Logical Or, got {:?}", expr),
@@ -116,9 +119,9 @@ fn test_logical_or() {
 #[test]
 fn test_logical_implies() {
     let expr = parse_latex(r"P \implies Q").unwrap();
-    match expr {
-        Expression::Logical { op, operands } => {
-            assert_eq!(op, LogicalOp::Implies);
+    match &expr.kind {
+        ExprKind::Logical { op, operands } => {
+            assert_eq!(*op, LogicalOp::Implies);
             assert_eq!(operands.len(), 2);
         }
         _ => panic!("Expected Logical Implies, got {:?}", expr),
@@ -128,9 +131,9 @@ fn test_logical_implies() {
 #[test]
 fn test_logical_iff() {
     let expr = parse_latex(r"P \iff Q").unwrap();
-    match expr {
-        Expression::Logical { op, operands } => {
-            assert_eq!(op, LogicalOp::Iff);
+    match &expr.kind {
+        ExprKind::Logical { op, operands } => {
+            assert_eq!(*op, LogicalOp::Iff);
             assert_eq!(operands.len(), 2);
         }
         _ => panic!("Expected Logical Iff, got {:?}", expr),
@@ -140,11 +143,11 @@ fn test_logical_iff() {
 #[test]
 fn test_logical_not() {
     let expr = parse_latex(r"\lnot P").unwrap();
-    match expr {
-        Expression::Logical { op, operands } => {
-            assert_eq!(op, LogicalOp::Not);
+    match &expr.kind {
+        ExprKind::Logical { op, operands } => {
+            assert_eq!(*op, LogicalOp::Not);
             assert_eq!(operands.len(), 1);
-            assert_eq!(operands[0], Expression::Variable("P".to_string()));
+            assert_eq!(operands[0], Expression::variable("P".to_string()));
         }
         _ => panic!("Expected Logical Not, got {:?}", expr),
     }
@@ -154,9 +157,9 @@ fn test_logical_not() {
 fn test_logical_neg_alias() {
     // \neg is an alias for \lnot
     let expr = parse_latex(r"\neg P").unwrap();
-    match expr {
-        Expression::Logical { op, .. } => {
-            assert_eq!(op, LogicalOp::Not);
+    match &expr.kind {
+        ExprKind::Logical { op, .. } => {
+            assert_eq!(*op, LogicalOp::Not);
         }
         _ => panic!("Expected Logical Not, got {:?}", expr),
     }
@@ -169,15 +172,15 @@ fn test_logical_neg_alias() {
 #[test]
 fn test_set_membership_in() {
     let expr = parse_latex(r"x \in S").unwrap();
-    match expr {
-        Expression::SetRelationExpr {
+    match &expr.kind {
+        ExprKind::SetRelationExpr {
             relation,
             element,
             set,
         } => {
-            assert_eq!(relation, SetRelation::In);
-            assert_eq!(*element, Expression::Variable("x".to_string()));
-            assert_eq!(*set, Expression::Variable("S".to_string()));
+            assert_eq!(*relation, SetRelation::In);
+            assert_eq!(**element, Expression::variable("x".to_string()));
+            assert_eq!(**set, Expression::variable("S".to_string()));
         }
         _ => panic!("Expected SetRelationExpr, got {:?}", expr),
     }
@@ -186,15 +189,15 @@ fn test_set_membership_in() {
 #[test]
 fn test_set_membership_notin() {
     let expr = parse_latex(r"x \notin S").unwrap();
-    match expr {
-        Expression::SetRelationExpr {
+    match &expr.kind {
+        ExprKind::SetRelationExpr {
             relation,
             element,
             set,
         } => {
-            assert_eq!(relation, SetRelation::NotIn);
-            assert_eq!(*element, Expression::Variable("x".to_string()));
-            assert_eq!(*set, Expression::Variable("S".to_string()));
+            assert_eq!(*relation, SetRelation::NotIn);
+            assert_eq!(**element, Expression::variable("x".to_string()));
+            assert_eq!(**set, Expression::variable("S".to_string()));
         }
         _ => panic!("Expected SetRelationExpr, got {:?}", expr),
     }
@@ -208,15 +211,15 @@ fn test_set_membership_notin() {
 fn test_and_or_precedence() {
     // AND has higher precedence than OR: P \lor Q \land R = P \lor (Q \land R)
     let expr = parse_latex(r"P \lor Q \land R").unwrap();
-    match expr {
-        Expression::Logical {
+    match &expr.kind {
+        ExprKind::Logical {
             op: LogicalOp::Or,
             operands,
         } => {
-            assert_eq!(operands[0], Expression::Variable("P".to_string()));
+            assert_eq!(operands[0], Expression::variable("P".to_string()));
             // Second operand should be Q \land R
-            match &operands[1] {
-                Expression::Logical {
+            match &operands[1].kind {
+                ExprKind::Logical {
                     op: LogicalOp::And, ..
                 } => {}
                 _ => panic!("Expected And as second operand"),
@@ -230,14 +233,14 @@ fn test_and_or_precedence() {
 fn test_implies_or_precedence() {
     // OR has higher precedence than IMPLIES: P \implies Q \lor R = P \implies (Q \lor R)
     let expr = parse_latex(r"P \implies Q \lor R").unwrap();
-    match expr {
-        Expression::Logical {
+    match &expr.kind {
+        ExprKind::Logical {
             op: LogicalOp::Implies,
             operands,
         } => {
-            assert_eq!(operands[0], Expression::Variable("P".to_string()));
-            match &operands[1] {
-                Expression::Logical {
+            assert_eq!(operands[0], Expression::variable("P".to_string()));
+            match &operands[1].kind {
+                ExprKind::Logical {
                     op: LogicalOp::Or, ..
                 } => {}
                 _ => panic!("Expected Or as second operand"),
@@ -254,11 +257,11 @@ fn test_implies_or_precedence() {
 #[test]
 fn test_quantifier_with_logical() {
     let expr = parse_latex(r"\forall x P \land Q").unwrap();
-    match expr {
-        Expression::ForAll { body, .. } => {
+    match &expr.kind {
+        ExprKind::ForAll { body, .. } => {
             // The body should be P \land Q
-            match *body {
-                Expression::Logical {
+            match &body.kind {
+                ExprKind::Logical {
                     op: LogicalOp::And, ..
                 } => {}
                 _ => panic!("Expected body to be And expression, got {:?}", body),

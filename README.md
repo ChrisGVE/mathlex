@@ -36,7 +36,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mathlex = "0.3.4"
+mathlex = "0.4.0"
 ```
 
 ### Swift
@@ -45,7 +45,7 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ChrisGVE/mathlex.git", from: "0.3.4")
+    .package(url: "https://github.com/ChrisGVE/mathlex.git", from: "0.4.0")
 ]
 ```
 
@@ -228,19 +228,19 @@ let implication = parse_latex(r"P \implies Q").unwrap();
 ### Quaternions
 
 ```rust
-use mathlex::{Expression, MathConstant};
+use mathlex::{Expression, ExprKind};
 
 // Quaternion basis vectors satisfy:
 // i² = j² = k² = ijk = -1
 // ij = k, jk = i, ki = j
 // ji = -k, kj = -i, ik = -j
 
-let quaternion = Expression::Quaternion {
-    real: Box::new(Expression::Integer(1)),
-    i: Box::new(Expression::Integer(2)),
-    j: Box::new(Expression::Integer(3)),
-    k: Box::new(Expression::Integer(4)),
-};
+let quaternion: Expression = ExprKind::Quaternion {
+    real: Box::new(Expression::integer(1)),
+    i: Box::new(Expression::integer(2)),
+    j: Box::new(Expression::integer(3)),
+    k: Box::new(Expression::integer(4)),
+}.into();
 ```
 
 ### Context-Aware Parsing
@@ -272,7 +272,7 @@ let json = try expr.toJSON()
 
 The `serde` feature must be enabled on the Rust side (it is included in the default XCFramework build).
 
-- **JSON AST schema**: [`docs/json-ast-schema.md`](docs/json-ast-schema.md) — complete reference for every node type and its JSON representation
+- **Wire format reference**: [`docs/WIRE-FORMAT.md`](docs/WIRE-FORMAT.md) — complete reference for every node type and its JSON representation
 - **Integration example**: [`examples/numericswift-integration/`](examples/numericswift-integration/) — Swift `Decodable` types and a numeric evaluator that consumes the JSON AST
 
 ## Design Philosophy
@@ -288,13 +288,53 @@ This design allows different libraries to interpret the AST according to their c
 - A numerical library can evaluate `Function` nodes numerically
 - An educational tool can render step-by-step explanations
 
+## Serialization
+
+Enable the `serde` feature to serialize and deserialize the `Expression` AST
+as JSON:
+
+```toml
+[dependencies]
+mathlex = { version = "0.4.0", features = ["serde"] }
+```
+
+```rust
+use mathlex::parse;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let expr = parse("sin(x)^2 + cos(x)^2")?;
+    let json = serde_json::to_string_pretty(&expr)?;
+    println!("{}", json);
+    // {
+    //   "kind": "Binary",
+    //   "value": {
+    //     "op": { "kind": "Add" },
+    //     "left": { "kind": "Binary", "value": { ... } },
+    //     "right": { "kind": "Binary", "value": { ... } }
+    //   }
+    // }
+    let roundtrip: mathlex::Expression = serde_json::from_str(&json)?;
+    assert_eq!(expr, roundtrip);
+    Ok(())
+}
+```
+
+Every node serializes as `{ "kind": "<VariantName>", "value": <payload> }`.
+Each node also carries an `AnnotationSet` — a string-to-string metadata map
+used by downstream consumers such as thales. The `annotations` field is
+omitted when empty, which is always the case for nodes produced directly by
+the parsers.
+
+See [`docs/WIRE-FORMAT.md`](docs/WIRE-FORMAT.md) for the full schema with
+one JSON example per variant.
+
 ## Optional Features
 
 ### Rust
 
 ```toml
 [dependencies]
-mathlex = { version = "0.3.4", features = ["serde"] }
+mathlex = { version = "0.4.0", features = ["serde"] }
 ```
 
 - `serde` - Enable serialization/deserialization of AST types

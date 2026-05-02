@@ -1,21 +1,24 @@
-use crate::ast::{BinaryOp, Direction, Expression, IntegralBounds, MathConstant, UnaryOp};
+use crate::ast::{
+    BinaryOp, Direction, ExprKind, Expression, IntegralBounds, MathConstant, UnaryOp,
+};
 
 // ── node count via fold ───────────────────────────────────────────────────────
 
 #[test]
 fn test_fold_count_equals_node_count_leaf() {
-    let expr = Expression::Integer(42);
+    let expr = Expression::integer(42);
     let count = expr.fold(0usize, |acc, _| acc + 1);
     assert_eq!(count, expr.node_count());
 }
 
 #[test]
 fn test_fold_count_equals_node_count_binary() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Variable("y".to_string())),
-    };
+        left: Box::new(Expression::variable("x".to_string())),
+        right: Box::new(Expression::variable("y".to_string())),
+    }
+    .into();
     let count = expr.fold(0usize, |acc, _| acc + 1);
     assert_eq!(count, expr.node_count());
 }
@@ -23,15 +26,19 @@ fn test_fold_count_equals_node_count_binary() {
 #[test]
 fn test_fold_count_equals_node_count_nested() {
     // ((x + y) * z): 5 nodes
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Mul,
-        left: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Variable("x".to_string())),
-            right: Box::new(Expression::Variable("y".to_string())),
-        }),
-        right: Box::new(Expression::Variable("z".to_string())),
-    };
+        left: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::variable("x".to_string())),
+                right: Box::new(Expression::variable("y".to_string())),
+            }
+            .into(),
+        ),
+        right: Box::new(Expression::variable("z".to_string())),
+    }
+    .into();
     let count = expr.fold(0usize, |acc, _| acc + 1);
     assert_eq!(count, expr.node_count());
     assert_eq!(count, 5);
@@ -39,14 +46,15 @@ fn test_fold_count_equals_node_count_nested() {
 
 #[test]
 fn test_fold_count_equals_node_count_function() {
-    let expr = Expression::Function {
+    let expr: Expression = ExprKind::Function {
         name: "f".to_string(),
         args: vec![
-            Expression::Integer(1),
-            Expression::Integer(2),
-            Expression::Integer(3),
+            Expression::integer(1),
+            Expression::integer(2),
+            Expression::integer(3),
         ],
-    };
+    }
+    .into();
     let count = expr.fold(0usize, |acc, _| acc + 1);
     assert_eq!(count, expr.node_count());
     assert_eq!(count, 4);
@@ -56,9 +64,9 @@ fn test_fold_count_equals_node_count_function() {
 
 #[test]
 fn test_fold_sum_integers_leaf() {
-    let expr = Expression::Integer(7);
-    let sum = expr.fold(0i64, |acc, e| match e {
-        Expression::Integer(n) => acc + n,
+    let expr = Expression::integer(7);
+    let sum = expr.fold(0i64, |acc, e| match &e.kind {
+        ExprKind::Integer(n) => acc + n,
         _ => acc,
     });
     assert_eq!(sum, 7);
@@ -66,13 +74,14 @@ fn test_fold_sum_integers_leaf() {
 
 #[test]
 fn test_fold_sum_integers_binary() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Integer(3)),
-        right: Box::new(Expression::Integer(4)),
-    };
-    let sum = expr.fold(0i64, |acc, e| match e {
-        Expression::Integer(n) => acc + n,
+        left: Box::new(Expression::integer(3)),
+        right: Box::new(Expression::integer(4)),
+    }
+    .into();
+    let sum = expr.fold(0i64, |acc, e| match &e.kind {
+        ExprKind::Integer(n) => acc + n,
         _ => acc,
     });
     assert_eq!(sum, 7);
@@ -81,21 +90,28 @@ fn test_fold_sum_integers_binary() {
 #[test]
 fn test_fold_sum_integers_nested() {
     // (1 + 2) + (3 + 4) = 10
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Integer(1)),
-            right: Box::new(Expression::Integer(2)),
-        }),
-        right: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Integer(3)),
-            right: Box::new(Expression::Integer(4)),
-        }),
-    };
-    let sum = expr.fold(0i64, |acc, e| match e {
-        Expression::Integer(n) => acc + n,
+        left: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::integer(1)),
+                right: Box::new(Expression::integer(2)),
+            }
+            .into(),
+        ),
+        right: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::integer(3)),
+                right: Box::new(Expression::integer(4)),
+            }
+            .into(),
+        ),
+    }
+    .into();
+    let sum = expr.fold(0i64, |acc, e| match &e.kind {
+        ExprKind::Integer(n) => acc + n,
         _ => acc,
     });
     assert_eq!(sum, 10);
@@ -103,13 +119,14 @@ fn test_fold_sum_integers_nested() {
 
 #[test]
 fn test_fold_sum_ignores_non_integers() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Integer(5)),
-        right: Box::new(Expression::Variable("x".to_string())),
-    };
-    let sum = expr.fold(0i64, |acc, e| match e {
-        Expression::Integer(n) => acc + n,
+        left: Box::new(Expression::integer(5)),
+        right: Box::new(Expression::variable("x".to_string())),
+    }
+    .into();
+    let sum = expr.fold(0i64, |acc, e| match &e.kind {
+        ExprKind::Integer(n) => acc + n,
         _ => acc,
     });
     assert_eq!(sum, 5);
@@ -119,14 +136,15 @@ fn test_fold_sum_ignores_non_integers() {
 
 #[test]
 fn test_fold_collect_variables_matches_find_variables() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Variable("x".to_string())),
-        right: Box::new(Expression::Variable("y".to_string())),
-    };
+        left: Box::new(Expression::variable("x".to_string())),
+        right: Box::new(Expression::variable("y".to_string())),
+    }
+    .into();
     let folded: std::collections::HashSet<String> =
         expr.fold(std::collections::HashSet::new(), |mut acc, e| {
-            if let Expression::Variable(name) = e {
+            if let ExprKind::Variable(ref name) = e.kind {
                 acc.insert(name.clone());
             }
             acc
@@ -137,18 +155,22 @@ fn test_fold_collect_variables_matches_find_variables() {
 
 #[test]
 fn test_fold_collect_variables_nested() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Mul,
-        left: Box::new(Expression::Binary {
-            op: BinaryOp::Add,
-            left: Box::new(Expression::Variable("a".to_string())),
-            right: Box::new(Expression::Variable("b".to_string())),
-        }),
-        right: Box::new(Expression::Variable("c".to_string())),
-    };
+        left: Box::new(
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                left: Box::new(Expression::variable("a".to_string())),
+                right: Box::new(Expression::variable("b".to_string())),
+            }
+            .into(),
+        ),
+        right: Box::new(Expression::variable("c".to_string())),
+    }
+    .into();
     let folded: std::collections::HashSet<String> =
         expr.fold(std::collections::HashSet::new(), |mut acc, e| {
-            if let Expression::Variable(name) = e {
+            if let ExprKind::Variable(ref name) = e.kind {
                 acc.insert(name.clone());
             }
             acc
@@ -163,10 +185,11 @@ fn test_fold_collect_variables_nested() {
 
 #[test]
 fn test_fold_unary() {
-    let expr = Expression::Unary {
+    let expr: Expression = ExprKind::Unary {
         op: UnaryOp::Neg,
-        operand: Box::new(Expression::Integer(9)),
-    };
+        operand: Box::new(Expression::integer(9)),
+    }
+    .into();
     let count = expr.fold(0usize, |acc, _| acc + 1);
     assert_eq!(count, expr.node_count());
     assert_eq!(count, 2);
@@ -174,39 +197,42 @@ fn test_fold_unary() {
 
 #[test]
 fn test_fold_integral_counts_all_nodes() {
-    let expr = Expression::Integral {
-        integrand: Box::new(Expression::Variable("x".to_string())),
+    let expr: Expression = ExprKind::Integral {
+        integrand: Box::new(Expression::variable("x".to_string())),
         var: "x".to_string(),
         bounds: Some(IntegralBounds {
-            lower: Box::new(Expression::Integer(0)),
-            upper: Box::new(Expression::Integer(1)),
+            lower: Box::new(Expression::integer(0)),
+            upper: Box::new(Expression::integer(1)),
         }),
-    };
+    }
+    .into();
     let count = expr.fold(0usize, |acc, _| acc + 1);
     assert_eq!(count, expr.node_count());
 }
 
 #[test]
 fn test_fold_limit() {
-    let expr = Expression::Limit {
-        expr: Box::new(Expression::Variable("f".to_string())),
+    let expr: Expression = ExprKind::Limit {
+        expr: Box::new(Expression::variable("f".to_string())),
         var: "x".to_string(),
-        to: Box::new(Expression::Constant(MathConstant::Infinity)),
+        to: Box::new(Expression::constant(MathConstant::Infinity)),
         direction: Direction::Both,
-    };
+    }
+    .into();
     let count = expr.fold(0usize, |acc, _| acc + 1);
     assert_eq!(count, expr.node_count());
 }
 
 #[test]
 fn test_fold_vector() {
-    let expr = Expression::Vector(vec![
-        Expression::Integer(1),
-        Expression::Integer(2),
-        Expression::Integer(3),
-    ]);
-    let sum = expr.fold(0i64, |acc, e| match e {
-        Expression::Integer(n) => acc + n,
+    let expr: Expression = ExprKind::Vector(vec![
+        Expression::integer(1),
+        Expression::integer(2),
+        Expression::integer(3),
+    ])
+    .into();
+    let sum = expr.fold(0i64, |acc, e| match &e.kind {
+        ExprKind::Integer(n) => acc + n,
         _ => acc,
     });
     assert_eq!(sum, 6);
@@ -214,12 +240,13 @@ fn test_fold_vector() {
 
 #[test]
 fn test_fold_matrix() {
-    let expr = Expression::Matrix(vec![
-        vec![Expression::Integer(1), Expression::Integer(2)],
-        vec![Expression::Integer(3), Expression::Integer(4)],
-    ]);
-    let sum = expr.fold(0i64, |acc, e| match e {
-        Expression::Integer(n) => acc + n,
+    let expr: Expression = ExprKind::Matrix(vec![
+        vec![Expression::integer(1), Expression::integer(2)],
+        vec![Expression::integer(3), Expression::integer(4)],
+    ])
+    .into();
+    let sum = expr.fold(0i64, |acc, e| match &e.kind {
+        ExprKind::Integer(n) => acc + n,
         _ => acc,
     });
     assert_eq!(sum, 10);
@@ -229,16 +256,17 @@ fn test_fold_matrix() {
 
 #[test]
 fn test_fold_visits_leaves_before_parent() {
-    let expr = Expression::Binary {
+    let expr: Expression = ExprKind::Binary {
         op: BinaryOp::Add,
-        left: Box::new(Expression::Integer(1)),
-        right: Box::new(Expression::Integer(2)),
-    };
+        left: Box::new(Expression::integer(1)),
+        right: Box::new(Expression::integer(2)),
+    }
+    .into();
     let order = std::cell::RefCell::new(Vec::new());
     expr.fold((), |_, e| {
-        let label = match e {
-            Expression::Integer(n) => format!("int({})", n),
-            Expression::Binary { .. } => "binary".to_string(),
+        let label = match &e.kind {
+            ExprKind::Integer(n) => format!("int({})", n),
+            ExprKind::Binary { .. } => "binary".to_string(),
             _ => "other".to_string(),
         };
         order.borrow_mut().push(label);

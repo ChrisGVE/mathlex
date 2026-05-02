@@ -2,7 +2,7 @@
 //!
 //! Tests cover set operations, relations, quantifiers, and number sets.
 
-use mathlex::ast::{Expression, LogicalOp, NumberSet, SetOp, SetRelation};
+use mathlex::ast::{ExprKind, Expression, LogicalOp, NumberSet, SetOp, SetRelation};
 use mathlex::parser::parse_latex;
 
 // ============================================================
@@ -17,11 +17,11 @@ fn test_number_set_in_membership() {
     // x ∈ ℝ - number set as target of membership
     // TODO: Enable when number sets are supported in set membership context
     let expr = parse_latex(r"x \in \mathbb{R}").unwrap();
-    match expr {
-        Expression::SetRelationExpr { relation, set, .. } => {
-            assert_eq!(relation, SetRelation::In);
-            match *set {
-                Expression::NumberSetExpr(NumberSet::Real) => {}
+    match &expr.kind {
+        ExprKind::SetRelationExpr { relation, set, .. } => {
+            assert_eq!(*relation, SetRelation::In);
+            match &set.kind {
+                ExprKind::NumberSetExpr(NumberSet::Real) => {}
                 _ => {
                     // If number sets aren't implemented as standalone, this is expected
                     // Just verify the relation was parsed correctly
@@ -39,11 +39,11 @@ fn test_number_set_in_membership() {
 #[test]
 fn test_union() {
     let expr = parse_latex(r"A \cup B").unwrap();
-    match expr {
-        Expression::SetOperation { op, left, right } => {
-            assert_eq!(op, SetOp::Union);
-            assert_eq!(*left, Expression::Variable("A".to_string()));
-            assert_eq!(*right, Expression::Variable("B".to_string()));
+    match &expr.kind {
+        ExprKind::SetOperation { op, left, right } => {
+            assert_eq!(*op, SetOp::Union);
+            assert_eq!(**left, Expression::variable("A".to_string()));
+            assert_eq!(**right, Expression::variable("B".to_string()));
         }
         _ => panic!("Expected SetOperation Union"),
     }
@@ -52,9 +52,9 @@ fn test_union() {
 #[test]
 fn test_intersection() {
     let expr = parse_latex(r"A \cap B").unwrap();
-    match expr {
-        Expression::SetOperation { op, .. } => {
-            assert_eq!(op, SetOp::Intersection);
+    match &expr.kind {
+        ExprKind::SetOperation { op, .. } => {
+            assert_eq!(*op, SetOp::Intersection);
         }
         _ => panic!("Expected SetOperation Intersection"),
     }
@@ -63,9 +63,9 @@ fn test_intersection() {
 #[test]
 fn test_set_difference() {
     let expr = parse_latex(r"A \setminus B").unwrap();
-    match expr {
-        Expression::SetOperation { op, .. } => {
-            assert_eq!(op, SetOp::Difference);
+    match &expr.kind {
+        ExprKind::SetOperation { op, .. } => {
+            assert_eq!(*op, SetOp::Difference);
         }
         _ => panic!("Expected SetOperation Difference"),
     }
@@ -78,15 +78,15 @@ fn test_set_difference() {
 #[test]
 fn test_element_of() {
     let expr = parse_latex(r"x \in A").unwrap();
-    match expr {
-        Expression::SetRelationExpr {
+    match &expr.kind {
+        ExprKind::SetRelationExpr {
             relation,
             element,
             set,
         } => {
-            assert_eq!(relation, SetRelation::In);
-            assert_eq!(*element, Expression::Variable("x".to_string()));
-            assert_eq!(*set, Expression::Variable("A".to_string()));
+            assert_eq!(*relation, SetRelation::In);
+            assert_eq!(**element, Expression::variable("x".to_string()));
+            assert_eq!(**set, Expression::variable("A".to_string()));
         }
         _ => panic!("Expected SetRelationExpr In"),
     }
@@ -95,9 +95,9 @@ fn test_element_of() {
 #[test]
 fn test_not_element_of() {
     let expr = parse_latex(r"x \notin A").unwrap();
-    match expr {
-        Expression::SetRelationExpr { relation, .. } => {
-            assert_eq!(relation, SetRelation::NotIn);
+    match &expr.kind {
+        ExprKind::SetRelationExpr { relation, .. } => {
+            assert_eq!(*relation, SetRelation::NotIn);
         }
         _ => panic!("Expected SetRelationExpr NotIn"),
     }
@@ -106,9 +106,9 @@ fn test_not_element_of() {
 #[test]
 fn test_subset() {
     let expr = parse_latex(r"A \subset B").unwrap();
-    match expr {
-        Expression::SetRelationExpr { relation, .. } => {
-            assert_eq!(relation, SetRelation::Subset);
+    match &expr.kind {
+        ExprKind::SetRelationExpr { relation, .. } => {
+            assert_eq!(*relation, SetRelation::Subset);
         }
         _ => panic!("Expected SetRelationExpr Subset"),
     }
@@ -117,9 +117,9 @@ fn test_subset() {
 #[test]
 fn test_subset_eq() {
     let expr = parse_latex(r"A \subseteq B").unwrap();
-    match expr {
-        Expression::SetRelationExpr { relation, .. } => {
-            assert_eq!(relation, SetRelation::SubsetEq);
+    match &expr.kind {
+        ExprKind::SetRelationExpr { relation, .. } => {
+            assert_eq!(*relation, SetRelation::SubsetEq);
         }
         _ => panic!("Expected SetRelationExpr SubsetEq"),
     }
@@ -128,9 +128,9 @@ fn test_subset_eq() {
 #[test]
 fn test_superset() {
     let expr = parse_latex(r"A \supset B").unwrap();
-    match expr {
-        Expression::SetRelationExpr { relation, .. } => {
-            assert_eq!(relation, SetRelation::Superset);
+    match &expr.kind {
+        ExprKind::SetRelationExpr { relation, .. } => {
+            assert_eq!(*relation, SetRelation::Superset);
         }
         _ => panic!("Expected SetRelationExpr Superset"),
     }
@@ -143,21 +143,21 @@ fn test_superset() {
 #[test]
 fn test_empty_set() {
     let expr = parse_latex(r"\emptyset").unwrap();
-    assert_eq!(expr, Expression::EmptySet);
+    assert_eq!(expr.kind, ExprKind::EmptySet);
 }
 
 #[test]
 fn test_varnothing() {
     let expr = parse_latex(r"\varnothing").unwrap();
-    assert_eq!(expr, Expression::EmptySet);
+    assert_eq!(expr.kind, ExprKind::EmptySet);
 }
 
 #[test]
 fn test_power_set() {
     let expr = parse_latex(r"\mathcal{P}(A)").unwrap();
-    match expr {
-        Expression::PowerSet { set } => {
-            assert_eq!(*set, Expression::Variable("A".to_string()));
+    match &expr.kind {
+        ExprKind::PowerSet { set } => {
+            assert_eq!(**set, Expression::variable("A".to_string()));
         }
         _ => panic!("Expected PowerSet"),
     }
@@ -170,15 +170,15 @@ fn test_power_set() {
 #[test]
 fn test_forall_basic() {
     let expr = parse_latex(r"\forall x P").unwrap();
-    match expr {
-        Expression::ForAll {
+    match &expr.kind {
+        ExprKind::ForAll {
             variable,
             domain,
             body,
         } => {
             assert_eq!(variable, "x");
             assert!(domain.is_none());
-            assert_eq!(*body, Expression::Variable("P".to_string()));
+            assert_eq!(**body, Expression::variable("P".to_string()));
         }
         _ => panic!("Expected ForAll"),
     }
@@ -188,13 +188,16 @@ fn test_forall_basic() {
 fn test_forall_with_domain() {
     // Use a simpler domain to avoid number set parsing issues
     let expr = parse_latex(r"\forall x \in S P").unwrap();
-    match expr {
-        Expression::ForAll {
+    match &expr.kind {
+        ExprKind::ForAll {
             variable, domain, ..
         } => {
             assert_eq!(variable, "x");
             assert!(domain.is_some());
-            assert_eq!(*domain.unwrap(), Expression::Variable("S".to_string()));
+            assert_eq!(
+                *domain.as_ref().unwrap().as_ref(),
+                Expression::variable("S".to_string())
+            );
         }
         _ => panic!("Expected ForAll with domain, got {:?}", expr),
     }
@@ -203,8 +206,8 @@ fn test_forall_with_domain() {
 #[test]
 fn test_exists_basic() {
     let expr = parse_latex(r"\exists x P").unwrap();
-    match expr {
-        Expression::Exists {
+    match &expr.kind {
+        ExprKind::Exists {
             variable, unique, ..
         } => {
             assert_eq!(variable, "x");
@@ -221,9 +224,9 @@ fn test_exists_basic() {
 #[test]
 fn test_logical_and() {
     let expr = parse_latex(r"P \land Q").unwrap();
-    match expr {
-        Expression::Logical { op, operands } => {
-            assert_eq!(op, LogicalOp::And);
+    match &expr.kind {
+        ExprKind::Logical { op, operands } => {
+            assert_eq!(*op, LogicalOp::And);
             assert_eq!(operands.len(), 2);
         }
         _ => panic!("Expected Logical And"),
@@ -233,9 +236,9 @@ fn test_logical_and() {
 #[test]
 fn test_logical_or() {
     let expr = parse_latex(r"P \lor Q").unwrap();
-    match expr {
-        Expression::Logical { op, .. } => {
-            assert_eq!(op, LogicalOp::Or);
+    match &expr.kind {
+        ExprKind::Logical { op, .. } => {
+            assert_eq!(*op, LogicalOp::Or);
         }
         _ => panic!("Expected Logical Or"),
     }
@@ -244,9 +247,9 @@ fn test_logical_or() {
 #[test]
 fn test_logical_not() {
     let expr = parse_latex(r"\lnot P").unwrap();
-    match expr {
-        Expression::Logical { op, operands } => {
-            assert_eq!(op, LogicalOp::Not);
+    match &expr.kind {
+        ExprKind::Logical { op, operands } => {
+            assert_eq!(*op, LogicalOp::Not);
             assert_eq!(operands.len(), 1);
         }
         _ => panic!("Expected Logical Not"),
@@ -256,9 +259,9 @@ fn test_logical_not() {
 #[test]
 fn test_logical_implies() {
     let expr = parse_latex(r"P \implies Q").unwrap();
-    match expr {
-        Expression::Logical { op, .. } => {
-            assert_eq!(op, LogicalOp::Implies);
+    match &expr.kind {
+        ExprKind::Logical { op, .. } => {
+            assert_eq!(*op, LogicalOp::Implies);
         }
         _ => panic!("Expected Logical Implies"),
     }
@@ -267,9 +270,9 @@ fn test_logical_implies() {
 #[test]
 fn test_logical_iff() {
     let expr = parse_latex(r"P \iff Q").unwrap();
-    match expr {
-        Expression::Logical { op, .. } => {
-            assert_eq!(op, LogicalOp::Iff);
+    match &expr.kind {
+        ExprKind::Logical { op, .. } => {
+            assert_eq!(*op, LogicalOp::Iff);
         }
         _ => panic!("Expected Logical Iff"),
     }
@@ -283,12 +286,12 @@ fn test_logical_iff() {
 fn test_element_of_union() {
     // x ∈ A ∪ B
     let expr = parse_latex(r"x \in A \cup B").unwrap();
-    match expr {
-        Expression::SetRelationExpr { relation, set, .. } => {
-            assert_eq!(relation, SetRelation::In);
+    match &expr.kind {
+        ExprKind::SetRelationExpr { relation, set, .. } => {
+            assert_eq!(*relation, SetRelation::In);
             assert!(matches!(
-                *set,
-                Expression::SetOperation {
+                set.kind,
+                ExprKind::SetOperation {
                     op: SetOp::Union,
                     ..
                 }
@@ -302,15 +305,15 @@ fn test_element_of_union() {
 fn test_intersection_precedence_over_union() {
     // A ∪ B ∩ C = A ∪ (B ∩ C)
     let expr = parse_latex(r"A \cup B \cap C").unwrap();
-    match expr {
-        Expression::SetOperation {
+    match &expr.kind {
+        ExprKind::SetOperation {
             op: SetOp::Union,
             right,
             ..
         } => {
             assert!(matches!(
-                *right,
-                Expression::SetOperation {
+                right.kind,
+                ExprKind::SetOperation {
                     op: SetOp::Intersection,
                     ..
                 }
@@ -324,11 +327,11 @@ fn test_intersection_precedence_over_union() {
 fn test_quantifier_with_set_membership() {
     // ∀x ∈ S, P(x) - using simple set variable
     let expr = parse_latex(r"\forall x \in S P").unwrap();
-    match expr {
-        Expression::ForAll { domain, .. } => {
+    match &expr.kind {
+        ExprKind::ForAll { domain, .. } => {
             assert_eq!(
-                domain.map(|d| *d),
-                Some(Expression::Variable("S".to_string()))
+                domain.as_ref().map(|d| (**d).clone()),
+                Some(Expression::variable("S".to_string()))
             );
         }
         _ => panic!("Expected ForAll with domain, got {:?}", expr),
@@ -339,13 +342,13 @@ fn test_quantifier_with_set_membership() {
 fn test_empty_set_in_union() {
     // ∅ ∪ A = A (mathematically, but we just check parsing)
     let expr = parse_latex(r"\emptyset \cup A").unwrap();
-    match expr {
-        Expression::SetOperation {
+    match &expr.kind {
+        ExprKind::SetOperation {
             op: SetOp::Union,
             left,
             ..
         } => {
-            assert_eq!(*left, Expression::EmptySet);
+            assert_eq!(left.kind, ExprKind::EmptySet);
         }
         _ => panic!("Expected Union with EmptySet"),
     }
