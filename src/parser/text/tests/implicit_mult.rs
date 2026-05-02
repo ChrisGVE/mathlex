@@ -120,7 +120,6 @@ mod implicit_multiplication {
     }
 
     #[test]
-    #[ignore] // TODO: Requires tracking parenthesized expressions through parser state
     fn test_implicit_mult_parens_parens() {
         let config = ParserConfig::default();
         let expr = parse_with_config("(a)(b)", &config).unwrap();
@@ -230,30 +229,39 @@ mod implicit_multiplication {
     }
 
     #[test]
-    #[ignore] // TODO: Requires resolving tokenizer multi-character identifier issue
     fn test_implicit_mult_mixed_with_explicit() {
+        // "2x * 3y" — implicit and explicit mul share the same precedence
+        // and left-associate, producing ((2*x)*3)*y.
         let config = ParserConfig::default();
         let expr = parse_with_config("2x * 3y", &config).unwrap();
+        // Top level: Mul(((2*x)*3), y)
         match &expr.kind {
             ExprKind::Binary {
                 op: BinaryOp::Mul,
                 left,
                 right,
             } => {
-                assert!(matches!(
-                    (**left).kind,
+                // right = y
+                assert_eq!(**right, Expression::variable("y"));
+                // left = (2*x)*3
+                match &left.kind {
                     ExprKind::Binary {
                         op: BinaryOp::Mul,
-                        ..
+                        left: ll,
+                        right: lr,
+                    } => {
+                        assert_eq!(**lr, Expression::integer(3));
+                        // ll = 2*x
+                        assert!(matches!(
+                            ll.kind,
+                            ExprKind::Binary {
+                                op: BinaryOp::Mul,
+                                ..
+                            }
+                        ));
                     }
-                ));
-                assert!(matches!(
-                    (**right).kind,
-                    ExprKind::Binary {
-                        op: BinaryOp::Mul,
-                        ..
-                    }
-                ));
+                    _ => panic!("Expected nested multiplication, got {:?}", left),
+                }
             }
             _ => panic!("Expected multiplication"),
         }

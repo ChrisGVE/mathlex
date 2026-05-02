@@ -12,7 +12,6 @@ use mathlex::parser::parse_latex;
 // ============================================================
 
 #[test]
-#[ignore = "Parser limitation: \\mathbb{R} not yet supported as standalone expression after \\in"]
 fn test_number_set_in_membership() {
     // x ∈ ℝ - number set as target of membership
     // TODO: Enable when number sets are supported in set membership context
