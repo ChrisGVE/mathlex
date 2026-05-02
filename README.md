@@ -228,19 +228,19 @@ let implication = parse_latex(r"P \implies Q").unwrap();
 ### Quaternions
 
 ```rust
-use mathlex::{Expression, MathConstant};
+use mathlex::{Expression, ExprKind};
 
 // Quaternion basis vectors satisfy:
 // i² = j² = k² = ijk = -1
 // ij = k, jk = i, ki = j
 // ji = -k, kj = -i, ik = -j
 
-let quaternion = Expression::Quaternion {
-    real: Box::new(Expression::Integer(1)),
-    i: Box::new(Expression::Integer(2)),
-    j: Box::new(Expression::Integer(3)),
-    k: Box::new(Expression::Integer(4)),
-};
+let quaternion: Expression = ExprKind::Quaternion {
+    real: Box::new(Expression::integer(1)),
+    i: Box::new(Expression::integer(2)),
+    j: Box::new(Expression::integer(3)),
+    k: Box::new(Expression::integer(4)),
+}.into();
 ```
 
 ### Context-Aware Parsing

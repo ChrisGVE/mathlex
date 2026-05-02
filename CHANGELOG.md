@@ -82,9 +82,8 @@ serialized as the bare string `"Nabla"` now serialize as `{ "kind": "Nabla" }`.
 ```
 
 Swift consumers that decoded the JSON via hand-written `Decodable` structs must
-update their `CodingKeys` and decoding logic to match the new shape. The
-integration example in `examples/numericswift-integration/` has been updated
-accordingly.
+update their `CodingKeys` and decoding logic to match the new shape. See
+`docs/WIRE-FORMAT.md` for the new adjacently-tagged layout.
 
 ## [0.3.4] - 2026-04-09
 
