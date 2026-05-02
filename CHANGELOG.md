@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-05-02
+
+### Fixed
+
+- Un-ignored 3 previously skipped tests: `test_implicit_mult_parens_parens`
+  (parser limitation resolved), `test_number_set_in_membership` (`\mathbb{R}`
+  after `\in` now works), and `test_implicit_mult_mixed_with_explicit`
+  (corrected test expectation — implicit and explicit multiplication share
+  precedence and left-associate).
+
 ## [0.4.0] - 2026-05-01
 
 ### Breaking Changes
@@ -219,7 +229,8 @@ update their `CodingKeys` and decoding logic to match the new shape. See
 - GitHub Actions CI/CD with release automation
 - Comprehensive unit test suite (700+ tests)
 
-[Unreleased]: https://github.com/ChrisGVE/mathlex/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ChrisGVE/mathlex/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/ChrisGVE/mathlex/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/ChrisGVE/mathlex/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/ChrisGVE/mathlex/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/ChrisGVE/mathlex/compare/v0.3.2...v0.3.3
