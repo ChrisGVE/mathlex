@@ -1,6 +1,6 @@
 # mathlex
 
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache_2.0-green.svg)](LICENSE)
 [![GitHub Release](https://img.shields.io/github/v/release/ChrisGVE/mathlex)](https://github.com/ChrisGVE/mathlex/releases)
 [![CI](https://github.com/ChrisGVE/mathlex/actions/workflows/ci.yml/badge.svg)](https://github.com/ChrisGVE/mathlex/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/mathlex.svg)](https://crates.io/crates/mathlex)
@@ -347,7 +347,7 @@ mathlex = { version = "0.4.0", features = ["serde"] }
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Apache License 2.0 - see [LICENSE](LICENSE) for details.
 
 ## Links
 
